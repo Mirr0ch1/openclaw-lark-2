@@ -16,6 +16,8 @@ export interface DispatchContext {
     ctx: MessageContext;
     /** account 级别的 ClawdbotConfig（channels.feishu 已替换为 per-account 合并后的配置） */
     accountScopedCfg: ClawdbotConfig;
+    /** 全局未被篡改的权威 ClawdbotConfig（供核心调度器进行模型运行时哈希校验） */
+    globalConfig: ClawdbotConfig;
     account: LarkAccount;
     runtime: RuntimeEnv;
     log: (...args: unknown[]) => void;
@@ -44,6 +46,7 @@ export declare function buildDispatchContext(params: {
     ctx: MessageContext;
     account: LarkAccount;
     accountScopedCfg: ClawdbotConfig;
+    cfg?: ClawdbotConfig;
     runtime?: RuntimeEnv;
     commandAuthorized?: boolean;
 }): DispatchContext;
