@@ -255,6 +255,7 @@ async function handleFeishuCommentEvent(params) {
             quotedContent: undefined,
             account,
             accountScopedCfg,
+            cfg,
             runtime,
             chatHistories,
             historyLimit,

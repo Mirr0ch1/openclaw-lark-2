@@ -51,7 +51,15 @@ function buildDispatchContext(params) {
     const isGroup = !isComment && ctx.chatType === 'group';
     const isThread = isGroup && Boolean(ctx.threadId);
     const core = lark_client_1.LarkClient.runtime;
-    const globalConfig = params.cfg ?? core.config?.current?.() ?? accountScopedCfg;
+    // `core.config.current()` can return `{}` while the runtime config snapshot is
+    // cleared (see getResolvedConfig() in ../../core/lark-client.js). `??` only
+    // guards null/undefined, so an empty object would slip through and reach
+    // dispatchReplyFromConfig as `cfg: {}` — no agents, no models, no session
+    // config. Only accept the live config when it is actually populated.
+    const liveCfg = core.config?.current?.();
+    const globalConfig = params.cfg ??
+        (liveCfg && Object.keys(liveCfg).length > 0 ? liveCfg : undefined) ??
+        accountScopedCfg;
     const feishuFrom = `feishu:${ctx.senderId}`;
     // Comment targets use the comment target string directly as the "To"
     // so the outbound routing layer can detect it and route through Drive API.

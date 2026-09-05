@@ -243,6 +243,7 @@ async function handleFeishuReaction(params) {
             quotedContent: undefined,
             account,
             accountScopedCfg,
+            cfg,
             runtime,
             chatHistories,
             historyLimit,
