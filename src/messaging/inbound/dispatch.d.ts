@@ -28,6 +28,8 @@ export declare function dispatchToAgent(params: {
     account: LarkAccount;
     /** account 级别的 ClawdbotConfig（channels.feishu 已替换为 per-account 合并后的配置） */
     accountScopedCfg: ClawdbotConfig;
+    /** 全局未被篡改的权威 ClawdbotConfig（供核心调度器进行模型运行时哈希校验） */
+    cfg?: ClawdbotConfig;
     runtime?: RuntimeEnv;
     chatHistories?: Map<string, HistoryEntry[]>;
     historyLimit: number;

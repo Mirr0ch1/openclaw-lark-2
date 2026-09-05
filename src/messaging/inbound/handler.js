@@ -278,6 +278,7 @@ async function handleFeishuMessage(params) {
             quotedContent,
             account,
             accountScopedCfg,
+            cfg,
             runtime,
             chatHistories,
             historyLimit,

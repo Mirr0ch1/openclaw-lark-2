@@ -67,7 +67,7 @@ async function dispatchCommentMessage(dc, ctxPayload, skillFilter) {
     let delivered = false;
     await dc.core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
         ctx: ctxPayload,
-        cfg: dc.accountScopedCfg,
+        cfg: dc.globalConfig,
         dispatcherOptions: {
             deliver: async (payload) => {
                 const text = payload.text?.trim() ?? '';
@@ -114,7 +114,7 @@ async function dispatchSyntheticMessage(dc, ctxPayload, skillFilter) {
     log.info(`dispatching synthetic reply (session=${effectiveSessionKey})`);
     await dc.core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
         ctx: ctxPayload,
-        cfg: dc.accountScopedCfg,
+        cfg: dc.globalConfig,
         dispatcherOptions: {
             deliver: async (payload, info) => {
                 const text = payload.text?.trim() ?? '';
@@ -234,13 +234,14 @@ async function dispatchNormalMessage(dc, ctxPayload, routing, chatHistories, his
     try {
         const { queuedFinal, counts } = await withBotPeer(() => dc.core.channel.reply.dispatchReplyFromConfig({
             ctx: ctxPayload,
-            cfg: dc.accountScopedCfg,
+            cfg: dc.globalConfig,
             dispatcher,
             replyOptions: {
                 ...replyOptions,
                 abortSignal: abortController.signal,
                 ...(skillFilter ? { skillFilter } : {}),
             },
+            usePublishedModelRuntime: true,
         }));
         // Wait for all enqueued deliver() calls in the SDK's sendChain to
         // complete before marking the dispatch as done.  Without this,

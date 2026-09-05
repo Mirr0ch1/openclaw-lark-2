@@ -65,9 +65,10 @@ async function dispatchPermissionNotification(dc, permissionError, replyToMessag
     dc.log(`feishu[${dc.account.accountId}]: dispatching permission error notification to agent`);
     await dc.core.channel.reply.dispatchReplyFromConfig({
         ctx: permCtx,
-        cfg: dc.accountScopedCfg,
+        cfg: dc.globalConfig,
         dispatcher: permDispatcher,
         replyOptions: permReplyOptions,
+        usePublishedModelRuntime: true,
     });
     await permDispatcher.waitForIdle();
     markPermComplete();
@@ -87,7 +88,7 @@ async function dispatchSystemCommand(dc, ctxPayload, replyToMessageId) {
     log.info('system command detected, plain-text dispatch');
     await dc.core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
         ctx: ctxPayload,
-        cfg: dc.accountScopedCfg,
+        cfg: dc.globalConfig,
         dispatcherOptions: {
             deliver: async (payload, info) => {
                 if (suppressToolDetails && info.kind === 'tool') {

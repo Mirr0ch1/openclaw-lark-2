@@ -51,6 +51,7 @@ function buildDispatchContext(params) {
     const isGroup = !isComment && ctx.chatType === 'group';
     const isThread = isGroup && Boolean(ctx.threadId);
     const core = lark_client_1.LarkClient.runtime;
+    const globalConfig = params.cfg ?? core.config?.current?.() ?? accountScopedCfg;
     const feishuFrom = `feishu:${ctx.senderId}`;
     // Comment targets use the comment target string directly as the "To"
     // so the outbound routing layer can detect it and route through Drive API.
@@ -99,6 +100,7 @@ function buildDispatchContext(params) {
     return {
         ctx,
         accountScopedCfg,
+        globalConfig,
         account,
         runtime,
         log,
