@@ -1,6 +1,6 @@
 {
   "name": "@mirr0ch1/openclaw-lark-2",
-  "version": "2026.9.4",
+  "version": "2026.9.6",
   "description": "OpenClaw 2.0 (2026.8.1+) 飞书/Lark 渠道插件 — based on @larksuite/openclaw-lark@2026.7.16 with 2.0 SDK compatibility patches",
   "exports": {
     ".": {

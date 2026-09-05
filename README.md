@@ -30,6 +30,7 @@
 
 | 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
+| **2026.9.6** | 2026-09-06 | 修复 OpenClaw 2.0 多账号下入站消息全部静默丢弃（`PreparedModelCatalogConfigReplacedError`）：核心调度改用未被篡改的全局 config + `usePublishedModelRuntime`（PR #1，by leothebravest）；补齐 comment / reaction / VC 邀请三条链路的 config 透传，并阻断 `config.current()` 返回空对象导致的 `cfg: {}` 派发；新增 6 条派发配置单测（11 文件 103 用例） / Fix inbound messages being silently dropped on OpenClaw 2.0 multi-account setups (`PreparedModelCatalogConfigReplacedError`): core dispatch now uses the untampered global config plus `usePublishedModelRuntime` (PR #1, by leothebravest); plumbed the config through the comment / reaction / VC-invited paths and blocked `cfg: {}` dispatch when `config.current()` returns an empty object; added 6 dispatch-config tests (11 files / 103 tests) |
 | **2026.9.4** | 2026-09-03 | 多图合并为一条富文本 post：`channels.feishu.multiImageMode`（默认 `post`，`sequential` 回退逐张；任一上传失败自动回退）(10 文件 97 用例) / Merged multi-image post: `channels.feishu.multiImageMode` (default `post`; `sequential` restores per-image sends; auto-fallback on any upload failure) (10 files / 97 tests) |
 | **2026.9.3** | 2026-09-02 | SSRF 防护全量落地、PIN 消息操作、vitest 测试基座（9 文件 78 用例）+ 全量安全测试通过 / Full SSRF protection, PIN message actions, vitest test base (9 files / 78 tests) + complete security testing passed |
 | **2026.9.2** | 2026-09-01 | 修复 ask_user "其他答案"提交；移除 feishu_ask_user_question；群聊流式卡片；工具 dry-run 脚本 / Fix ask_user "Other" submit; remove feishu_ask_user_question; group streaming cards; tool dry-run script |
@@ -46,7 +47,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 
 | 维度 / Dimension | **openclaw-lark-2 (ours)** | **@openclaw/feishu (official 2.0)** | **@larksuite/openclaw-lark 7.16 (ByteDance)** |
 |---|---|---|---|
-| 版本 / Version | **2026.9.4** | 2026.8.1 | 2026.7.16 |
+| 版本 / Version | **2026.9.6** | 2026.8.1 | 2026.7.16 |
 | OpenClaw 兼容 / Compat | **>=2026.8.1（2.0 原生）** | >=2026.8.1 (native 2.0) | >=2026.5.4（1.x，2.0 下无法加载 / cannot load on 2.0） |
 | Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃 / deprecated） |
 | 契约工具数 / Contract tools | **38** | 14 | 39 |
@@ -103,7 +104,7 @@ openclaw plugin install @mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.9.4.tgz
+openclaw plugins install openclaw-lark-2-2026.9.6.tgz
 ```
 
 ---
