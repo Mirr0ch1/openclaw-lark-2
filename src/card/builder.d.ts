@@ -16,6 +16,13 @@ import { type ToolUseDisplayStep } from './tool-use-display';
  */
 export declare const STREAMING_ELEMENT_ID = "streaming_content";
 export declare const REASONING_ELEMENT_ID = "reasoning_content";
+/**
+ * Feishu card JSON 2.0 hard limit: a card may contain at most 200
+ * elements/components (error 300305 when exceeded).
+ */
+export declare const CARD_ELEMENT_LIMIT = 200;
+/** Feishu `card.update` rejects cards whose JSON exceeds 30KB (code 200860). */
+export declare const CARD_SIZE_LIMIT_BYTES: number;
 export interface CardElement {
     tag: string;
     [key: string]: unknown;
@@ -150,3 +157,21 @@ export declare function buildStreamingPreAnswerCard(params: {
     showToolUse?: boolean;
 }): Record<string, unknown>;
 export declare function toCardKit2(card: FeishuCard): Record<string, unknown>;
+/** Recursively count every node carrying a `tag` (elements/components). */
+export declare function countCardElements(card: unknown): number;
+/** Serialized UTF-8 byte size of a card, as Feishu measures it. */
+export declare function estimateCardBytes(card: unknown): number;
+/**
+ * Build the terminal card within Feishu's limits, degrading the reasoning
+ * panel and (as a last resort) the answer text when the card would exceed
+ * the 30KB / 200-element caps. `truncatedText` signals that the caller must
+ * also deliver the full text out of band.
+ */
+export declare function buildBoundedCompleteCard(params: Parameters<typeof buildCardContent>[1], opts?: {
+    maxBytes?: number;
+    reasoningChars?: number;
+    answerChars?: number;
+}): {
+    card: FeishuCard;
+    truncatedText: boolean;
+};

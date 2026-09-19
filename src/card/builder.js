@@ -10,6 +10,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.REASONING_ELEMENT_ID = exports.STREAMING_ELEMENT_ID = void 0;
+exports.CARD_SIZE_LIMIT_BYTES = exports.CARD_ELEMENT_LIMIT = void 0;
 exports.splitReasoningText = splitReasoningText;
 exports.stripReasoningTags = stripReasoningTags;
 exports.formatReasoningDuration = formatReasoningDuration;
@@ -20,6 +21,9 @@ exports.formatFooterRuntimeSegments = formatFooterRuntimeSegments;
 exports.buildCardContent = buildCardContent;
 exports.buildStreamingThinkingCard = buildStreamingThinkingCard;
 exports.buildStreamingPreAnswerCard = buildStreamingPreAnswerCard;
+exports.buildBoundedCompleteCard = buildBoundedCompleteCard;
+exports.countCardElements = countCardElements;
+exports.estimateCardBytes = estimateCardBytes;
 exports.toCardKit2 = toCardKit2;
 const markdown_style_1 = require("./markdown-style.js");
 const tool_use_display_1 = require("./tool-use-display.js");
@@ -34,6 +38,44 @@ const tool_use_display_1 = require("./tool-use-display.js");
 exports.STREAMING_ELEMENT_ID = 'streaming_content';
 exports.REASONING_ELEMENT_ID = 'reasoning_content';
 const TOOL_USE_STEP_CONTENT_INDENT = '0px 0px 0px 22px';
+/**
+ * Feishu card JSON 2.0 hard limit: a card may contain at most 200
+ * elements/components. Exceeding it makes `card.update` fail with
+ * code 300305 ("The number of card components exceeds 200"), which
+ * silently drops the whole reply — see streaming-card-controller onIdle.
+ */
+const CARD_ELEMENT_LIMIT = 200;
+exports.CARD_ELEMENT_LIMIT = CARD_ELEMENT_LIMIT;
+/** Feishu `card.update` rejects cards whose JSON exceeds 30KB (code 200860). */
+const CARD_SIZE_LIMIT_BYTES = 30 * 1024;
+exports.CARD_SIZE_LIMIT_BYTES = CARD_SIZE_LIMIT_BYTES;
+/**
+ * Element budget handed to the tool-use panel, counted the way Feishu
+ * counts (a `div` plus its nested `plain_text`/`lark_md` text node are two
+ * elements). Kept well below CARD_ELEMENT_LIMIT so the panel header,
+ * reasoning panel, answer text, footer and truncation notice still fit.
+ */
+const TOOL_USE_STEP_ELEMENT_BUDGET = 150;
+/**
+ * Byte budget used when building the terminal card. Kept below
+ * CARD_SIZE_LIMIT_BYTES to leave headroom for JSON escaping overhead.
+ */
+const CARD_SIZE_BUDGET_BYTES = 28 * 1024;
+/**
+ * Tool result/error code blocks are clipped to keep the card under 30KB.
+ * The full output stays available in the agent transcript.
+ */
+const TOOL_USE_OUTPUT_MAX_CHARS = 400;
+/** Cost (counted elements) of the truncation notice: div + plain_text. */
+const TOOL_USE_NOTICE_ELEMENT_COST = 2;
+/**
+ * Reasoning is shown in a collapsed panel; a long agentic run can
+ * accumulate tens of thousands of chars of thinking, which alone blows
+ * the 30KB card budget. Clip it (and drop it entirely if still too big).
+ */
+const REASONING_MAX_CHARS = 6000;
+/** Last-resort clip for the visible answer when even a slim card is too big. */
+const ANSWER_MAX_CHARS_BUDGET = 12000;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -599,7 +641,61 @@ function buildStreamingToolUseActivePanel(params) {
         border: { color: 'grey', corner_radius: '5px' },
         vertical_spacing: '4px',
         padding: '8px 8px 8px 8px',
-        elements: steps.flatMap((step) => buildToolUseStepElements(step)),
+        elements: buildToolUseStepElementList(steps),
+    };
+}
+/**
+ * Build the per-step elements for a tool-use panel, capped so the whole
+ * card stays under Feishu's 200-element limit.
+ *
+ * Each step expands to 1-3 elements, so a long agentic run (dozens of
+ * tool calls) used to overflow the card and make the terminal
+ * `card.update` fail with code 300305. Steps beyond the budget are
+ * replaced by a single "N more steps not shown" notice.
+ */
+function buildToolUseStepElementList(steps, budget = TOOL_USE_STEP_ELEMENT_BUDGET) {
+    if (!steps || steps.length === 0) {
+        return [buildToolUsePlaceholder()];
+    }
+    const elements = [];
+    // Reserve room for the "N more steps" notice in case we drop any step.
+    const stepBudget = Math.max(budget - TOOL_USE_NOTICE_ELEMENT_COST, 0);
+    let used = 0;
+    let hiddenSteps = 0;
+    for (const step of steps) {
+        const stepElements = buildToolUseStepElements(step);
+        const cost = countCardElements(stepElements);
+        if (used + cost > stepBudget) {
+            hiddenSteps += 1;
+            continue;
+        }
+        elements.push(...stepElements);
+        used += cost;
+    }
+    if (hiddenSteps > 0) {
+        elements.push(buildToolUseTruncationNotice(hiddenSteps, steps.length));
+    }
+    if (elements.length === 0) {
+        elements.push(buildToolUsePlaceholder());
+    }
+    return elements;
+}
+/** Single-element notice summarising steps dropped by the element budget. */
+function buildToolUseTruncationNotice(hiddenSteps, totalSteps) {
+    const zh = `… 其余 ${hiddenSteps} 步未展示（共 ${totalSteps} 步）`;
+    const en = `… ${hiddenSteps} more step${hiddenSteps === 1 ? '' : 's'} not shown (${totalSteps} total)`;
+    return {
+        tag: 'div',
+        text: {
+            tag: 'plain_text',
+            content: en,
+            i18n_content: {
+                zh_cn: zh,
+                en_us: en,
+            },
+            text_color: 'grey',
+            text_size: 'notation',
+        },
     };
 }
 function toCardKit2(card) {
@@ -611,6 +707,84 @@ function toCardKit2(card) {
     if (card.header)
         result.header = card.header;
     return result;
+}
+// ---------------------------------------------------------------------------
+// Card budget helpers (Feishu hard limits: 200 elements / 30KB)
+// ---------------------------------------------------------------------------
+/** Recursively count every node carrying a `tag` (elements/components). */
+function countCardElements(card) {
+    let total = 0;
+    const visit = (node) => {
+        if (node == null || typeof node !== 'object')
+            return;
+        if (Array.isArray(node)) {
+            for (const item of node)
+                visit(item);
+            return;
+        }
+        if (typeof node.tag === 'string')
+            total += 1;
+        for (const key of Object.keys(node))
+            visit(node[key]);
+    };
+    visit(card);
+    return total;
+}
+/** Serialized UTF-8 byte size of a card, as Feishu measures it. */
+function estimateCardBytes(card) {
+    try {
+        return Buffer.byteLength(JSON.stringify(card), 'utf8');
+    }
+    catch {
+        return Number.POSITIVE_INFINITY;
+    }
+}
+/**
+ * Build the terminal (complete) card while respecting Feishu's hard limits.
+ *
+ * The old code built the card unconditionally and relied on a `try/catch`
+ * around `card.update`. On a long agentic run that update always failed
+ * (300305: >200 components / 200860: >30KB) and the catch only logged a
+ * warning, so the answer never reached the user. This helper degrades the
+ * card step by step instead:
+ *
+ *   1. everything (fast path — identical to the previous output)
+ *   2. clip the reasoning panel
+ *   3. drop the reasoning panel
+ *   4. drop the reasoning panel and the tool-use panel
+ *   5. also clip the answer text (last resort)
+ *
+ * Returns `{ card, truncatedText }`. When `truncatedText` is true the
+ * visible answer was shortened, so the caller MUST deliver the full text
+ * through a separate channel (plain-text message) to avoid losing content.
+ */
+function buildBoundedCompleteCard(params, opts = {}) {
+    const maxBytes = opts.maxBytes ?? CARD_SIZE_BUDGET_BYTES;
+    const reasoningChars = opts.reasoningChars ?? REASONING_MAX_CHARS;
+    const answerChars = opts.answerChars ?? ANSWER_MAX_CHARS_BUDGET;
+    const fullText = params.text ?? '';
+    const attempts = [
+        { reasoning: Number.POSITIVE_INFINITY, answer: Number.POSITIVE_INFINITY, showToolUse: params.showToolUse },
+        { reasoning: reasoningChars, answer: Number.POSITIVE_INFINITY, showToolUse: params.showToolUse },
+        { reasoning: 0, answer: Number.POSITIVE_INFINITY, showToolUse: params.showToolUse },
+        { reasoning: 0, answer: Number.POSITIVE_INFINITY, showToolUse: false },
+        { reasoning: 0, answer: answerChars, showToolUse: false },
+    ];
+    let card;
+    let truncatedText = false;
+    for (const attempt of attempts) {
+        card = buildCompleteCard({
+            ...params,
+            showToolUse: attempt.showToolUse,
+            reasoningText: clipText(params.reasoningText, attempt.reasoning),
+            text: clipText(fullText, attempt.answer),
+        });
+        truncatedText = Number.isFinite(attempt.answer) && fullText.length > attempt.answer;
+        if (estimateCardBytes(card) <= maxBytes && countCardElements(card) <= CARD_ELEMENT_LIMIT) {
+            return { card, truncatedText };
+        }
+    }
+    return { card, truncatedText };
 }
 function buildStreamingToolUsePendingPanel() {
     return {
@@ -652,9 +826,7 @@ function buildToolUsePanel(params) {
         zhTitleParts.push(titleSuffix.zh);
         enTitleParts.push(titleSuffix.en);
     }
-    const stepElements = toolUseSteps.length > 0
-        ? toolUseSteps.flatMap((step) => buildToolUseStepElements(step))
-        : [buildToolUsePlaceholder()];
+    const stepElements = buildToolUseStepElementList(toolUseSteps);
     return {
         tag: 'collapsible_panel',
         expanded: false,
@@ -766,15 +938,30 @@ function buildToolUseStepOutputMarkdown(step) {
     const lines = [];
     if (step.errorBlock) {
         lines.push('**Error**');
-        lines.push(formatToolUseCodeBlock(step.errorBlock.content, step.errorBlock.language));
+        lines.push(formatToolUseCodeBlock(clipText(step.errorBlock.content, TOOL_USE_OUTPUT_MAX_CHARS), step.errorBlock.language));
     }
     else if (step.resultBlock) {
         lines.push('**Result**');
-        lines.push(formatToolUseCodeBlock(step.resultBlock.content, step.resultBlock.language));
+        lines.push(formatToolUseCodeBlock(clipText(step.resultBlock.content, TOOL_USE_OUTPUT_MAX_CHARS), step.resultBlock.language));
     }
     if (lines.length === 0)
         return undefined;
     return (0, markdown_style_1.optimizeMarkdownStyle)(lines.join('\n'), 1);
+}
+/**
+ * Clip a text to `maxChars`, appending a marker so the reader knows it was
+ * shortened. `maxChars <= 0` removes the text entirely.
+ */
+function clipText(text, maxChars) {
+    if (typeof text !== 'string' || !text)
+        return text;
+    if (!Number.isFinite(maxChars))
+        return text;
+    if (maxChars <= 0)
+        return undefined;
+    if (text.length <= maxChars)
+        return text;
+    return `${text.slice(0, maxChars)}\n\n…(truncated, ${text.length - maxChars} more chars)`;
 }
 function formatToolUseStepStatus(status) {
     switch (status) {

@@ -30,6 +30,7 @@
 
 | 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
+| **2026.9.19** | 2026-09-19 | **修复长任务回复丢失**：终端卡片整卡更新撞飞书硬上限（>200 元素 300305 / >30KB 200860）时失败被吞，用户只看到卡住的流式卡片（实测 61 次工具调用 → 310 元素）；现在终端卡片按硬上限自适应降级（工具步骤折叠为"其余 N 步未展示"、reasoning 面板裁切/丢弃、工具输出截断、必要时裁正文），并在**卡片更新失败或正文被裁切时自动以纯文本补发完整回复**。另：流式模式被飞书 10 分钟上限自动关闭（300309）后不再静默丢消息（原"回退 im.message.patch"对 CardKit 卡片是空操作）。新增 17 条卡片预算/兜底单测（13 文件 120 用例） / **Fix lost replies on long runs**: the terminal full-card update exceeded Feishu's hard limits (>200 elements → 300305, >30KB → 200860), failed, and was swallowed, leaving the user with a frozen streaming card (61 tool calls → 310 elements in the field); the terminal card now degrades within the limits (tool steps folded into a "N more steps not shown" notice, reasoning panel clipped/dropped, tool output clipped, answer clipped as a last resort) and **the full reply is re-delivered as plain text whenever the card update fails or truncates the answer**. Also: after Feishu auto-closes streaming mode on its 10-minute cap (300309), the reply is no longer silently dropped (the previous "fall back to im.message.patch" was a no-op for CardKit cards). Added 17 card-budget/fallback tests (13 files / 120 tests) |
 | **2026.9.6** | 2026-09-06 | 修复 OpenClaw 2.0 多账号下入站消息全部静默丢弃（`PreparedModelCatalogConfigReplacedError`）：核心调度改用未被篡改的全局 config + `usePublishedModelRuntime`（PR #1，by leothebravest）；补齐 comment / reaction / VC 邀请三条链路的 config 透传，并阻断 `config.current()` 返回空对象导致的 `cfg: {}` 派发；新增 6 条派发配置单测（11 文件 103 用例） / Fix inbound messages being silently dropped on OpenClaw 2.0 multi-account setups (`PreparedModelCatalogConfigReplacedError`): core dispatch now uses the untampered global config plus `usePublishedModelRuntime` (PR #1, by leothebravest); plumbed the config through the comment / reaction / VC-invited paths and blocked `cfg: {}` dispatch when `config.current()` returns an empty object; added 6 dispatch-config tests (11 files / 103 tests) |
 | **2026.9.4** | 2026-09-03 | 多图合并为一条富文本 post：`channels.feishu.multiImageMode`（默认 `post`，`sequential` 回退逐张；任一上传失败自动回退）(10 文件 97 用例) / Merged multi-image post: `channels.feishu.multiImageMode` (default `post`; `sequential` restores per-image sends; auto-fallback on any upload failure) (10 files / 97 tests) |
 | **2026.9.3** | 2026-09-02 | SSRF 防护全量落地、PIN 消息操作、vitest 测试基座（9 文件 78 用例）+ 全量安全测试通过 / Full SSRF protection, PIN message actions, vitest test base (9 files / 78 tests) + complete security testing passed |
@@ -47,7 +48,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 
 | 维度 / Dimension | **openclaw-lark-2 (ours)** | **@openclaw/feishu (official 2.0)** | **@larksuite/openclaw-lark 7.16 (ByteDance)** |
 |---|---|---|---|
-| 版本 / Version | **2026.9.6** | 2026.8.1 | 2026.7.16 |
+| 版本 / Version | **2026.9.19** | 2026.8.1 | 2026.7.16 |
 | OpenClaw 兼容 / Compat | **>=2026.8.1（2.0 原生）** | >=2026.8.1 (native 2.0) | >=2026.5.4（1.x，2.0 下无法加载 / cannot load on 2.0） |
 | Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃 / deprecated） |
 | 契约工具数 / Contract tools | **38** | 14 | 39 |
@@ -104,7 +105,7 @@ openclaw plugin install @mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.9.6.tgz
+openclaw plugins install openclaw-lark-2-2026.9.19.tgz
 ```
 
 ---

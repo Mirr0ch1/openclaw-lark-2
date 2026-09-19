@@ -97,6 +97,11 @@ export declare class StreamingCardController {
     onIdle(): Promise<void>;
     markFullyComplete(): void;
     abortCard(): Promise<void>;
+    /**
+     * Last-resort delivery of the reply as plain text when the terminal card
+     * cannot be updated (or had to truncate the answer). Returns true when sent.
+     */
+    deliverTerminalFallback(text: string, reason: string): Promise<boolean>;
     ensureCardCreated(): Promise<void>;
     private deleteActivityCard;
     private performFlush;

@@ -523,16 +523,16 @@ class StreamingCardController {
         const errorEffectiveCardId = this.cardKit.cardKitCardId ?? this.cardKit.originalCardKitCardId;
         const footerMetrics = this.needsFooterMetrics() ? await this.getFooterSessionMetrics() : undefined;
         const toolUseDisplay = this.computeToolUseDisplay();
+        const rawErrorText = this.cardKit.cardMessageId && this.text.accumulatedText
+            ? `${this.text.accumulatedText}\n\n---\n**Error**: An error occurred while generating the response.`
+            : '**Error**: An error occurred while generating the response.';
         try {
             if (this.cardKit.cardMessageId) {
-                const rawErrorText = this.text.accumulatedText
-                    ? `${this.text.accumulatedText}\n\n---\n**Error**: An error occurred while generating the response.`
-                    : '**Error**: An error occurred while generating the response.';
                 const terminalContent = prepareTerminalCardContent({
                     text: rawErrorText,
                     reasoningText: this.reasoning.accumulatedReasoningText || undefined,
                 }, this.imageResolver);
-                const errorCard = (0, builder_1.buildCardContent)('complete', {
+                const { card: errorCard } = (0, builder_1.buildBoundedCompleteCard)({
                     text: terminalContent.text,
                     reasoningText: terminalContent.reasoningText,
                     reasoningElapsedMs: this.reasoning.reasoningElapsedMs || undefined,
@@ -558,8 +558,11 @@ class StreamingCardController {
                 }
             }
         }
-        catch {
-            // Ignore update failures during error handling
+        catch (err) {
+            // Ignore update failures during error handling, but never leave the
+            // user without any signal that the run failed.
+            log.warn('error card update failed', { error: String(err) });
+            await this.deliverTerminalFallback(rawErrorText, 'error-card-failed');
         }
         finally {
             (0, tool_use_trace_store_1.clearToolUseTraceRun)(this.deps.sessionKey);
@@ -586,6 +589,14 @@ class StreamingCardController {
             await this.flush.waitForFlush();
         }
         const idleEffectiveCardId = this.cardKit.cardKitCardId ?? this.cardKit.originalCardKitCardId;
+        // Resolve the terminal text up front so a failure anywhere below can
+        // still fall back to a plain-text delivery instead of losing the reply.
+        const isNoReplyLeak = !this.text.completedText && reply_runtime_1.SILENT_REPLY_TOKEN.startsWith(this.text.accumulatedText.trim());
+        const displayText = this.text.completedText || (isNoReplyLeak ? '' : this.text.accumulatedText) || reply_dispatcher_types_1.EMPTY_REPLY_FALLBACK_TEXT;
+        if (!this.text.completedText && !this.text.accumulatedText) {
+            log.warn('reply completed without visible text, using empty-reply fallback');
+        }
+        let fallbackText = displayText;
         try {
             if (this.cardKit.cardMessageId) {
                 if (idleEffectiveCardId) {
@@ -603,20 +614,18 @@ class StreamingCardController {
                         accountId: this.deps.accountId,
                     });
                 }
-                const isNoReplyLeak = !this.text.completedText && reply_runtime_1.SILENT_REPLY_TOKEN.startsWith(this.text.accumulatedText.trim());
-                const displayText = this.text.completedText || (isNoReplyLeak ? '' : this.text.accumulatedText) || reply_dispatcher_types_1.EMPTY_REPLY_FALLBACK_TEXT;
-                if (!this.text.completedText && !this.text.accumulatedText) {
-                    log.warn('reply completed without visible text, using empty-reply fallback');
-                }
                 // 等待图片异步解析（最多 15s），避免终态卡片留占位符
                 const resolvedDisplayText = await this.imageResolver.resolveImagesAwait(displayText, 15_000);
+                fallbackText = resolvedDisplayText;
                 const idleToolUseDisplay = this.computeToolUseDisplay();
                 const terminalContent = prepareTerminalCardContent({
                     text: resolvedDisplayText,
                     reasoningText: this.reasoning.accumulatedReasoningText || undefined,
                 }, this.imageResolver);
                 const footerMetrics = this.needsFooterMetrics() ? await this.getFooterSessionMetrics() : undefined;
-                const completeCard = (0, builder_1.buildCardContent)('complete', {
+                // Build within Feishu's hard limits (200 elements / 30KB) instead
+                // of sending an oversized card that the API rejects outright.
+                const { card: completeCard, truncatedText } = (0, builder_1.buildBoundedCompleteCard)({
                     text: terminalContent.text,
                     reasoningText: terminalContent.reasoningText,
                     reasoningElapsedMs: this.reasoning.reasoningElapsedMs || undefined,
@@ -654,14 +663,54 @@ class StreamingCardController {
                 log.info('reply completed, card finalized', {
                     elapsedMs: this.elapsed(),
                     isCardKit: !!idleEffectiveCardId,
+                    truncatedText,
                 });
+                if (truncatedText) {
+                    // The card had to shorten the visible answer — deliver the
+                    // full text out of band so nothing is lost.
+                    await this.deliverTerminalFallback(resolvedDisplayText, 'card-truncated');
+                }
             }
         }
         catch (err) {
             log.warn('final card update failed', { error: String(err) });
+            // Terminal card could not be updated: the streaming card is the only
+            // delivery vehicle, so the reply would otherwise be lost silently.
+            await this.deliverTerminalFallback(fallbackText, 'card-update-failed');
         }
         finally {
             (0, tool_use_trace_store_1.clearToolUseTraceRun)(this.deps.sessionKey);
+        }
+    }
+    /**
+     * Last-resort delivery of the reply as a plain-text message.
+     *
+     * Used when the terminal card cannot be updated (Feishu 300305/200860,
+     * streaming-mode errors, …) or when the card had to truncate the answer.
+     * Without this the user sees a frozen card and never receives the answer.
+     * Returns true when the fallback was sent.
+     */
+    async deliverTerminalFallback(text, reason) {
+        const deliver = this.deps.deliverFallbackText;
+        const body = (text ?? '').trim();
+        if (!deliver || !body) {
+            log.warn('terminal fallback skipped (no text or no delivery hook)', { reason });
+            return false;
+        }
+        if (body === reply_runtime_1.SILENT_REPLY_TOKEN) {
+            return false;
+        }
+        try {
+            await deliver(body);
+            log.info('terminal reply delivered via plain-text fallback', { reason });
+            return true;
+        }
+        catch (fallbackErr) {
+            log.error('terminal fallback delivery failed', {
+                reason,
+                error: String(fallbackErr),
+            });
+            return false;
         }
     }
     // ------------------------------------------------------------------
@@ -722,42 +771,30 @@ class StreamingCardController {
                 reasoningText: this.reasoning.accumulatedReasoningText || undefined,
             }, this.imageResolver);
             const footerMetrics = this.needsFooterMetrics() ? await this.getFooterSessionMetrics() : undefined;
+            // Bounded so an oversized abort card can't be rejected by Feishu.
+            const { card: abortCardContent } = (0, builder_1.buildBoundedCompleteCard)({
+                text: terminalContent.text,
+                reasoningText: terminalContent.reasoningText,
+                reasoningElapsedMs: this.reasoning.reasoningElapsedMs || undefined,
+                toolUseSteps: abortToolUseDisplay?.steps,
+                toolUseTitleSuffix: this.computeToolUseTitleSuffix(abortToolUseDisplay),
+                toolUseElapsedMs: this.visibleToolUseElapsedMs,
+                showToolUse: this.deps.toolUseDisplay.showToolUse,
+                elapsedMs,
+                isAborted: true,
+                footer: this.deps.resolvedFooter,
+                footerMetrics,
+            });
             if (effectiveCardId) {
-                const abortCardContent = (0, builder_1.buildCardContent)('complete', {
-                    text: terminalContent.text,
-                    reasoningText: terminalContent.reasoningText,
-                    reasoningElapsedMs: this.reasoning.reasoningElapsedMs || undefined,
-                    toolUseSteps: abortToolUseDisplay?.steps,
-                    toolUseTitleSuffix: this.computeToolUseTitleSuffix(abortToolUseDisplay),
-                    toolUseElapsedMs: this.visibleToolUseElapsedMs,
-                    showToolUse: this.deps.toolUseDisplay.showToolUse,
-                    elapsedMs,
-                    isAborted: true,
-                    footer: this.deps.resolvedFooter,
-                    footerMetrics,
-                });
                 await this.closeStreamingAndUpdate(effectiveCardId, abortCardContent, 'abortCard');
                 log.info('abortCard completed', { effectiveCardId });
             }
             else if (this.cardKit.cardMessageId) {
                 // IM fallback: 卡片不是通过 CardKit 发的，用 im.message.patch 更新
-                const abortCard = (0, builder_1.buildCardContent)('complete', {
-                    text: terminalContent.text,
-                    reasoningText: terminalContent.reasoningText,
-                    reasoningElapsedMs: this.reasoning.reasoningElapsedMs || undefined,
-                    toolUseSteps: abortToolUseDisplay?.steps,
-                    toolUseTitleSuffix: this.computeToolUseTitleSuffix(abortToolUseDisplay),
-                    toolUseElapsedMs: this.visibleToolUseElapsedMs,
-                    showToolUse: this.deps.toolUseDisplay.showToolUse,
-                    elapsedMs,
-                    isAborted: true,
-                    footer: this.deps.resolvedFooter,
-                    footerMetrics,
-                });
                 await (0, send_1.updateCardFeishu)({
                     cfg: this.deps.cfg,
                     messageId: this.cardKit.cardMessageId,
-                    card: abortCard,
+                    card: abortCardContent,
                     accountId: this.deps.accountId,
                 });
                 log.info('abortCard completed (IM fallback)', {

@@ -68,6 +68,30 @@ function createFeishuReplyDispatcher(params) {
     // ---- Chunk & render settings (static mode only) ----
     const textChunkLimit = core.channel.text.resolveTextChunkLimit(cfg, 'feishu', accountId, { fallbackLimit: 4000 });
     const chunkMode = core.channel.text.resolveChunkMode(cfg, 'feishu');
+    // ---- Terminal plain-text fallback ----
+    // The streaming card is the ONLY delivery vehicle in streaming mode. If the
+    // terminal card update is rejected by Feishu (300305 >200 elements,
+    // 200860 >30KB, expired streaming mode, …) the reply would be lost with the
+    // user staring at a frozen card. The controller calls this hook to deliver
+    // the answer as ordinary text instead.
+    const deliverFallbackText = async (text) => {
+        const chunks = core.channel.text.chunkTextWithMode(text, textChunkLimit, chunkMode);
+        log.warn('delivering reply via plain-text fallback', {
+            chunks: chunks.length,
+            chatId,
+        });
+        for (const chunk of chunks) {
+            await (0, send_1.sendMessageFeishu)({
+                cfg,
+                to: chatId,
+                text: chunk,
+                replyToMessageId,
+                replyInThread,
+                accountId,
+                threadId,
+            });
+        }
+    };
     // ---- Streaming card controller (instantiated only when needed) ----
     // 流式模式：完整流式卡片；静态模式（群聊）：仅工具活动卡（activityOnly），
     // 展示 agent 正在调用的工具，最终回复仍走静态 deliver()。
@@ -84,6 +108,7 @@ function createFeishuReplyDispatcher(params) {
             toolUseDisplay,
             resolvedFooter,
             activityOnly: !useStreamingCards,
+            deliverFallbackText,
         })
         : null;
     // ---- Static mode unavailable guard ----

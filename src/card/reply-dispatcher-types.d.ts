@@ -131,4 +131,10 @@ export interface StreamingCardDeps {
     resolvedFooter: Required<FeishuFooterConfig>;
     /** Static (group) mode: drive only the tool-activity card, no text streaming. */
     activityOnly?: boolean;
+    /**
+     * Last-resort delivery of the reply as plain text. Called when the terminal
+     * card cannot be updated (Feishu 300305/200860, closed streaming mode, …)
+     * or when the card had to truncate the answer, so the reply is never lost.
+     */
+    deliverFallbackText?: (text: string) => Promise<void>;
 }
