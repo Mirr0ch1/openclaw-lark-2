@@ -3,33 +3,34 @@
 # openclaw-lark-2
 
 **OpenClaw 2.0 原生飞书 / Lark 渠道插件**
-An OpenClaw 2.0-native Feishu / Lark channel plugin
 
 `@larksuite/openclaw-lark` 的独立分支，面向 OpenClaw 2.0 SDK 全面适配。
 
-[![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#安装--installation)
+[![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#安装)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-126%20passing-22c55e?style=flat-square)](#开发--development)
+[![Tests](https://img.shields.io/badge/tests-126%20passing-22c55e?style=flat-square)](#开发)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
+
+[English](./README.en.md) · **中文**
 
 </div>
 
 ---
 
-## 目录 / Table of Contents
+## 目录
 
-- [为什么有这个分支 / Why this fork](#为什么有这个分支--why-this-fork)
-- [特性 / Features](#特性--features)
-- [安装 / Installation](#安装--installation)
-- [配置 / Configuration](#配置--configuration)
-- [三方对比 / Three-Way Comparison](#三方对比--three-way-comparison)
-- [更新日志 / Changelog](#更新日志--changelog)
-- [开发 / Development](#开发--development)
-- [致谢与许可 / Credits & License](#致谢与许可--credits--license)
+- [为什么有这个分支](#为什么有这个分支)
+- [特性](#特性)
+- [安装](#安装)
+- [配置](#配置)
+- [三方对比](#三方对比)
+- [更新日志](#更新日志)
+- [开发](#开发)
+- [致谢与许可](#致谢与许可)
 
 ---
 
-## 为什么有这个分支 / Why this fork
+## 为什么有这个分支
 
 OpenClaw 2.0（2026.8.1）重构了插件 SDK：
 
@@ -39,67 +40,52 @@ OpenClaw 2.0（2026.8.1）重构了插件 SDK：
 
 官方 `@larksuite/openclaw-lark` 未跟进，在 2.0 下**无法加载**，卡片 footer 指标也随之消失。本分支针对 2.0 SDK 全面适配，开箱即用。
 
-> OpenClaw 2.0 (2026.8.1) reworked the plugin SDK: the bare `openclaw/plugin-sdk` export was removed, several subpaths were renamed, session storage moved from JSON to SQLite, and channel capabilities (e.g. durable-final delivery) became explicit contracts. `@larksuite/openclaw-lark` did not follow up, so it **fails to load** on 2.0 and loses card footer metrics. This fork is fully adapted to the 2.0 SDK — plug and play.
-
 ---
 
-## 特性 / Features
+## 特性
 
-### 架构与兼容 / Architecture & Compatibility
+### 架构与兼容
 
 - **OpenClaw 2.0 原生适配**：SDK 导入路径、类型、运行时 API 全部对齐 2026.8.1。
-  *Native 2.0 adaptation: SDK import paths, types, and runtime APIs aligned with 2026.8.1.*
 - **多账号**：一个 OpenClaw 实例同时接入多个飞书应用。
-  *Multi-account: run multiple Feishu apps on a single OpenClaw instance.*
 
-### 消息与交互 / Messaging & Interaction
+### 消息与交互
 
 - **流式卡片（CardKit）**：群聊与私聊同体验，`channels.feishu.replyMode.group: "streaming"`。
-  *Streaming cards: the same experience in groups and DMs.*
 - **工具调用动态展示**：实时展示 agent 正在调用的工具步骤，默认开启。
-  *Live tool-activity display inside streaming cards, on by default.*
 - **内置 `ask_user` 按钮卡片**：问题渲染为带选项按钮的交互卡片，支持“其他答案”输入表单；群聊中所有成员均可交互。
-  *Built-in `ask_user` button cards: option buttons plus an “Other answer” input form; every group member can interact.*
 - **多图合并为一条富文本 post**：一次发送 ≥2 张图片时默认合并为**一条** post（飞书无相册 API，每张图一个段落）；`multiImageMode: "sequential"` 可回退逐张，任一上传失败自动回退，不丢图。
-  *Multi-image merged post: ≥2 images merge into a **single** rich-text post by default; `sequential` restores per-image sends, with auto-fallback on any upload failure.*
 - **完整 footer 指标（7 项）**：状态 · 耗时 · model · **provider** · tokens · cache · context（`provider` 为本分支新增）。
-  *Full 7-item footer metrics, with `provider` new in this fork.*
 - **PIN 消息操作**：内置 message 工具新增 `pin` / `unpin` / `list-pins`。
-  *PIN message actions on the built-in message tool.*
 
-### 安全与工程 / Security & Engineering
+### 安全与工程
 
 - **全量 SSRF 防护**：所有出站 HTTP 请求统一走 SDK `fetchWithSsrFGuard` —— DNS pinning 防 rebinding、IPv4+IPv6 私有/保留地址阻断、重定向逐跳校验、hostname 白名单。
-  *Full SSRF coverage: all outbound HTTP goes through `fetchWithSsrFGuard` — DNS pinning, IPv4+IPv6 private/reserved-address blocking, per-hop redirect validation, hostname allowlist.*
 - **测试基座**：vitest 测试套件（`npm test`），覆盖核心安全与路由路径。
-  *Test base: a vitest suite (`npm test`) covering core security and routing paths.*
 - **Plugin Inspector 报告**：`clawhub package validate` 0 warning。
-  *Plugin Inspector report: `clawhub package validate` with 0 warnings.*
 
 ---
 
-## 安装 / Installation
+## 安装
 
-### 通过 ClawHub / via ClawHub
+### 通过 ClawHub
 
 ```bash
 openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
 ```
 
-### 通过 tarball（本机开发）/ via tarball (local dev)
+### 通过 tarball（本机开发）
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.9.20.tgz
+openclaw plugins install openclaw-lark-2-2026.10.2.tgz
 ```
 
 ---
 
-## 配置 / Configuration
+## 配置
 
 插件注册 `feishu` 渠道，与官方版共用 `channels.feishu` 配置结构。
-
-*The plugin registers the `feishu` channel and shares the `channels.feishu` config shape with the official plugin.*
 
 ```json5
 {
@@ -109,12 +95,12 @@ openclaw plugins install openclaw-lark-2-2026.9.20.tgz
       appId: "cli_xxx",
       appSecret: "xxx",
 
-      // 多账号示例 / multi-account example
+      // 多账号示例
       accounts: {
         plaud: { appId: "cli_yyy", appSecret: "yyy", dmPolicy: "pairing" },
       },
 
-      // footer 七项全开（provider 为新增项）/ all 7 footer metrics on
+      // footer 七项全开（provider 为新增项）
       footer: {
         status: true,
         elapsed: true,
@@ -126,10 +112,9 @@ openclaw plugins install openclaw-lark-2-2026.9.20.tgz
       },
 
       // 多图合并：post（默认，多条图合为一条）/ sequential（逐张发送）
-      // multi-image: "post" (default, merge ≥2 images) | "sequential" (per-image)
       multiImageMode: "post",
 
-      // 群聊与私聊均用流式卡片 / streaming cards in groups and DMs
+      // 群聊与私聊均用流式卡片
       replyMode: { group: "streaming" },
     },
   },
@@ -139,158 +124,137 @@ openclaw plugins install openclaw-lark-2-2026.9.20.tgz
 }
 ```
 
-> **权限提示 / Scope tip**：飞书应用需在开放平台开通 `cardkit:card:write` 权限，流式卡片才能生效。
-> *The Feishu app needs the `cardkit:card:write` scope enabled in the Open Platform for streaming cards to work.*
+> **权限提示**：飞书应用需在开放平台开通 `cardkit:card:write` 权限，流式卡片才能生效。
 
 ---
 
-## 三方对比 / Three-Way Comparison
+## 三方对比
 
 本插件在设计上**取两家之长**：以字节 `@larksuite/openclaw-lark` 的完整工具面为基础，吸收官方 `@openclaw/feishu` 的 OpenClaw 2.0 原生架构与安全工程，再补齐两家都没有的短板。
 
-*This plugin takes the best of both worlds: the complete tool surface of ByteDance's `@larksuite/openclaw-lark`, the OpenClaw 2.0-native architecture and security engineering of the official `@openclaw/feishu`, plus features neither has.*
-
-| 维度 / Dimension | **openclaw-lark-2（本插件）** | **@openclaw/feishu（官方 2.0）** | **@larksuite/openclaw-lark 7.16（字节）** |
+| 维度 | **openclaw-lark-2（本插件）** | **@openclaw/feishu（官方 2.0）** | **@larksuite/openclaw-lark 7.16（字节）** |
 |---|:---:|:---:|:---:|
-| 版本 / Version | **2026.9.20** | 2026.8.1 | 2026.7.16 |
-| OpenClaw 兼容 / Compat | **≥2026.8.1（2.0 原生）** | ≥2026.8.1（2.0 原生） | ≥2026.5.4（1.x，2.0 下无法加载） |
+| 版本 | **2026.10.2** | 2026.8.1 | 2026.7.16 |
+| OpenClaw 兼容 | **≥2026.8.1（2.0 原生）** | ≥2026.8.1（2.0 原生） | ≥2026.5.4（1.x，2.0 下无法加载） |
 | Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃） |
-| 契约工具数 / Contract tools | **38** | 14 | 39 |
+| 契约工具数 | **38** | 14 | 39 |
 | calendar / task / sheets | ✅ | ❌ | ✅ |
 | im 收发 / 搜索工具 | ✅ 6 | ❌（走 channel action） | ✅ 6 |
-| 入站消息转换器 / Inbound converters | **22 种** | 部分 | 22 种 |
-| 流式回复 / Streaming (CardKit) | ✅ 群聊 + 私聊 | ✅ | ✅（须开 `streaming:true`） |
-| 多图合并 post / Multi-image post | ✅ **默认一条 post** | ❌ 仅逐张 | ❌ 仅逐张 |
-| 群聊流式卡片 / Group streaming | ✅ `replyMode.group:"streaming"` | ✅ | ❌ 群聊默认 static |
-| 工具动态展示 / Tool activity | ✅ **默认开启** | ⚠️ 仅 verbose/preview | ⚠️ 依赖 verbose（默认 off） |
+| 入站消息转换器 | **22 种** | 部分 | 22 种 |
+| 流式回复（CardKit） | ✅ 群聊 + 私聊 | ✅ | ✅（须开 `streaming:true`） |
+| 多图合并 post | ✅ **默认一条 post** | ❌ 仅逐张 | ❌ 仅逐张 |
+| 群聊流式卡片 | ✅ `replyMode.group:"streaming"` | ✅ | ❌ 群聊默认 static |
+| 工具动态展示 | ✅ **默认开启** | ⚠️ 仅 verbose/preview | ⚠️ 依赖 verbose（默认 off） |
 | 内置 `ask_user` 按钮 | ✅ **按钮卡片 + “其他答案” + 群聊全员可交互** | ❌ 仅文本回退 | ❌ 用自家 `feishu_ask_user_question` |
-| PIN 消息操作 / PIN actions | ✅ `pin`/`unpin`/`list-pins` | ✅ | ❌ |
-| SSRF 防护 / SSRF protection | ✅ **全量出站**（DNS pinning + 私网阻断 + 重定向校验 + hostname 白名单） | ✅ 仅 CardKit / 注册请求 | ⚠️ 手写 IPv4-only 检查 |
-| 输入中指示 / Typing indicator | ✅ reaction 式 | ✅ reaction 式 | ✅ reaction 式 |
-| reactions / 文档评论 / doc comments | ✅ | ✅ | ✅ |
+| PIN 消息操作 | ✅ `pin`/`unpin`/`list-pins` | ✅ | ❌ |
+| SSRF 防护 | ✅ **全量出站**（DNS pinning + 私网阻断 + 重定向校验 + hostname 白名单） | ✅ 仅 CardKit / 注册请求 | ⚠️ 手写 IPv4-only 检查 |
+| 输入中指示 | ✅ reaction 式 | ✅ reaction 式 | ✅ reaction 式 |
+| reactions / 文档评论 | ✅ | ✅ | ✅ |
 | OAuth device-flow | ✅ | ❌（仅 app 注册向导） | ✅ |
-| Webhook 双通道 / Dual-channel webhook | ❌ 仅 WebSocket | ✅ WS + webhook | ❌ |
-| 测试套件 / Test suite | ✅ **vitest 基座（14 文件 / 126 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
-| 安全审计 / Security audit | ✅ plugin-inspector 报告 | ✅ security-audit + SSRF | ⚠️ 无 |
+| Webhook 双通道 | ❌ 仅 WebSocket | ✅ WS + webhook | ❌ |
+| 测试套件 | ✅ **vitest 基座（14 文件 / 126 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
+| 安全审计 | ✅ plugin-inspector 报告 | ✅ security-audit + SSRF | ⚠️ 无 |
 
-### 取长补短的思路 / Design Rationale
+### 取长补短的思路
 
 1. **工具面 = 字节 7.16 全家桶**：38 个工具覆盖 im / doc / wiki / drive / bitable / calendar / task / sheets / search / oauth；官方 2.0 只有 14 个。唯一移除的是字节自研 `feishu_ask_user_question`（已被内置 `ask_user` 按钮渲染取代）。
-   *Tool surface = ByteDance 7.16 full set (38 tools); official 2.0 has only 14. The only removal is ByteDance's custom `feishu_ask_user_question`, superseded by built-in `ask_user` buttons.*
 2. **架构 = 官方 2.0 原生适配**：完整使用 OpenClaw 2.0 SDK；字节 7.16 因用 `loadConfig` 在 2.0 下直接无法加载。
-   *Architecture = official 2.0-native; ByteDance 7.16 cannot load on 2.0 because it uses `loadConfig`.*
 3. **交互增强（两家都没有）**：内置 `ask_user` 按钮卡片；工具动态展示默认开启；PIN 消息操作。
-   *Interaction upgrades (neither has): built-in `ask_user` cards; tool-activity display on by default; PIN message actions.*
 4. **安全补强（取官方）**：`fetchWithSsrFGuard` 应用到**全部**出站请求；官方仅用于 CardKit 与 app 注册，字节只有手写 IPv4 检查。
-   *Security hardening (from official): `fetchWithSsrFGuard` applied to **all** outbound requests; the official applies it only to CardKit/app registration, ByteDance has a hand-written IPv4-only check.*
 5. **工程化补强（取官方）**：建立 vitest 测试基座，并保留 plugin-inspector 安全报告。
-   *Engineering (from official): a vitest test base plus the plugin-inspector security report.*
 
-### 已知差异 / Known Differences
+### 已知差异
 
-| 项 / Item | 说明 / Note |
+| 项 | 说明 |
 |---|---|
-| Webhook 双通道 / Dual-channel webhook | 本插件暂未实现（同字节），仅 WebSocket；官方支持 WS + webhook。<br>*Not yet implemented (like ByteDance), WebSocket only; official supports WS + webhook.* |
-| PIN 消息 / PIN actions | 本插件已支持；字节 7.16 无。<br>*Supported here; missing in ByteDance 7.16.* |
-| 测试规模 / Test scale | 本插件为最小基座（126 用例），远小于官方（1202），但覆盖核心安全与路由路径。<br>*Minimal base (126 tests), far smaller than official (1202), but covers core security & routing.* |
-| 工具展示开关 / Tool-display toggle | `toolUseDisplay.enabled:false` 可关，默认开。<br>*Toggle via `toolUseDisplay.enabled:false`, on by default.* |
+| Webhook 双通道 | 本插件暂未实现（同字节），仅 WebSocket；官方支持 WS + webhook。 |
+| PIN 消息 | 本插件已支持；字节 7.16 无。 |
+| 测试规模 | 本插件为最小基座（126 用例），远小于官方（1202），但覆盖核心安全与路由路径。 |
+| 工具展示开关 | `toolUseDisplay.enabled:false` 可关，默认开。 |
 
 ---
 
-## 更新日志 / Changelog
+## 更新日志
 
 <details open>
-<summary><b>2026.9.20</b> · 2026-10-03 · 修复默认账号下群聊命令被判未授权 / <i>Fix default-account group commands treated as unauthorized</i></summary>
+<summary><b>2026.10.2</b> · 2026-10-03 · 文档：README 拆分为中文（默认）与英文</summary>
+
+README 拆为两个文件：`README.md`（中文，默认）与 `README.en.md`（English）；修正 ClawHub 安装命令为 `openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2`。无代码变更。
+
+</details>
+
+<details>
+<summary><b>2026.9.20</b> · 2026-10-03 · 修复默认账号下群聊命令被判未授权</summary>
 
 `getLarkAccount` 当 `accountId === 'default'` 时会整个跳过 `accounts.default` 覆盖，导致写在该账号条目里的 `allowFrom / groupAllowFrom / dmPolicy / groupPolicy` 被丢弃（core 的 `resolveFallbackAccountConfig` 会读这些字段，插件不读 → 两边解释不一致）。私聊靠 pairing allow-from store 兜住所以正常；群聊不读 store 又丢了 `groupAllowFrom` → 插件算出 `CommandAuthorized=false`，于是 `/new`、`/reset` 等 owner 级命令被 core 静默拒绝（`Ignoring /new from unauthorized sender`），不 reset 也不产生可见回复，只回通用兜底文案。现在 default 账号的显式覆盖会像其它账号一样被合并。新增 6 条账号回归测试（14 文件 / 126 用例）。
 
-*`getLarkAccount` skipped the `accounts.default` override entirely when `accountId === 'default'`, dropping `allowFrom / groupAllowFrom / dmPolicy / groupPolicy` declared there (core's `resolveFallbackAccountConfig` reads these; the plugin did not → the two disagreed). DMs were masked by the pairing allow-from store, but groups neither read the store nor kept `groupAllowFrom`, so the plugin computed `CommandAuthorized=false` and core silently refused owner-level commands like `/new` and `/reset` (`Ignoring /new from unauthorized sender`) — no reset, no visible reply, only the generic fallback. Default-account overrides are now merged like any other account. Added 6 account regression tests (14 files / 126 tests).*
-
 </details>
 
 <details>
-<summary><b>2026.9.19</b> · 2026-09-19 · 修复长任务回复丢失 / <i>Fix lost replies on long runs</i></summary>
+<summary><b>2026.9.19</b> · 2026-09-19 · 修复长任务回复丢失</summary>
 
 终端卡片整卡更新撞飞书硬上限（>200 元素 300305 / >30KB 200860）时失败被吞，用户只看到卡住的流式卡片（实测 61 次工具调用 → 310 元素）；现在终端卡片按硬上限自适应降级（工具步骤折叠为“其余 N 步未展示”、reasoning 面板裁切/丢弃、工具输出截断、必要时裁正文），并在**卡片更新失败或正文被裁切时自动以纯文本补发完整回复**。另：流式模式被飞书 10 分钟上限自动关闭（300309）后不再静默丢消息（原“回退 `im.message.patch`”对 CardKit 卡片是空操作）。新增 17 条卡片预算/兜底单测（13 文件 / 120 用例）。
 
-*The terminal full-card update exceeded Feishu's hard limits (>200 elements → 300305, >30KB → 200860), failed, and was swallowed, leaving a frozen streaming card (61 tool calls → 310 elements in the field); the terminal card now degrades within the limits (tool steps folded into a “N more steps not shown” notice, reasoning panel clipped/dropped, tool output clipped, answer clipped as a last resort) and **the full reply is re-delivered as plain text whenever the card update fails or truncates the answer**. Also: after Feishu auto-closes streaming mode on its 10-minute cap (300309), the reply is no longer silently dropped. Added 17 card-budget/fallback tests (13 files / 120 tests).*
-
 </details>
 
 <details>
-<summary><b>2026.9.6</b> · 2026-09-06 · 修复多账号入站消息静默丢弃 / <i>Fix silent inbound drop on multi-account</i></summary>
+<summary><b>2026.9.6</b> · 2026-09-06 · 修复多账号入站消息静默丢弃</summary>
 
 修复 OpenClaw 2.0 多账号下入站消息全部静默丢弃（`PreparedModelCatalogConfigReplacedError`）：核心调度改用未被篡改的全局 config + `usePublishedModelRuntime`（PR #1，by leothebravest）；补齐 comment / reaction / VC 邀请三条链路的 config 透传，并阻断 `config.current()` 返回空对象导致的 `cfg: {}` 派发；新增 6 条派发配置单测（11 文件 / 103 用例）。
 
-*Fix inbound messages being silently dropped on OpenClaw 2.0 multi-account setups (`PreparedModelCatalogConfigReplacedError`): core dispatch now uses the untampered global config plus `usePublishedModelRuntime` (PR #1, by leothebravest); plumbed config through the comment / reaction / VC-invited paths and blocked `cfg: {}` dispatch; added 6 dispatch-config tests (11 files / 103 tests).*
-
 </details>
 
 <details>
-<summary><b>2026.9.4</b> · 2026-09-03 · 多图合并为一条富文本 post / <i>Merged multi-image post</i></summary>
+<summary><b>2026.9.4</b> · 2026-09-03 · 多图合并为一条富文本 post</summary>
 
 新增 `channels.feishu.multiImageMode`（默认 `post`，`sequential` 回退逐张；任一上传失败自动回退）。（10 文件 / 97 用例）
 
-*Added `channels.feishu.multiImageMode` (default `post`; `sequential` restores per-image sends; auto-fallback on any upload failure). (10 files / 97 tests)*
-
 </details>
 
 <details>
-<summary><b>2026.9.3</b> · 2026-09-02 · SSRF 防护 · PIN 操作 · 测试基座 / <i>SSRF · PIN · test base</i></summary>
+<summary><b>2026.9.3</b> · 2026-09-02 · SSRF 防护 · PIN 操作 · 测试基座</summary>
 
 SSRF 防护全量落地、PIN 消息操作、vitest 测试基座（9 文件 / 78 用例），全量安全测试通过。
 
-*Full SSRF protection, PIN message actions, vitest test base (9 files / 78 tests); full security testing passed.*
-
 </details>
 
 <details>
-<summary><b>2026.9.2</b> · 2026-09-01 · ask_user 修复 · 群聊流式 / <i>ask_user fix · group streaming</i></summary>
+<summary><b>2026.9.2</b> · 2026-09-01 · ask_user 修复 · 群聊流式</summary>
 
 修复 ask_user “其他答案”提交；移除 `feishu_ask_user_question`；群聊流式卡片；工具 dry-run 脚本。
 
-*Fix ask_user “Other” submit; remove `feishu_ask_user_question`; group streaming cards; tool dry-run script.*
-
 </details>
 
 <details>
-<summary><b>2026.9.1</b> · 2026-09-01 · OpenClaw 2.0 兼容修复 / <i>2.0 compat fixes</i></summary>
+<summary><b>2026.9.1</b> · 2026-09-01 · OpenClaw 2.0 兼容修复</summary>
 
 OpenClaw 2.0 兼容修复、内置 ask_user 按钮渲染、工具动态展示、ClawHub 发布。
 
-*OpenClaw 2.0 compat fixes, built-in ask_user buttons, tool-activity display, ClawHub release.*
-
 </details>
 
 <details>
-<summary><b>2026.8.1</b> · 2026-08-31 · 初始 2.0 适配分支 / <i>Initial 2.0 adaptation branch</i></summary>
+<summary><b>2026.8.1</b> · 2026-08-31 · 初始 2.0 适配分支</summary>
 
 初始 2.0 适配分支。
-
-*Initial 2.0 adaptation branch.*
 
 </details>
 
 ---
 
-## 开发 / Development
+## 开发
 
 ```bash
-npm install            # 安装依赖（含 vitest）/ install deps (incl. vitest)
-npm test               # 运行 vitest 测试套件 / run the vitest test suite
-npm run test:watch     # 测试监听模式 / watch mode
+npm install            # 安装依赖（含 vitest）
+npm test               # 运行 vitest 测试套件
+npm run test:watch     # 测试监听模式
 ```
 
 插件为 CommonJS 源码（`src/` + `index.js` 入口），无构建步骤；改动后同步到 OpenClaw 扩展目录并重启网关即可生效。
 
-*The plugin is CommonJS source (`src/` + `index.js` entry) with no build step — sync to the OpenClaw extensions directory and restart the gateway to apply changes.*
-
 ---
 
-## 致谢与许可 / Credits & License
+## 致谢与许可
 
 基于 [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark)（MIT）二次开发，保留 MIT 许可。
 
-*Forked from [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark) (MIT). MIT licensed.*
-
-<div align="center"><sub>openclaw-lark-2 · OpenClaw 2.0 · Feishu / Lark</sub></div>
+<div align="center"><sub>openclaw-lark-2 · OpenClaw 2.0 · 飞书 / Lark</sub></div>
