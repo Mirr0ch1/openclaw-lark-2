@@ -119,9 +119,14 @@ function getLarkAccount(cfg, accountId) {
     }
     const base = baseConfig(section);
     const accountMap = getAccountMap(section);
-    const accountOverride = accountMap && requestedId !== account_id_1.DEFAULT_ACCOUNT_ID
-        ? accountMap[requestedId]
-        : undefined;
+    // An explicit `accounts.default` entry must be honored like any other
+    // account override. The top-level section is the default's base, but it is
+    // NOT a substitute for account-level fields (dmPolicy / groupPolicy /
+    // allowFrom / groupAllowFrom …): core-side authorization
+    // (resolveFallbackAccountConfig) reads `accounts.default`, so ignoring it
+    // here made the plugin and core disagree and left default-account group
+    // commands unauthorized.
+    const accountOverride = accountMap ? accountMap[requestedId] : undefined;
     const merged = accountOverride
         ? mergeAccountConfig(base, accountOverride)
         : { ...base };
