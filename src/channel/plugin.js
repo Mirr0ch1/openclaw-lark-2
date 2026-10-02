@@ -142,6 +142,21 @@ exports.feishuPlugin = {
             '- Feishu reactions use UPPERCASE emoji type names (e.g. `OK`,`THUMBSUP`,`THANKS`,`MUSCLE`,`FINGERHEART`,`APPLAUSE`,`FISTBUMP`,`JIAYI`,`DONE`,`SMILE`,`BLUSH` ), not Unicode emoji characters.',
             "- Feishu `action=delete`/`action=unsend` only deletes messages sent by the bot. When the user quotes a message and says 'delete this', use the **quoted message's** message_id, not the user's own message_id.",
         ],
+        // Injected into every inbound turn's Message Context (openclaw.inbound_meta),
+        // so the channel's output format rules are always available. This replaces
+        // the old feishu-channel-rules skill `alwaysActive` flag, which OpenClaw
+        // does not recognize as a skill frontmatter field.
+        inboundFormattingHints: () => ({
+            text_markup: 'markdown',
+            rules: [
+                'Feishu replies render as interactive cards using Lark card Markdown (a variant of standard Markdown), not plain text.',
+                'Headings `#`/`##`/`###` are auto-downgraded to H4/H5 before rendering; prefer bold or `####`/`#####` for section labels.',
+                'Tables, ordered/unordered lists, fenced code blocks, links and blockquotes are supported; leave a blank line before and after tables and code blocks.',
+                'Images: write `![alt](https://...)` — OpenClaw downloads the URL and replaces it with a Feishu `img_...` key automatically. Bare image keys must start with `img_`.',
+                'Keep replies short and conversational; prefer plain sentences over bullet lists when a brief answer suffices.',
+                'Full Lark Markdown syntax reference: see the `feishu-channel-rules` skill.',
+            ],
+        }),
     },
     // -------------------------------------------------------------------------
     // Groups

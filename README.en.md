@@ -8,7 +8,7 @@ An independent fork of `@larksuite/openclaw-lark`, fully adapted to the OpenClaw
 
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#installation)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-126%20passing-22c55e?style=flat-square)](#development)
+[![Tests](https://img.shields.io/badge/tests-128%20passing-22c55e?style=flat-square)](#development)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
 
 **English** · [中文](./README.md)
@@ -64,6 +64,14 @@ OpenClaw 2.0 (2026.8.1) reworked the plugin SDK:
 - **Test base**: a vitest suite (`npm test`) covering core security and routing paths.
 - **Plugin Inspector report**: `clawhub package validate` with 0 warnings.
 
+### Built-in Skills
+
+The plugin ships a set of Feishu skills, all routed through **`lark-cli`** as the single operation entry point (ByteDance replaced the plugin's built-in `feishu_*` tools with `lark-cli`):
+
+- `feishu-doc` / `feishu-bitable` / `feishu-calendar` / `feishu-im-read` / `feishu-task` — point to the matching `lark-cli <domain>` and the official `lark-*` skills; they check lark-cli availability first and, when missing, tell the user to install `@larksuite/cli` instead of falling back to the disabled built-in tools.
+- `feishu-channel-rules` — Lark card Markdown syntax reference; common formatting rules are **injected every turn** by the plugin, so it need not be always-on.
+- `feishu-troubleshoot` — plugin / channel self-troubleshooting (card-callback permission FAQ, `/feishu doctor`).
+
 ---
 
 ## Installation
@@ -78,7 +86,7 @@ openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.10.2.tgz
+openclaw plugins install openclaw-lark-2-2026.10.3.tgz
 ```
 
 ---
@@ -134,7 +142,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 
 | Dimension | **openclaw-lark-2 (ours)** | **@openclaw/feishu (official 2.0)** | **@larksuite/openclaw-lark 7.16 (ByteDance)** |
 |---|:---:|:---:|:---:|
-| Version | **2026.10.2** | 2026.8.1 | 2026.7.16 |
+| Version | **2026.10.3** | 2026.8.1 | 2026.7.16 |
 | OpenClaw compat | **≥2026.8.1 (native 2.0)** | ≥2026.8.1 (native 2.0) | ≥2026.5.4 (1.x, cannot load on 2.0) |
 | Plugin API | 2.0 SDK (`runtime.config.current()`) | 2.0 SDK (`createChatChannelPlugin`) | 1.x API (`loadConfig`, deprecated) |
 | Contract tools | **38** | 14 | 39 |
@@ -152,7 +160,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 | reactions / doc comments | ✅ | ✅ | ✅ |
 | OAuth device-flow | ✅ | ❌ (app-registration wizard only) | ✅ |
 | Dual-channel webhook | ❌ WebSocket only | ✅ WS + webhook | ❌ |
-| Test suite | ✅ **vitest base (14 files / 126 tests)** | ✅ 99 files / 1202 tests | ❌ none |
+| Test suite | ✅ **vitest base (15 files / 128 tests)** | ✅ 99 files / 1202 tests | ❌ none |
 | Security audit | ✅ plugin-inspector report | ✅ security-audit + SSRF | ⚠️ none |
 
 ### Design Rationale
@@ -169,7 +177,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 |---|---|
 | Dual-channel webhook | Not yet implemented (like ByteDance), WebSocket only; the official supports WS + webhook. |
 | PIN actions | Supported here; missing in ByteDance 7.16. |
-| Test scale | Minimal base (126 tests), far smaller than the official (1202), but covers core security & routing paths. |
+| Test scale | Minimal base (128 tests), far smaller than the official (1202), but covers core security & routing paths. |
 | Tool-display toggle | Toggle via `toolUseDisplay.enabled:false`; on by default. |
 
 ---
@@ -177,6 +185,13 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 ## Changelog
 
 <details open>
+<summary><b>2026.10.3</b> · 2026-10-03 · Skills rewritten as lark-cli thin pointers + always-on channel formatting</summary>
+
+All built-in skills are reworked around **`lark-cli`** as the single operation entry point: `feishu-create-doc` / `feishu-fetch-doc` / `feishu-update-doc` are merged into `feishu-doc` (the `feishu_mcp_*` tool names they referenced were long dead); `feishu-bitable` / `feishu-calendar` / `feishu-im-read` / `feishu-task` now point to the matching `lark-cli <domain>` and official `lark-*` skills, keeping only channel-specific notes. Added a "lark-cli missing" fallback that tells the user to install `@larksuite/cli` instead of falling back to the disabled tools. Fixed the dead `alwaysActive` flag in `feishu-channel-rules` — Lark card formatting rules are now injected every turn via `agentPrompt.inboundFormattingHints`; corrected the outdated notes on automatic heading downgrade and image URL→key resolution. Skill size: 4803 → 538 lines. (15 files / 128 tests)
+
+</details>
+
+<details>
 <summary><b>2026.10.2</b> · 2026-10-03 · Docs: split README into Chinese (default) and English</summary>
 
 Split the README into two files: `README.md` (Chinese, default) and `README.en.md` (English); fixed the ClawHub install command to `openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2`. No code changes.

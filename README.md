@@ -8,7 +8,7 @@
 
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#安装)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-126%20passing-22c55e?style=flat-square)](#开发)
+[![Tests](https://img.shields.io/badge/tests-128%20passing-22c55e?style=flat-square)](#开发)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
 
 [English](./README.en.md) · **中文**
@@ -64,6 +64,14 @@ OpenClaw 2.0（2026.8.1）重构了插件 SDK：
 - **测试基座**：vitest 测试套件（`npm test`），覆盖核心安全与路由路径。
 - **Plugin Inspector 报告**：`clawhub package validate` 0 warning。
 
+### 内置 Skills
+
+插件自带一组飞书 skill，全部**以 `lark-cli` 为唯一操作入口**（字节已用 `lark-cli` 取代插件内置的 `feishu_*` 工具）：
+
+- `feishu-doc` / `feishu-bitable` / `feishu-calendar` / `feishu-im-read` / `feishu-task` —— 指向对应 `lark-cli <domain>` 与官方 `lark-*` skill；执行前检查 lark-cli 是否安装，缺失时提示安装 `@larksuite/cli`，**不回退**已停用的内置工具。
+- `feishu-channel-rules` —— Lark 卡片 Markdown 语法参考；常用格式规则由插件**每轮自动注入**，无需常驻。
+- `feishu-troubleshoot` —— 插件 / 渠道自身排障（卡片回传权限 FAQ、`/feishu doctor`）。
+
 ---
 
 ## 安装
@@ -78,7 +86,7 @@ openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.10.2.tgz
+openclaw plugins install openclaw-lark-2-2026.10.3.tgz
 ```
 
 ---
@@ -134,7 +142,7 @@ openclaw plugins install openclaw-lark-2-2026.10.2.tgz
 
 | 维度 | **openclaw-lark-2（本插件）** | **@openclaw/feishu（官方 2.0）** | **@larksuite/openclaw-lark 7.16（字节）** |
 |---|:---:|:---:|:---:|
-| 版本 | **2026.10.2** | 2026.8.1 | 2026.7.16 |
+| 版本 | **2026.10.3** | 2026.8.1 | 2026.7.16 |
 | OpenClaw 兼容 | **≥2026.8.1（2.0 原生）** | ≥2026.8.1（2.0 原生） | ≥2026.5.4（1.x，2.0 下无法加载） |
 | Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃） |
 | 契约工具数 | **38** | 14 | 39 |
@@ -152,7 +160,7 @@ openclaw plugins install openclaw-lark-2-2026.10.2.tgz
 | reactions / 文档评论 | ✅ | ✅ | ✅ |
 | OAuth device-flow | ✅ | ❌（仅 app 注册向导） | ✅ |
 | Webhook 双通道 | ❌ 仅 WebSocket | ✅ WS + webhook | ❌ |
-| 测试套件 | ✅ **vitest 基座（14 文件 / 126 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
+| 测试套件 | ✅ **vitest 基座（15 文件 / 128 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
 | 安全审计 | ✅ plugin-inspector 报告 | ✅ security-audit + SSRF | ⚠️ 无 |
 
 ### 取长补短的思路
@@ -169,7 +177,7 @@ openclaw plugins install openclaw-lark-2-2026.10.2.tgz
 |---|---|
 | Webhook 双通道 | 本插件暂未实现（同字节），仅 WebSocket；官方支持 WS + webhook。 |
 | PIN 消息 | 本插件已支持；字节 7.16 无。 |
-| 测试规模 | 本插件为最小基座（126 用例），远小于官方（1202），但覆盖核心安全与路由路径。 |
+| 测试规模 | 本插件为最小基座（128 用例），远小于官方（1202），但覆盖核心安全与路由路径。 |
 | 工具展示开关 | `toolUseDisplay.enabled:false` 可关，默认开。 |
 
 ---
@@ -177,6 +185,13 @@ openclaw plugins install openclaw-lark-2-2026.10.2.tgz
 ## 更新日志
 
 <details open>
+<summary><b>2026.10.3</b> · 2026-10-03 · 内置 Skills 重构为 lark-cli 薄指针 + 渠道格式规则常驻</summary>
+
+内置 skill 全面重构为以 `lark-cli` 为唯一操作入口：`feishu-create-doc` / `feishu-fetch-doc` / `feishu-update-doc` 合并为 `feishu-doc`（原三者引用的 `feishu_mcp_*` 工具名早已失效）；`feishu-bitable` / `feishu-calendar` / `feishu-im-read` / `feishu-task` 改为指向对应 `lark-cli <domain>` 与官方 `lark-*` skill，仅保留渠道特有知识。新增「lark-cli 缺失」兜底提示（引导安装 `@larksuite/cli`，而非回退已停用工具）。修复 `feishu-channel-rules` 的失效 `alwaysActive` 字段——改为通过 `agentPrompt.inboundFormattingHints` **每轮注入** Lark 卡片格式规则；更正标题自动降级、图片 URL 自动转 key 两处过时说明。skill 体积 4803 → 538 行。（15 文件 / 128 用例）
+
+</details>
+
+<details>
 <summary><b>2026.10.2</b> · 2026-10-03 · 文档：README 拆分为中文（默认）与英文</summary>
 
 README 拆为两个文件：`README.md`（中文，默认）与 `README.en.md`（English）；修正 ClawHub 安装命令为 `openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2`。无代码变更。
