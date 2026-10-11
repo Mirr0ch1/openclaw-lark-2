@@ -19,7 +19,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleFeishuMessage = handleFeishuMessage;
 const reply_history_1 = require("openclaw/plugin-sdk/reply-history");
-const command_auth_1 = require("openclaw/plugin-sdk/command-auth");
+// OpenClaw >=2026.10 removed plugin-sdk/command-auth; local fail-closed shim rebuilds
+// resolveSenderCommandAuthorization from primitives the host still exports.
+const command_auth_1 = require("./command-auth-compat.js");
 const allow_from_1 = require("openclaw/plugin-sdk/allow-from");
 const accounts_1 = require("../../core/accounts.js");
 const lark_client_1 = require("../../core/lark-client.js");

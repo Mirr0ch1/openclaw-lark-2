@@ -12,7 +12,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveToolUseDisplayConfig = resolveToolUseDisplayConfig;
 const agent_runtime_1 = require("openclaw/plugin-sdk/agent-runtime");
-const config_runtime_1 = require("openclaw/plugin-sdk/config-runtime");
+// OpenClaw >=2026.10: config-runtime retired; session-store helpers now live in session-store-runtime.
+const session_store_runtime_1 = require("openclaw/plugin-sdk/session-store-runtime");
 function resolveToolUseDisplayConfig(params) {
     const mode = resolveEffectiveVerboseMode(params);
     // 默认开启工具动态展示：只有显式关闭（verbose off / toolUseDisplay.enabled=false）才隐藏。
@@ -33,17 +34,13 @@ function resolveEffectiveVerboseMode(params) {
 }
 function resolveSessionVerboseMode(cfg, sessionKey, agentId) {
     try {
-        const cfgWithSession = cfg;
-        const sessionStorePath = cfgWithSession.session?.store ?? cfgWithSession.sessions?.store;
-        const storePath = (0, config_runtime_1.resolveStorePath)(sessionStorePath, { agentId });
-        const store = (0, config_runtime_1.loadSessionStore)(storePath);
         const candidateKeys = resolveCandidateSessionKeys(cfg, sessionKey);
         for (const candidateKey of candidateKeys) {
-            const resolved = (0, config_runtime_1.resolveSessionStoreEntry)({ store, sessionKey: candidateKey });
-            const mode = normalizeToolUseMode(resolved.existing?.verboseLevel);
+            const existing = (0, session_store_runtime_1.getSessionEntry)({ agentId, sessionKey: candidateKey });
+            const mode = normalizeToolUseMode(existing?.verboseLevel);
             if (mode)
                 return mode;
-            if (resolved.existing)
+            if (existing)
                 return undefined;
         }
         return undefined;
