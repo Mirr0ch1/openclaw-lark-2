@@ -13,7 +13,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createFeishuReplyDispatcher = createFeishuReplyDispatcher;
-const channel_runtime_1 = require("openclaw/plugin-sdk/channel-message");
+const channel_runtime_1 = require("openclaw/plugin-sdk/channel-outbound");
 const channel_feedback_1 = require("openclaw/plugin-sdk/channel-feedback");
 const accounts_1 = require("../core/accounts.js");
 const footer_config_1 = require("../core/footer-config.js");

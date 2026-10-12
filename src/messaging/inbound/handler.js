@@ -13,18 +13,18 @@
  *   5. Policy gate           → gate.ts
  *   6. User name prefetch    → enrich.ts (batch cache warm-up)
  *   7. Content resolution    → enrich.ts (media / quote, parallel)
- *   8. Command authorization → plugin-sdk/command-auth
+ *   8. Command authorization → core/sdk-compat (ported from plugin-sdk/command-auth)
  *   9. Agent dispatch        → dispatch.ts
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleFeishuMessage = handleFeishuMessage;
 const reply_history_1 = require("openclaw/plugin-sdk/reply-history");
-const command_auth_1 = require("openclaw/plugin-sdk/command-auth");
 const allow_from_1 = require("openclaw/plugin-sdk/allow-from");
 const accounts_1 = require("../../core/accounts.js");
 const lark_client_1 = require("../../core/lark-client.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
 const lark_ticket_1 = require("../../core/lark-ticket.js");
+const sdk_compat_1 = require("../../core/sdk-compat.js");
 const chat_queue_1 = require("../../channel/chat-queue.js");
 const send_1 = require("../outbound/send.js");
 const parse_1 = require("./parse.js");
@@ -196,7 +196,7 @@ async function handleFeishuMessage(params) {
         const explicitSenderPolicy = groupConfig?.groupPolicy ?? defaultGroupConfig?.groupPolicy ?? accountFeishuCfg?.groupPolicy;
         return explicitSenderPolicy === 'open' ? ['*'] : [];
     })();
-    const { commandAuthorized } = await (0, command_auth_1.resolveSenderCommandAuthorization)({
+    const { commandAuthorized } = await (0, sdk_compat_1.resolveSenderCommandAuthorization)({
         rawBody: ctx.content,
         cfg: accountScopedCfg,
         isGroup,

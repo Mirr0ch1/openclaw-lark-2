@@ -12,7 +12,7 @@
  *   5. Policy gate           → gate.ts
  *   6. User name prefetch    → enrich.ts (batch cache warm-up)
  *   7. Content resolution    → enrich.ts (media / quote, parallel)
- *   8. Command authorization → plugin-sdk/command-auth
+ *   8. Command authorization → core/sdk-compat (ported from plugin-sdk/command-auth)
  *   9. Agent dispatch        → dispatch.ts
  */
 import type { ClawdbotConfig, RuntimeEnv } from 'openclaw/plugin-sdk';
