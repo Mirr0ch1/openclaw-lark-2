@@ -59,6 +59,7 @@ const gate_1 = require("./gate.js");
 const policy_1 = require("./policy.js");
 const gate_effects_1 = require("./gate-effects.js");
 const comment_context_1 = require("./comment-context.js");
+const comment_reaction_1 = require("./comment-reaction.js");
 const logger = (0, lark_logger_1.larkLogger)('inbound/comment-handler');
 // ---------------------------------------------------------------------------
 // Public API
@@ -247,6 +248,16 @@ async function handleFeishuCommentEvent(params) {
         `${event.reply_id ? ` (reply ${event.reply_id})` : ''}`);
     const historyLimit = Math.max(0, accountFeishuCfg?.historyLimit ?? accountScopedCfg.messages?.groupChat?.historyLimit ?? reply_history_1.DEFAULT_GROUP_HISTORY_LIMIT);
     // ---- Dispatch to agent ----
+    // Comment events have no IM message, so instead of an IM typing indicator we
+    // add a `Typing` reaction on the comment reply for the duration of the turn.
+    const typingReaction = (0, comment_reaction_1.createCommentTypingReactionLifecycle)({
+        cfg,
+        accountId,
+        fileToken: event.file_token,
+        fileType: event.file_type ?? 'docx',
+        replyId: event.reply_id,
+    });
+    await typingReaction.start();
     try {
         await (0, dispatch_1.dispatchToAgent)({
             ctx,
@@ -266,5 +277,8 @@ async function handleFeishuCommentEvent(params) {
     }
     catch (err) {
         error(`feishu[${accountId}]: error dispatching comment event: ${String(err)}`);
+    }
+    finally {
+        await typingReaction.cleanup();
     }
 }

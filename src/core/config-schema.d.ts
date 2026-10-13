@@ -138,6 +138,7 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
         post: "post";
         sequential: "sequential";
     }>>;
+    typingIndicator: z.ZodOptional<z.ZodBoolean>;
     toolUseDisplay: z.ZodOptional<z.ZodObject<{
         showFullPaths: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>>;
@@ -292,6 +293,7 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         post: "post";
         sequential: "sequential";
     }>>;
+    typingIndicator: z.ZodOptional<z.ZodBoolean>;
     toolUseDisplay: z.ZodOptional<z.ZodObject<{
         showFullPaths: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>>;
@@ -445,10 +447,7 @@ export declare const FeishuConfigSchema: z.ZodObject<{
             post: "post";
             sequential: "sequential";
         }>>;
-    multiImageMode: z.ZodOptional<z.ZodEnum<{
-        post: "post";
-        sequential: "sequential";
-    }>>;
+        typingIndicator: z.ZodOptional<z.ZodBoolean>;
         toolUseDisplay: z.ZodOptional<z.ZodObject<{
             showFullPaths: z.ZodOptional<z.ZodBoolean>;
         }, z.core.$strip>>;

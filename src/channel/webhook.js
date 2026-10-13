@@ -16,7 +16,6 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DEFAULT_FEISHU_WEBHOOK_PATH = void 0;
-exports.normalizeFeishuWebhookPath = normalizeFeishuWebhookPath;
 exports.isFeishuWebhookTimestampFresh = isFeishuWebhookTimestampFresh;
 exports.computeFeishuWebhookSignature = computeFeishuWebhookSignature;
 exports.isFeishuWebhookSignatureValid = isFeishuWebhookSignatureValid;
@@ -27,12 +26,12 @@ const crypto = require("node:crypto");
 const Lark = require("@larksuiteoapi/node-sdk");
 const webhook_ingress_1 = require("openclaw/plugin-sdk/webhook-ingress");
 const channel_outbound_1 = require("openclaw/plugin-sdk/channel-outbound");
-const account_id_1 = require("openclaw/plugin-sdk/account-id");
 const ingress_1 = require("./ingress.js");
 const lark_logger_1 = require("../core/lark-logger.js");
 const log = (0, lark_logger_1.larkLogger)('channel/webhook');
-const DEFAULT_FEISHU_WEBHOOK_PATH = '/feishu/webhook';
-exports.DEFAULT_FEISHU_WEBHOOK_PATH = DEFAULT_FEISHU_WEBHOOK_PATH;
+const webhook_path_1 = require("./webhook-path.js");
+exports.DEFAULT_FEISHU_WEBHOOK_PATH = webhook_path_1.DEFAULT_FEISHU_WEBHOOK_PATH;
+exports.normalizeFeishuWebhookPath = webhook_path_1.normalizeFeishuWebhookPath;
 /**
  * Feishu signs each delivery at send time, so a captured signed callback stays
  * validly signed forever. Reject deliveries whose signed timestamp is too far
@@ -48,24 +47,8 @@ const BLOCKED_WEBHOOK_PAYLOAD_KEYS = new Set(['__proto__', 'prototype', 'constru
 // ---------------------------------------------------------------------------
 // Pure helpers
 // ---------------------------------------------------------------------------
-/**
- * Canonicalise a configured webhook path (leading slash, no duplicate/trailing slash).
- *
- * The host keys Gateway route ownership on auth+pluginId+source and ignores
- * `accountId`, so the default path is account-scoped: named accounts get
- * `<base>/<accountId>`. Two webhook accounts left on the same path would
- * otherwise silently share one handler.
- */
-function normalizeFeishuWebhookPath(raw, accountId) {
-    const trimmed = typeof raw === 'string' ? raw.trim() : '';
-    const fallback = accountId && accountId !== account_id_1.DEFAULT_ACCOUNT_ID
-        ? `${DEFAULT_FEISHU_WEBHOOK_PATH}/${accountId}`
-        : DEFAULT_FEISHU_WEBHOOK_PATH;
-    const candidate = trimmed || fallback;
-    const withLeading = candidate.startsWith('/') ? candidate : `/${candidate}`;
-    const collapsed = withLeading.replace(/\/{2,}/g, '/');
-    return collapsed.length > 1 && collapsed.endsWith('/') ? collapsed.slice(0, -1) : collapsed;
-}
+// `normalizeFeishuWebhookPath` / `DEFAULT_FEISHU_WEBHOOK_PATH` live in
+// `webhook-path.js` (dependency-light) and are re-exported above.
 function isFeishuWebhookTimestampFresh(timestamp, nowMs = Date.now(), maxSkewMs = FEISHU_WEBHOOK_TIMESTAMP_MAX_SKEW_MS) {
     const parsed = Number.parseInt(String(timestamp ?? ''), 10);
     if (!Number.isFinite(parsed))

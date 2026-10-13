@@ -173,6 +173,8 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
     // Merge multiple image URLs into one rich-text post ("post", default) or
     // keep the legacy per-image sends ("sequential").
     multiImageMode: zod_1.z.enum(['post', 'sequential']).optional(),
+    // Add a `Typing` reaction to doc-comment replies while the agent works.
+    typingIndicator: zod_1.z.boolean().optional(),
     toolUseDisplay: zod_1.z
         .object({
         showFullPaths: zod_1.z.boolean().optional(),

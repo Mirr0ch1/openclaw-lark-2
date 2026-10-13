@@ -244,7 +244,12 @@ Ported the official plugin's (openclaw `main` `2f620b9`, 2026-10-12) more mature
 - **Read policy** (matching official): `feishu_chat.get` / `feishu_chat_members` are gated — the current conversation is readable; cross-group reads follow `groupPolicy`; **cross-DM reads require `allowFrom` to contain `*`**.
 - **Config signals**: manifest `toolMetadata.configSignals` hides tools when credentials are absent.
 
-**Fixes**: `config-schema` gained `durableIngress` / `defaultAccount`; `.d.ts` kept in sync with runtime.
+**Other**
+
+- **Doc-comment typing reaction**: comment events have no IM message to attach a typing indicator to, so a `Typing` reaction is added to the comment reply and removed when the turn ends (disable with `typingIndicator: false`).
+- **`openclaw doctor --fix` config repair**: a root `doctor-contract-api` artifact normalises `channels.feishu[.accounts.<id>].webhookPath` (named accounts get an account-scoped path so they cannot collide with the default account's route).
+
+**Fixes**: `config-schema` gained `durableIngress` / `defaultAccount` / `typingIndicator`; removed a duplicated `multiImageMode` in the `accounts` shape of `config-schema.d.ts`; `.d.ts` kept in sync with runtime.
 
 **Tests**: 15 files / 128 tests → **28 files / 214 tests**; `clawhub package validate` passes.
 

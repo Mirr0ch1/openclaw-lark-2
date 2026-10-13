@@ -243,7 +243,12 @@ openclaw plugins install openclaw-lark-2-2026.10.4.tgz
 - **读权限策略**（对齐官方）：`feishu_chat.get` / `feishu_chat_members` 受策略约束 —— 当前会话可读；跨群按 `groupPolicy`；**跨私聊需 `allowFrom` 含 `*`**。
 - **配置信号**：manifest `toolMetadata.configSignals`，未配置凭据时按工具隐藏。
 
-**修复**：`config-schema` 补齐 `durableIngress` / `defaultAccount`；`.d.ts` 与运行时同步。
+**其他**
+
+- **文档评论 typing 反应**：评论事件没有 IM 消息可挂"输入中"指示，改为在评论回复上加 `Typing` 反应、回合结束后移除（`typingIndicator: false` 可关）。
+- **`openclaw doctor --fix` 配置修复**：新增包根 `doctor-contract-api`，可自动把 `channels.feishu[.accounts.<id>].webhookPath` 规范化（命名账号按账号派生路径，避免与默认账号撞路由）。
+
+**修复**：`config-schema` 补齐 `durableIngress` / `defaultAccount` / `typingIndicator`；修掉 `config-schema.d.ts` 里 `accounts` 形态重复的 `multiImageMode`；`.d.ts` 与运行时同步。
 
 **测试**：15 文件 / 128 用例 → **28 文件 / 214 用例**；`clawhub package validate` 通过。
 
