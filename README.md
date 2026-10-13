@@ -103,7 +103,7 @@ openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.10.4.tgz
+openclaw plugins install openclaw-lark-2-2026.10.5.tgz
 ```
 
 ---
@@ -170,7 +170,7 @@ openclaw plugins install openclaw-lark-2-2026.10.4.tgz
 
 | 维度 | **openclaw-lark-2（本插件）** | **@openclaw/feishu（官方 2.0）** | **@larksuite/openclaw-lark 7.16（字节）** |
 |---|:---:|:---:|:---:|
-| 版本 | **2026.10.4** | 2026.8.1 | 2026.7.16 |
+| 版本 | **2026.10.5** | 2026.8.1 | 2026.7.16 |
 | OpenClaw 兼容 | **≥2026.8.1（2.0 原生）** | ≥2026.8.1（2.0 原生） | ≥2026.5.4（1.x，2.0 下无法加载） |
 | Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃） |
 | 契约工具数 | **38** | 14 | 39 |
@@ -218,7 +218,7 @@ openclaw plugins install openclaw-lark-2-2026.10.4.tgz
 ## 更新日志
 
 <details open>
-<summary><b>待发布</b> · 2026-10-14 · 对齐官方 <code>@openclaw/feishu</code>：可靠性原语 · 读权限 · 多账号路由</summary>
+<summary><b>2026.10.5</b> · 2026-10-14 · 对齐官方 <code>@openclaw/feishu</code>：可靠性原语 · 读权限 · 多账号路由</summary>
 
 以官方插件（openclaw `main` `2f620b9`，2026-10-12）为参照，移植其更成熟的工程原语，并补齐多账号与读权限。**新能力多为可选或对既有行为无影响**，其中读权限是唯一的有意收紧。
 

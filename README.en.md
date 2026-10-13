@@ -103,7 +103,7 @@ openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.10.4.tgz
+openclaw plugins install openclaw-lark-2-2026.10.5.tgz
 ```
 
 ---
@@ -171,7 +171,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 
 | Dimension | **openclaw-lark-2 (ours)** | **@openclaw/feishu (official 2.0)** | **@larksuite/openclaw-lark 7.16 (ByteDance)** |
 |---|:---:|:---:|:---:|
-| Version | **2026.10.4** | 2026.8.1 | 2026.7.16 |
+| Version | **2026.10.5** | 2026.8.1 | 2026.7.16 |
 | OpenClaw compat | **≥2026.8.1 (native 2.0)** | ≥2026.8.1 (native 2.0) | ≥2026.5.4 (1.x, cannot load on 2.0) |
 | Plugin API | 2.0 SDK (`runtime.config.current()`) | 2.0 SDK (`createChatChannelPlugin`) | 1.x API (`loadConfig`, deprecated) |
 | Contract tools | **38** | 14 | 39 |
@@ -219,7 +219,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 ## Changelog
 
 <details open>
-<summary><b>Unreleased</b> · 2026-10-14 · Align with official <code>@openclaw/feishu</code>: reliability primitives · read policy · multi-account routing</summary>
+<summary><b>2026.10.5</b> · 2026-10-14 · Align with official <code>@openclaw/feishu</code>: reliability primitives · read policy · multi-account routing</summary>
 
 Ported the official plugin's (openclaw `main` `2f620b9`, 2026-10-12) more mature engineering primitives, plus multi-account targeting and read policy. **Most additions are optional or behavior-neutral**; the read policy is the only intentional tightening.
 
