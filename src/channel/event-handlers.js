@@ -57,6 +57,7 @@ const vc_meeting_invited_handler_1 = require("../messaging/inbound/vc-meeting-in
 const vc_sender_1 = require("../messaging/inbound/vc-sender.js");
 const comment_context_1 = require("../messaging/inbound/comment-context.js");
 const dedup_1 = require("../messaging/inbound/dedup.js");
+const dedupe_key_1 = require("../messaging/inbound/dedupe-key.js");
 const lark_ticket_1 = require("../core/lark-ticket.js");
 const lark_logger_1 = require("../core/lark-logger.js");
 const auto_auth_1 = require("../tools/auto-auth.js");
@@ -128,7 +129,11 @@ async function handleMessageEvent(ctx, data) {
         // and can be processed in parallel.
         const threadId = event.message?.thread_id || event.message?.root_id || undefined;
         // Dedup — skip duplicate messages (e.g. from WebSocket reconnects).
-        if (!ctx.messageDedup.tryRecord(msgId, accountId)) {
+        // For text/post we key on a retry-stable identity (sender+chat+
+        // create_time+content) so a redelivery with a fresh message_id is
+        // still caught (#46778); everything else falls back to message_id.
+        const dedupeKey = (0, dedupe_key_1.resolveFeishuMessageDedupeKey)(event) ?? msgId;
+        if (!ctx.messageDedup.tryRecord(dedupeKey, accountId)) {
             log(`feishu[${accountId}]: duplicate message ${msgId}, skipping`);
             return;
         }
@@ -160,6 +165,9 @@ async function handleMessageEvent(ctx, data) {
             accountId,
             chatId,
             threadId,
+            onTaskTimeout: (key, timeoutMs) => {
+                log(`feishu[${accountId}]: per-chat task exceeded ${timeoutMs}ms cap (key=${key}); evicting from queue so later same-key messages can proceed (#70133)`);
+            },
             task: async () => {
                 try {
                     await (0, lark_ticket_1.withTicket)({
@@ -231,6 +239,9 @@ async function handleReactionEvent(ctx, data) {
             accountId,
             chatId: preResolved.chatId,
             threadId: preResolved.threadId,
+            onTaskTimeout: (key, timeoutMs) => {
+                log(`feishu[${accountId}]: per-chat task exceeded ${timeoutMs}ms cap (key=${key}); evicting from queue so later same-key messages can proceed (#70133)`);
+            },
             task: async () => {
                 try {
                     await (0, lark_ticket_1.withTicket)({

@@ -32,6 +32,15 @@ export declare function enqueueFeishuChatTask(params: {
     chatId: string;
     threadId?: string;
     task: () => Promise<void>;
+    /**
+     * Per-task cap in ms. Defaults to 5 minutes; `0` (or a non-finite value)
+     * restores unbounded FIFO ordering. Values are clamped to Node's
+     * `setTimeout` ceiling. A timed-out task keeps running but stops blocking
+     * later same-key tasks (#70133).
+     */
+    taskTimeoutMs?: number;
+    /** Invoked when a task exceeds `taskTimeoutMs`. */
+    onTaskTimeout?: (key: string, timeoutMs: number) => void;
 }): {
     status: QueueStatus;
     promise: Promise<void>;

@@ -26,6 +26,7 @@ const sentinel_store_1 = require("../inbound/sentinel-store.js");
 const normalize_mentions_1 = require("./normalize-mentions.js");
 const outbound_mention_1 = require("./outbound-mention.js");
 const bot_peer_context_1 = require("./bot-peer-context.js");
+const send_rate_limit_1 = require("./send-rate-limit.js");
 const sendLog = (0, lark_logger_1.larkLogger)('outbound/send');
 /**
  * Runs the outbound text through mention normalization. Returns the
@@ -146,7 +147,7 @@ async function sendMessageFeishu(params) {
         const response = await (0, message_unavailable_1.runWithMessageUnavailableGuard)({
             messageId: normalizedId,
             operation: 'im.message.reply(post)',
-            fn: () => client.im.message.reply({
+            fn: () => (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.reply({
                 path: {
                     message_id: normalizedId,
                 },
@@ -155,7 +156,7 @@ async function sendMessageFeishu(params) {
                     msg_type: 'post',
                     reply_in_thread: replyInThread,
                 },
-            }),
+            }), 'im.message.reply(post)'),
         });
         recordFeishuSendSentinels(normalizationAccountId, to, threadId, normalizationSentinels);
         return {
@@ -169,7 +170,7 @@ async function sendMessageFeishu(params) {
         throw new Error(`[feishu-send] Invalid target: "${to}"`);
     }
     const receiveIdType = (0, targets_1.resolveReceiveIdType)(target);
-    const response = await client.im.message.create({
+    const response = await (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.create({
         params: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             receive_id_type: receiveIdType,
@@ -179,7 +180,7 @@ async function sendMessageFeishu(params) {
             msg_type: 'post',
             content: contentPayload,
         },
-    });
+    }), 'im.message.create(post)');
     recordFeishuSendSentinels(normalizationAccountId, to, threadId, normalizationSentinels);
     return {
         messageId: response?.data?.message_id ?? '',
@@ -205,7 +206,7 @@ async function sendCardFeishu(params) {
         const response = await (0, message_unavailable_1.runWithMessageUnavailableGuard)({
             messageId: normalizedId,
             operation: 'im.message.reply(interactive)',
-            fn: () => client.im.message.reply({
+            fn: () => (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.reply({
                 path: {
                     message_id: normalizedId,
                 },
@@ -214,7 +215,7 @@ async function sendCardFeishu(params) {
                     msg_type: 'interactive',
                     reply_in_thread: replyInThread,
                 },
-            }),
+            }), 'im.message.reply(interactive)'),
         });
         return {
             messageId: response?.data?.message_id ?? '',
@@ -226,7 +227,7 @@ async function sendCardFeishu(params) {
         throw new Error(`[feishu-send] Invalid target: "${to}"`);
     }
     const receiveIdType = (0, targets_1.resolveReceiveIdType)(target);
-    const response = await client.im.message.create({
+    const response = await (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.create({
         params: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             receive_id_type: receiveIdType,
@@ -236,7 +237,7 @@ async function sendCardFeishu(params) {
             msg_type: 'interactive',
             content: contentPayload,
         },
-    });
+    }), 'im.message.create(interactive)');
     return {
         messageId: response?.data?.message_id ?? '',
         chatId: response?.data?.chat_id ?? '',
@@ -263,14 +264,14 @@ async function updateCardFeishu(params) {
     await (0, message_unavailable_1.runWithMessageUnavailableGuard)({
         messageId,
         operation: 'im.message.patch(interactive)',
-        fn: () => client.im.message.patch({
+        fn: () => (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.patch({
             path: {
                 message_id: messageId,
             },
             data: {
                 content: JSON.stringify(card),
             },
-        }),
+        }), 'im.message.patch(interactive)'),
     });
 }
 // ---------------------------------------------------------------------------
@@ -405,7 +406,7 @@ async function editMessageFeishu(params) {
     await (0, message_unavailable_1.runWithMessageUnavailableGuard)({
         messageId,
         operation: 'im.message.update(post)',
-        fn: () => client.im.message.update({
+        fn: () => (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.update({
             path: {
                 message_id: messageId,
             },
@@ -413,7 +414,7 @@ async function editMessageFeishu(params) {
                 content: contentPayload,
                 msg_type: 'post',
             },
-        }),
+        }), 'im.message.update(post)'),
     });
 }
 // ---------------------------------------------------------------------------
@@ -433,10 +434,10 @@ async function deleteMessageFeishu(params) {
     await (0, message_unavailable_1.runWithMessageUnavailableGuard)({
         messageId,
         operation: 'im.message.delete',
-        fn: () => client.im.message.delete({
+        fn: () => (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.delete({
             path: {
                 message_id: messageId,
             },
-        }),
+        }), 'im.message.delete'),
     });
 }

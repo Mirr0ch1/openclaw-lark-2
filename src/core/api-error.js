@@ -19,6 +19,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.extractLarkApiCode = extractLarkApiCode;
+exports.extractFeishuApiErrorMeta = extractFeishuApiErrorMeta;
 exports.assertLarkOk = assertLarkOk;
 exports.formatLarkError = formatLarkError;
 const permission_url_1 = require("./permission-url.js");
@@ -64,6 +65,36 @@ function extractLarkApiCode(err) {
         return undefined;
     const e = err;
     return coerceCode(e.code) ?? coerceCode(e.data?.code) ?? coerceCode(e.response?.data?.code);
+}
+function readErrorMetaString(value) {
+    return typeof value === 'string' && value.trim() ? value : undefined;
+}
+/**
+ * 提取结构化飞书 API 错误元信息，用于工具错误返回。
+ *
+ * 对齐官方 @openclaw/feishu 的 `extractFeishuApiErrorMeta`：把 HTTP 状态、
+ * 业务 code、msg 与 log_id 暴露出来，让 99991672（缺权限）等失败无需翻
+ * 原始日志即可定位。
+ */
+function extractFeishuApiErrorMeta(error) {
+    if (!error || typeof error !== 'object') {
+        return { message: typeof error === 'string' ? error : String(error) };
+    }
+    const e = error;
+    const response = e.response && typeof e.response === 'object' ? e.response : undefined;
+    const responseData = (response?.data && typeof response.data === 'object')
+        ? response.data
+        : (e.data && typeof e.data === 'object' ? e.data : undefined);
+    const nestedError = responseData?.error && typeof responseData.error === 'object' ? responseData.error : undefined;
+    return {
+        message: typeof e.message === 'string' ? e.message : String(error),
+        code: e.code,
+        httpStatus: typeof response?.status === 'number' ? response.status : undefined,
+        feishuCode: typeof responseData?.code === 'number' ? responseData.code : readErrorMetaString(responseData?.code),
+        feishuMsg: readErrorMetaString(responseData?.msg),
+        feishuLogId: readErrorMetaString(responseData?.log_id) ?? readErrorMetaString(nestedError?.log_id),
+        troubleshooter: readErrorMetaString(responseData?.troubleshooter) ?? readErrorMetaString(nestedError?.troubleshooter),
+    };
 }
 // ---------------------------------------------------------------------------
 // Public API

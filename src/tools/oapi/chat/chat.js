@@ -16,7 +16,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerChatSearchTool = registerChatSearchTool;
 const typebox_1 = require("@sinclair/typebox");
+const channel_actions_1 = require("openclaw/plugin-sdk/channel-actions");
 const helpers_1 = require("../helpers.js");
+const read_policy_1 = require("../../../core/read-policy.js");
 // ---------------------------------------------------------------------------
 // Schema
 // ---------------------------------------------------------------------------
@@ -65,7 +67,7 @@ function registerChatSearchTool(api) {
         async execute(_toolCallId, params) {
             const p = params;
             try {
-                const client = toolClient();
+                const client = toolClient(p);
                 switch (p.action) {
                     // -----------------------------------------------------------------
                     // SEARCH
@@ -95,31 +97,61 @@ function registerChatSearchTool(api) {
                     // -----------------------------------------------------------------
                     case 'get': {
                         log.info(`get: chat_id=${p.chat_id}, user_id_type=${p.user_id_type ?? 'open_id'}`);
-                        const res = await client.invoke('feishu_chat.get', (sdk, opts) => sdk.im.v1.chat.get({
-                            path: {
-                                chat_id: p.chat_id,
-                            },
-                            params: {
-                                user_id_type: p.user_id_type || 'open_id',
-                            },
-                        }, {
-                            ...(opts ?? {}),
-                            headers: {
+                        // Read authorization (ported from @openclaw/feishu read-policy):
+                        // the current conversation is always readable; other chats must be
+                        // permitted by the account's group policy / DM allowlist.
+                        const readCtx = (0, read_policy_1.resolveFeishuReadContext)();
+                        const preliminary = (0, read_policy_1.resolveFeishuChatReadPreliminaryAuthorization)({
+                            cfg,
+                            account: client.account,
+                            ctx: readCtx,
+                            chatId: p.chat_id,
+                        });
+                        if (preliminary.decision === 'deny') {
+                            (0, read_policy_1.assertFeishuChatReadAllowed)({
+                                cfg,
+                                account: client.account,
+                                ctx: readCtx,
+                                chatId: preliminary.chatId,
+                            });
+                        }
+                        const chat = await (0, read_policy_1.readFeishuChatInfoWithAuthorization)({
+                            cfg,
+                            account: client.account,
+                            ctx: readCtx,
+                            preliminary,
+                        }, async (chatId) => {
+                            const res = await client.invoke('feishu_chat.get', (sdk, opts) => sdk.im.v1.chat.get({
+                                path: {
+                                    chat_id: chatId,
+                                },
+                                params: {
+                                    user_id_type: p.user_id_type || 'open_id',
+                                },
+                            }, {
+                                ...(opts ?? {}),
+                                headers: {
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    ...(opts?.headers ?? {}),
+                                    'X-Chat-Custom-Header': 'enable_chat_list_security_check',
+                                },
                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                ...(opts?.headers ?? {}),
-                                'X-Chat-Custom-Header': 'enable_chat_list_security_check',
-                            },
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        }), { as: 'user' });
-                        (0, helpers_1.assertLarkOk)(res);
+                            }), { as: 'user' });
+                            (0, helpers_1.assertLarkOk)(res);
+                            return res.data;
+                        });
                         log.info(`get: retrieved chat info for ${p.chat_id}`);
                         return (0, helpers_1.json)({
-                            chat: res.data,
+                            chat,
                         });
                     }
                 }
             }
             catch (err) {
+                // A read-authorization denial must surface as a hard tool error,
+                // not be swallowed into a generic error result.
+                if (err instanceof channel_actions_1.ToolAuthorizationError)
+                    throw err;
                 return await (0, helpers_1.handleInvokeErrorWithAutoAuth)(err, cfg);
             }
         },

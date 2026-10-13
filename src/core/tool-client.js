@@ -65,9 +65,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ToolClient = exports.UserScopeInsufficientError = exports.UserAuthRequiredError = exports.AppScopeMissingError = exports.AppScopeCheckFailedError = exports.NeedAuthorizationError = exports.LARK_ERROR = void 0;
 exports.createToolClient = createToolClient;
 const Lark = __importStar(require("@larksuiteoapi/node-sdk"));
-const accounts_1 = require("./accounts.js");
 const lark_client_1 = require("./lark-client.js");
 const lark_ticket_1 = require("./lark-ticket.js");
+const tool_account_1 = require("./tool-account.js");
 const uat_client_1 = require("./uat-client.js");
 const token_store_1 = require("./token-store.js");
 const app_scope_checker_1 = require("./app-scope-checker.js");
@@ -373,47 +373,30 @@ exports.ToolClient = ToolClient;
 /**
  * 从配置创建 {@link ToolClient}。
  *
- * 自动从当前 {@link LarkTicket} 解析 accountId 和 senderOpenId。
- * 如果 LarkTicket 不可用（如非消息场景），回退到 `accountIndex`
- * 指定的账号。
+ * 账号解析统一走 `resolveFeishuToolAccount`：
+ * 1. 显式 `executeParams.accountId`（来自工具调用参数）— 严格校验；
+ * 2. 当前 {@link LarkTicket} 的 accountId；
+ * 3. `channels.feishu.defaultAccount`；
+ * 4. 按 `accountIndex` 回退到第一个可用账号。
+ *
+ * senderOpenId 仍从当前 LarkTicket 取得。
  *
  * @param config - OpenClaw 配置对象
- * @param accountIndex - 回退账号索引（默认 0）
+ * @param options - 账号索引（number，向后兼容）或 `{ accountIndex, executeParams }`
  */
-function createToolClient(config, accountIndex = 0) {
+function createToolClient(config, options = 0) {
+    const opts = typeof options === 'number' || options == null
+        ? { accountIndex: options ?? 0 }
+        : options;
     const ticket = (0, lark_ticket_1.getTicket)();
-    // 1. 解析账号
-    //
-    // `config` is the closure-captured snapshot from plugin registration and may be
-    // stale after a hot-reload.  Use getResolvedConfig() to always get the live config.
-    const resolveConfig = (0, lark_client_1.getResolvedConfig)(config);
-    let account;
-    if (ticket?.accountId) {
-        const resolved = (0, accounts_1.getLarkAccount)(resolveConfig, ticket.accountId);
-        if (!resolved.configured) {
-            throw new Error(`Feishu account "${ticket.accountId}" is not configured (missing appId or appSecret). ` +
-                `Please check channels.feishu.accounts.${ticket.accountId} in your config.`);
-        }
-        if (!resolved.enabled) {
-            throw new Error(`Feishu account "${ticket.accountId}" is disabled. ` +
-                `Set channels.feishu.accounts.${ticket.accountId}.enabled to true, or remove it to use defaults.`);
-        }
-        account = resolved;
-    }
-    if (!account) {
-        const accounts = (0, accounts_1.getEnabledLarkAccounts)(resolveConfig);
-        if (accounts.length === 0) {
-            throw new Error('No enabled Feishu accounts configured. ' + 'Please add appId and appSecret in config under channels.feishu');
-        }
-        if (accountIndex >= accounts.length) {
-            throw new Error(`Requested account index ${accountIndex} but only ${accounts.length} accounts available`);
-        }
-        const fallback = accounts[accountIndex];
-        if (!fallback.configured) {
-            throw new Error(`Account at index ${accountIndex} is not fully configured (missing appId or appSecret)`);
-        }
-        account = fallback;
-    }
+    // 1. 解析账号 — 统一走严格解析器：显式 accountId 会被校验，
+    //    上下文账号（LarkTicket）与配置默认账号优先，最后才按索引回退。
+    const account = (0, tool_account_1.resolveFeishuToolAccount)({
+        config,
+        executeParams: opts.executeParams ?? (0, tool_account_1.getFeishuToolCallParams)(),
+        defaultAccountId: ticket?.accountId,
+        accountIndex: opts.accountIndex ?? 0,
+    });
     // 2. 获取 SDK 实例（复用 LarkClient 的缓存）
     const larkClient = lark_client_1.LarkClient.fromAccount(account);
     // 3. 组装 ToolClient

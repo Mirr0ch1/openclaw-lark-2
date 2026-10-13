@@ -8,7 +8,7 @@ An independent fork of `@larksuite/openclaw-lark`, fully adapted to the OpenClaw
 
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#installation)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-128%20passing-22c55e?style=flat-square)](#development)
+[![Tests](https://img.shields.io/badge/tests-214%20passing-22c55e?style=flat-square)](#development)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
 
 **English** · [中文](./README.md)
@@ -58,11 +58,28 @@ OpenClaw 2.0 (2026.8.1) reworked the plugin SDK:
 - **Full 7-item footer metrics**: status · elapsed · model · **provider** · tokens · cache · context (`provider` is new in this fork).
 - **PIN message actions**: `pin` / `unpin` / `list-pins` on the built-in message tool.
 
+### Transport & Reliability
+
+- **Dual-channel webhook**: `connectionMode: "webhook"` uses Feishu callbacks (signature check `sha256(timestamp+nonce+encryptKey+body)`, timestamp-skew bound, `url_verification` challenge, pre-auth guards for body size / timeout / concurrency). WebSocket remains the default.
+- **Optional durable inbound queue**: `durableIngress: true` admits `im.message.receive_v1` / doc-comment events into the host's persistent queue with per-conversation lane ordering and retryable/permanent error classification. Off by default — behavior is byte-for-byte unchanged.
+- **Send rate-limit retry**: unifies HTTP 429 and business codes `230020` / `11232` (including “HTTP 200 but the body carries a rate-limit code”) across every IM send path.
+- **Per-conversation queue task timeout**: each dispatch is capped at 5 minutes by default; a timed-out task keeps running but stops blocking later messages in the same conversation (upstream #70133).
+- **Retry-stable dedupe**: text/post messages dedupe on `sender + chat + create_time + content hash`, so a redelivery with a fresh `message_id` is still caught (upstream #46778).
+- **Envelope-aware pagination**: over-30KB rich posts are split by **serialized byte size**, not character count (15000 CJK chars ≈ 45KB).
+
 ### Security & Engineering
 
+- **Read policy (matching official read-policy)**: tool reads are policy-gated — **the current conversation is always readable**; cross-group reads follow `groupPolicy` (`disabled` denies even the current group); **cross-DM reads require `allowFrom` to contain `*`**. Applies to `feishu_chat.get` and `feishu_chat_members` (a DM returns only the current sender).
 - **Full SSRF coverage**: all outbound HTTP goes through the SDK `fetchWithSsrFGuard` — DNS pinning (anti-rebinding), IPv4+IPv6 private/reserved-address blocking, per-hop redirect validation, hostname allowlist.
+- **Tool-result fencing**: model-visible tool output is wrapped in an `EXTERNAL_UNTRUSTED_CONTENT` marker to resist prompt injection from documents/messages; failures also carry `http_status` / `feishu_code` / `feishu_msg` / `feishu_log_id`.
+- **Native-card sanitization**: model-authored cards get an element allowlist, http(s)-only button URLs, a callback-value gate, and text escaping before send.
 - **Test base**: a vitest suite (`npm test`) covering core security and routing paths.
 - **Plugin Inspector report**: `clawhub package validate` with 0 warnings.
+
+### Multi-account & Tools
+
+- **Per-call account targeting**: every tool accepts an optional `accountId`; an explicit account that is unconfigured or disabled **fails loudly** instead of silently falling back to the first account.
+- **Config signals**: the manifest declares `toolMetadata.configSignals`, so the host hides tools when `appId`/`appSecret` is missing.
 
 ### Built-in Skills
 
@@ -86,7 +103,7 @@ openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.10.3.tgz
+openclaw plugins install openclaw-lark-2-2026.10.4.tgz
 ```
 
 ---
@@ -124,6 +141,16 @@ The plugin registers the `feishu` channel and shares the `channels.feishu` confi
 
       // streaming cards in groups and DMs
       replyMode: { group: "streaming" },
+
+      // transport: "websocket" (default) | "webhook" (Feishu callbacks)
+      connectionMode: "websocket",
+
+      // optional: admit inbound events into the host's durable queue (default false)
+      // durableIngress: true,
+
+      // optional: routing preference when no explicit accountId is given
+      // (never re-activates a disabled account)
+      // defaultAccount: "plaud",
     },
   },
   plugins: {
@@ -133,6 +160,8 @@ The plugin registers the `feishu` channel and shares the `channels.feishu` confi
 ```
 
 > **Scope tip**: the Feishu app needs the `cardkit:card:write` scope enabled in the Open Platform for streaming cards to work.
+>
+> **Read policy**: `feishu_chat.get` / `feishu_chat_members` are policy-gated. Reading a **non-current** DM requires that account's `allowFrom` to contain `"*"` (note this also widens DM **ingress** admission); cross-group reads follow `groupPolicy`, and `groupPolicy: "disabled"` denies even the current group. Message-history tools (`feishu_im_user_get_messages`, …) are unaffected.
 
 ---
 
@@ -142,7 +171,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 
 | Dimension | **openclaw-lark-2 (ours)** | **@openclaw/feishu (official 2.0)** | **@larksuite/openclaw-lark 7.16 (ByteDance)** |
 |---|:---:|:---:|:---:|
-| Version | **2026.10.3** | 2026.8.1 | 2026.7.16 |
+| Version | **2026.10.4** | 2026.8.1 | 2026.7.16 |
 | OpenClaw compat | **≥2026.8.1 (native 2.0)** | ≥2026.8.1 (native 2.0) | ≥2026.5.4 (1.x, cannot load on 2.0) |
 | Plugin API | 2.0 SDK (`runtime.config.current()`) | 2.0 SDK (`createChatChannelPlugin`) | 1.x API (`loadConfig`, deprecated) |
 | Contract tools | **38** | 14 | 39 |
@@ -159,8 +188,11 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 | Typing indicator | ✅ reaction-based | ✅ reaction-based | ✅ reaction-based |
 | reactions / doc comments | ✅ | ✅ | ✅ |
 | OAuth device-flow | ✅ | ❌ (app-registration wizard only) | ✅ |
-| Dual-channel webhook | ❌ WebSocket only | ✅ WS + webhook | ❌ |
-| Test suite | ✅ **vitest base (15 files / 128 tests)** | ✅ 99 files / 1202 tests | ❌ none |
+| Dual-channel webhook | ✅ **WS + webhook (webhook optional)** | ✅ WS + webhook | ❌ |
+| Durable inbound queue | ✅ **optional (`durableIngress`)** | ✅ on by default | ❌ |
+| Read policy | ✅ matches official | ✅ | ❌ |
+| Per-call account targeting | ✅ `accountId` on every tool | ✅ | ❌ |
+| Test suite | ✅ **vitest base (28 files / 214 tests)** | ✅ 99 files / 1202 tests | ❌ none |
 | Security audit | ✅ plugin-inspector report | ✅ security-audit + SSRF | ⚠️ none |
 
 ### Design Rationale
@@ -175,9 +207,11 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 
 | Item | Note |
 |---|---|
-| Dual-channel webhook | Not yet implemented (like ByteDance), WebSocket only; the official supports WS + webhook. |
+| Webhook transport | Supported and **optional** (`connectionMode: "webhook"`); WebSocket stays the default. |
+| Durable inbound queue | Supported but **off by default** (`durableIngress: true` to enable); the official enables it by default. When enabled, behavior matches the original direct WS dispatch, plus per-conversation ordering and restart survival. |
+| Read policy | Semantics match the official; because our tools get no host context, the read context is reconstructed from the **current message ticket** — so with no message context (cron/heartbeat) cross-DM reads are denied by policy. |
 | PIN actions | Supported here; missing in ByteDance 7.16. |
-| Test scale | Minimal base (128 tests), far smaller than the official (1202), but covers core security & routing paths. |
+| Test scale | Minimal base (28 files / 214 tests), far smaller than the official (1202), but covers core security & routing paths. |
 | Tool-display toggle | Toggle via `toolUseDisplay.enabled:false`; on by default. |
 
 ---
@@ -185,6 +219,38 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 ## Changelog
 
 <details open>
+<summary><b>Unreleased</b> · 2026-10-14 · Align with official <code>@openclaw/feishu</code>: reliability primitives · read policy · multi-account routing</summary>
+
+Ported the official plugin's (openclaw `main` `2f620b9`, 2026-10-12) more mature engineering primitives, plus multi-account targeting and read policy. **Most additions are optional or behavior-neutral**; the read policy is the only intentional tightening.
+
+**Reliability**
+
+- **Tool-result fencing + structured errors**: model-visible output is wrapped in `EXTERNAL_UNTRUSTED_CONTENT`; failures carry `http_status`/`feishu_code`/`feishu_msg`/`feishu_log_id`.
+- **Unified send rate-limit retry**: 429 and `230020`/`11232` (including “200 but the body is a rate-limit code”) across all IM send paths.
+- **Per-conversation queue timeout**: each dispatch capped at 5 minutes; a timeout no longer blocks later messages in the same conversation (#70133).
+- **Retry-stable dedupe**: text/post dedupe on `sender+chat+create_time+content hash` (#46778).
+- **Native-card sanitization**: element allowlist + http(s)-only button URLs + callback-value gate + text escaping (model-authored cards only).
+- **Probe error cache (1 min) + directory pagination guards**; **rich posts split by 30KB serialized bytes**.
+
+**Transport & delivery**
+
+- **Webhook transport** (`connectionMode: "webhook"`, optional): signature check + skew bound + challenge + body/concurrency pre-auth guards.
+- **Durable inbound queue** (`durableIngress: true`, off by default): host queue + per-conversation lane ordering + retryable/permanent classification.
+- **Send authority**: a retired/aborted turn throws `PlatformMessageNotDispatchedError` (`retryable:false`) before sending, so stale messages are never dispatched.
+
+**Multi-account & read policy**
+
+- **Per-call account targeting**: every tool accepts an optional `accountId`; unknown/unconfigured/disabled accounts fail loudly instead of silently falling back to the first account.
+- **Read policy** (matching official): `feishu_chat.get` / `feishu_chat_members` are gated — the current conversation is readable; cross-group reads follow `groupPolicy`; **cross-DM reads require `allowFrom` to contain `*`**.
+- **Config signals**: manifest `toolMetadata.configSignals` hides tools when credentials are absent.
+
+**Fixes**: `config-schema` gained `durableIngress` / `defaultAccount`; `.d.ts` kept in sync with runtime.
+
+**Tests**: 15 files / 128 tests → **28 files / 214 tests**; `clawhub package validate` passes.
+
+</details>
+
+<details>
 <summary><b>2026.10.3</b> · 2026-10-03 · Skills rewritten as lark-cli thin pointers + always-on channel formatting</summary>
 
 All built-in skills are reworked around **`lark-cli`** as the single operation entry point: `feishu-create-doc` / `feishu-fetch-doc` / `feishu-update-doc` are merged into `feishu-doc` (the `feishu_mcp_*` tool names they referenced were long dead); `feishu-bitable` / `feishu-calendar` / `feishu-im-read` / `feishu-task` now point to the matching `lark-cli <domain>` and official `lark-*` skills, keeping only channel-specific notes. Added a "lark-cli missing" fallback that tells the user to install `@larksuite/cli` instead of falling back to the disabled tools. Fixed the dead `alwaysActive` flag in `feishu-channel-rules` — Lark card formatting rules are now injected every turn via `agentPrompt.inboundFormattingHints`; corrected the outdated notes on automatic heading downgrade and image URL→key resolution. Skill size: 4803 → 538 lines. (15 files / 128 tests)

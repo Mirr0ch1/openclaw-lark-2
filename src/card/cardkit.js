@@ -17,6 +17,7 @@ const lark_logger_1 = require("../core/lark-logger.js");
 const message_unavailable_1 = require("../core/message-unavailable.js");
 const targets_1 = require("../core/targets.js");
 const card_error_1 = require("./card-error.js");
+const send_rate_limit_1 = require("../messaging/outbound/send-rate-limit.js");
 const log = (0, lark_logger_1.larkLogger)('card/cardkit');
 // ---------------------------------------------------------------------------
 // Helpers
@@ -144,14 +145,14 @@ async function sendCardByCardId(params) {
         const response = await (0, message_unavailable_1.runWithMessageUnavailableGuard)({
             messageId: normalizedId,
             operation: 'im.message.reply(interactive.cardkit)',
-            fn: () => client.im.message.reply({
+            fn: () => (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.reply({
                 path: { message_id: normalizedId },
                 data: {
                     content: contentPayload,
                     msg_type: 'interactive',
                     reply_in_thread: replyInThread,
                 },
-            }),
+            }), 'im.message.reply(cardkit)'),
         });
         return {
             messageId: response?.data?.message_id ?? '',
@@ -163,7 +164,7 @@ async function sendCardByCardId(params) {
         throw new Error(`[feishu-send] Invalid target: "${to}"`);
     }
     const receiveIdType = (0, targets_1.resolveReceiveIdType)(target);
-    const response = await client.im.message.create({
+    const response = await (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.create({
         // SDK 类型将 receive_id_type 限定为字面量联合，但运行时接受动态值
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         params: { receive_id_type: receiveIdType },
@@ -172,7 +173,7 @@ async function sendCardByCardId(params) {
             msg_type: 'interactive',
             content: contentPayload,
         },
-    });
+    }), 'im.message.create(cardkit)');
     return {
         messageId: response?.data?.message_id ?? '',
         chatId: response?.data?.chat_id ?? '',

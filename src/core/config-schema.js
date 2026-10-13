@@ -150,6 +150,8 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
     connectionMode: ConnectionModeEnum.optional(),
     webhookPath: zod_1.z.string().optional(),
     webhookPort: zod_1.z.number().optional(),
+    // Opt-in durable inbound admission (host ingress queue). Default off.
+    durableIngress: zod_1.z.boolean().optional(),
     dmPolicy: DmPolicyEnum.optional(),
     allowFrom: AllowFromSchema,
     groupPolicy: GroupPolicyEnum.optional(),
@@ -195,6 +197,9 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
 // ---------------------------------------------------------------------------
 exports.FeishuConfigSchema = exports.FeishuAccountConfigSchema.extend({
     accounts: zod_1.z.record(zod_1.z.string(), exports.FeishuAccountConfigSchema).optional(),
+    // Routing preference for tools/outbound when no explicit account is given.
+    // Must not reactivate a disabled account (enforced by the resolver).
+    defaultAccount: zod_1.z.string().optional(),
 }).superRefine((data, ctx) => {
     // When dmPolicy is "open", allowFrom must contain the wildcard "*".
     if (data.dmPolicy === 'open') {

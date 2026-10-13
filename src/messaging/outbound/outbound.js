@@ -10,6 +10,9 @@ const synthetic_target_1 = require("../../core/synthetic-target.js");
 const accounts_1 = require("../../core/accounts.js");
 const deliver_1 = require("./deliver.js");
 const media_1 = require("./media.js");
+const native_card_1 = require("../../card/native-card.js");
+const post_chunking_1 = require("./post-chunking.js");
+const send_context_1 = require("./send-context.js");
 const multi_image_mode_1 = require("./multi-image-mode.js");
 const outbound_mention_1 = require("./outbound-mention.js");
 const bot_peer_context_1 = require("./bot-peer-context.js");
@@ -65,7 +68,10 @@ function resolveFeishuSendContext(params) {
 // ---------------------------------------------------------------------------
 exports.feishuOutbound = {
     deliveryMode: 'direct',
-    chunker: (text, limit) => lark_client_1.LarkClient.runtime.channel.text.chunkMarkdownText(text, limit),
+    // Envelope-aware: split by character limit AND by the serialized 30 KB
+    // rich-post byte limit, so multi-byte/CJK replies are never rejected.
+    // Ported from @openclaw/feishu `chunkFeishuPostMarkdown`.
+    chunker: (text, limit) => (0, post_chunking_1.chunkFeishuPostMarkdown)({ text, limit }),
     chunkerMode: 'markdown',
     textChunkLimit: 15000,
     sendText: async ({ cfg, to, text, accountId, replyToId, threadId }) => {
@@ -152,11 +158,16 @@ exports.feishuOutbound = {
         // --- channelData.feishu.card: card message path ---
         // Feishu card messages are standalone (msg_type="interactive"), so
         // text and media must be sent as separate messages around the card.
-        if (feishuData?.card) {
+        // Sanitise the model-authored card; if nothing usable survives, treat it
+        // as absent and fall through to the standard text/media path.
+        const modelCard = feishuData?.card
+            ? (0, native_card_1.sanitizeModelAuthoredCard)(feishuData.card)
+            : undefined;
+        if (modelCard) {
             if (text.trim()) {
                 await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text });
             }
-            const cardResult = await (0, deliver_1.sendCardLark)({ ...ctx, to: ctx.to, card: feishuData.card });
+            const cardResult = await (0, deliver_1.sendCardLark)({ ...ctx, to: ctx.to, card: modelCard });
             const warnings = [];
             for (const mediaUrl of mediaUrls) {
                 const mediaResult = await (0, deliver_1.sendMediaLark)({ ...ctx, to: ctx.to, mediaUrl, mediaLocalRoots });
@@ -234,3 +245,17 @@ exports.feishuOutbound = {
         };
     },
 };
+// Establish the host's send-authority scope for every adapter entry point, so
+// a retired/aborted turn cannot dispatch and every physical send re-checks.
+// Ported from @openclaw/feishu `src/send-context.ts`.
+for (const entry of ['sendText', 'sendMedia', 'sendPayload']) {
+    const original = exports.feishuOutbound[entry];
+    if (typeof original !== 'function') {
+        continue;
+    }
+    exports.feishuOutbound[entry] = (args) => (0, send_context_1.withFeishuSendContext)({
+        signal: args?.signal,
+        assertDirectAdapterHandoff: args?.assertDirectAdapterHandoff,
+        onPlatformSendDispatch: args?.onPlatformSendDispatch,
+    }, () => original(args));
+}

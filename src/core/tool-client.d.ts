@@ -173,4 +173,10 @@ export declare class ToolClient {
  * @param config - OpenClaw 配置对象
  * @param accountIndex - 回退账号索引（默认 0）
  */
-export declare function createToolClient(config: ClawdbotConfig, accountIndex?: number): ToolClient;
+export interface CreateToolClientOptions {
+    /** Fallback index among enabled accounts when no account is otherwise resolved. */
+    accountIndex?: number;
+    /** Explicit per-call params (overrides the ambient tool-call scope). */
+    executeParams?: Record<string, unknown>;
+}
+export declare function createToolClient(config: ClawdbotConfig, options?: number | CreateToolClientOptions): ToolClient;

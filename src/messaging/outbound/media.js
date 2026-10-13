@@ -66,6 +66,7 @@ const lark_client_1 = require("../../core/lark-client.js");
 const ssrf_1 = require("../../core/ssrf.js");
 const targets_1 = require("../../core/targets.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
+const send_rate_limit_1 = require("./send-rate-limit.js");
 const media_url_utils_1 = require("./media-url-utils.js");
 const log = (0, lark_logger_1.larkLogger)('outbound/media');
 // ---------------------------------------------------------------------------
@@ -387,10 +388,10 @@ async function uploadFileLark(params) {
 async function sendMediaMessage(params) {
     const { client, to, content, msgType, replyToMessageId, replyInThread } = params;
     if (replyToMessageId) {
-        const response = await client.im.message.reply({
+        const response = await (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.reply({
             path: { message_id: replyToMessageId },
             data: { content, msg_type: msgType, reply_in_thread: replyInThread },
-        });
+        }), 'im.message.reply(media)');
         return {
             messageId: response?.data?.message_id ?? '',
             chatId: response?.data?.chat_id ?? '',
@@ -402,10 +403,10 @@ async function sendMediaMessage(params) {
             `Expected a chat_id (oc_*), open_id (ou_*), or user_id.`);
     }
     const receiveIdType = (0, targets_1.resolveReceiveIdType)(target);
-    const response = await client.im.message.create({
+    const response = await (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.create({
         params: { receive_id_type: receiveIdType },
         data: { receive_id: target, msg_type: msgType, content },
-    });
+    }), 'im.message.create(media)');
     return {
         messageId: response?.data?.message_id ?? '',
         chatId: response?.data?.chat_id ?? '',

@@ -19,11 +19,12 @@ exports.formatToolError = formatToolError;
 exports.createToolLogger = createToolLogger;
 exports.validateRequiredParams = validateRequiredParams;
 exports.validateEnum = validateEnum;
-const accounts_1 = require("../core/accounts.js");
 const lark_client_1 = require("../core/lark-client.js");
-const lark_ticket_1 = require("../core/lark-ticket.js");
 const tool_client_1 = require("../core/tool-client.js");
+const tool_account_1 = require("../core/tool-account.js");
 const tools_config_1 = require("../core/tools-config.js");
+const api_error_1 = require("../core/api-error.js");
+const security_runtime_1 = require("openclaw/plugin-sdk/security-runtime");
 // ---------------------------------------------------------------------------
 // 配置解析
 // ---------------------------------------------------------------------------
@@ -64,28 +65,11 @@ Object.defineProperty(exports, "getResolvedConfig", { enumerable: true, get: fun
  * ```
  */
 function createClientGetter(config, accountIndex = 0) {
-    return () => {
-        // `config` may be stale after a hot-reload; use live config for account resolution.
-        const resolveConfig = (0, lark_client_1.getResolvedConfig)(config);
-        // 优先使用 LarkTicket 中的 accountId 进行动态账号解析
-        const ticket = (0, lark_ticket_1.getTicket)();
-        if (ticket?.accountId) {
-            const account = (0, accounts_1.getLarkAccount)(resolveConfig, ticket.accountId);
-            if (account.enabled && account.configured) {
-                return lark_client_1.LarkClient.fromAccount(account).sdk;
-            }
-        }
-        // 回退：使用 accountIndex 指定的账号
-        const accounts = (0, accounts_1.getEnabledLarkAccounts)(resolveConfig);
-        if (accounts.length === 0) {
-            throw new Error('No enabled Feishu accounts configured. ' + 'Please add appId and appSecret in config under channels.feishu');
-        }
-        if (accountIndex >= accounts.length) {
-            throw new Error(`Requested account index ${accountIndex} but only ${accounts.length} accounts available`);
-        }
-        const account = accounts[accountIndex];
-        const larkClient = lark_client_1.LarkClient.fromAccount(account);
-        return larkClient.sdk;
+    return (executeParams) => {
+        // Account resolution is delegated to the shared, strict resolver so an
+        // explicit `params.accountId` is validated and never silently ignored.
+        const account = (0, tool_account_1.resolveContextualFeishuToolAccount)(config, accountIndex, executeParams);
+        return lark_client_1.LarkClient.fromAccount(account).sdk;
     };
 }
 /**
@@ -103,23 +87,8 @@ function createClientGetter(config, accountIndex = 0) {
  * const client = LarkClient.fromAccount(account);
  * ```
  */
-function getFirstAccount(config) {
-    // `config` may be stale after a hot-reload; use live config for account resolution.
-    const resolveConfig = (0, lark_client_1.getResolvedConfig)(config);
-    // 优先使用 LarkTicket 中的 accountId
-    const ticket = (0, lark_ticket_1.getTicket)();
-    if (ticket?.accountId) {
-        const account = (0, accounts_1.getLarkAccount)(resolveConfig, ticket.accountId);
-        if (account.enabled && account.configured) {
-            return account;
-        }
-    }
-    // 回退到第一个启用的账号
-    const accounts = (0, accounts_1.getEnabledLarkAccounts)(resolveConfig);
-    if (accounts.length === 0) {
-        throw new Error('No enabled Feishu accounts configured. ' + 'Please add appId and appSecret in config under channels.feishu');
-    }
-    return accounts[0];
+function getFirstAccount(config, executeParams) {
+    return (0, tool_account_1.resolveContextualFeishuToolAccount)(config, 0, executeParams);
 }
 /**
  * 创建工具上下文，一次性返回所有常用的辅助工具
@@ -158,7 +127,7 @@ function createToolContext(api, toolName, options) {
     const accountIndex = options?.accountIndex ?? 0;
     return {
         getClient: createClientGetter(config, accountIndex),
-        toolClient: () => (0, tool_client_1.createToolClient)(config, accountIndex),
+        toolClient: (executeParams) => (0, tool_client_1.createToolClient)(config, { accountIndex, executeParams }),
         log: createToolLogger(api, toolName),
     };
 }
@@ -218,16 +187,45 @@ function registerTool(api, tool, opts) {
     const toolName = typeof tool === 'function' ? tool.name : tool.name;
     if (!toolName) {
         // 如果无法提取工具名，直接注册（不拦截）
-        api.registerTool(tool, opts);
+        api.registerTool(augmentFeishuTool(tool), opts);
         return true;
     }
     // 检查是否应该注册
     if (!checkToolRegistration(api, toolName)) {
         return false;
     }
-    // 通过检查，调用原始的 registerTool
-    api.registerTool(tool, opts);
+    // 通过检查，注册增强后的工具（见 augmentFeishuTool）
+    api.registerTool(augmentFeishuTool(tool), opts);
     return true;
+}
+/**
+ * Augment a tool so that per-call `accountId` routing is reachable:
+ *
+ * - `parameters` gains an optional `accountId` property (per union variant);
+ * - `execute` runs inside the per-tool-call param scope so the client getters
+ *   can read the raw params without every tool body threading them through.
+ *
+ * This is applied at the single registration choke point, so it covers every
+ * tool without editing 36 `execute` bodies. Function-form tool factories are
+ * wrapped recursively. Tools without an `execute` are passed through untouched.
+ */
+function augmentFeishuTool(tool) {
+    if (typeof tool === 'function') {
+        return (...args) => augmentFeishuTool(tool(...args));
+    }
+    if (!tool || typeof tool !== 'object' || typeof tool.execute !== 'function') {
+        return tool;
+    }
+    const originalExecute = tool.execute;
+    return {
+        ...tool,
+        parameters: (0, tool_account_1.withAccountIdToolParam)(tool.parameters),
+        // Forward every argument the host supplies (toolCallId, params, signal,
+        // onUpdate, …) so cancellation/streaming callbacks are never dropped.
+        execute(...args) {
+            return (0, tool_account_1.withFeishuToolCallParams)(args[1], () => originalExecute.call(tool, ...args));
+        },
+    };
 }
 // ---------------------------------------------------------------------------
 // 返回值格式化
@@ -250,11 +248,16 @@ function registerTool(api, tool, opts) {
  */
 function formatToolResult(data, options = {}) {
     const { indent = 2 } = options;
+    const text = JSON.stringify(data, null, indent) ?? '';
     return {
         content: [
             {
+                // Fence untrusted Feishu payloads so a hostile doc/message cannot
+                // smuggle instructions into the model. Only the model-visible
+                // text is wrapped; `details` keeps the exact remote payload.
+                // Ported from @openclaw/feishu `feishuExternalToolResult`.
                 type: 'text',
-                text: JSON.stringify(data, null, indent),
+                text: (0, security_runtime_1.wrapExternalContent)(text, { source: 'api', includeWarning: false }),
             },
         ],
         details: data, // 始终包含 details
@@ -279,8 +282,22 @@ function formatToolResult(data, options = {}) {
  */
 function formatToolError(error, context) {
     const errorMsg = error instanceof Error ? error.message : String(error);
+    // Surface structured Feishu error metadata (http status / business code /
+    // msg / log_id) so scope-missing (99991672) and similar failures are
+    // diagnosable without raw logs. Ported from @openclaw/feishu `tool-result.ts`.
+    const meta = (0, api_error_1.extractFeishuApiErrorMeta)(error);
+    const structuredMeta = {};
+    if (meta.httpStatus !== undefined)
+        structuredMeta.http_status = meta.httpStatus;
+    if (meta.feishuCode !== undefined)
+        structuredMeta.feishu_code = meta.feishuCode;
+    if (meta.feishuMsg !== undefined)
+        structuredMeta.feishu_msg = meta.feishuMsg;
+    if (meta.feishuLogId !== undefined)
+        structuredMeta.feishu_log_id = meta.feishuLogId;
     return formatToolResult({
         error: errorMsg,
+        ...structuredMeta,
         ...context,
     });
 }

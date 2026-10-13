@@ -91,6 +91,14 @@ export declare class LarkClient {
         handlers: Record<string, (data: unknown) => Promise<void>>;
         abortSignal?: AbortSignal;
         autoProbe?: boolean;
+        /**
+         * Optional dispatch interposer, e.g. for durable ingress admission.
+         * Receives the dispatcher's original `invoke` and returns the
+         * replacement `invoke`.
+         */
+        wrapInvoke?: (base: {
+            invoke: (data: unknown, params?: unknown) => Promise<unknown>;
+        }) => (data: unknown, params?: unknown) => Promise<unknown>;
     }): Promise<void>;
     /** Whether a WebSocket client is currently active. */
     get wsConnected(): boolean;

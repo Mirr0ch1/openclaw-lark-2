@@ -53,6 +53,730 @@
       "feishu_task_section"
     ]
   },
+  "toolMetadata": {
+    "feishu_bitable_app": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_bitable_app_table": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_bitable_app_table_field": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_bitable_app_table_record": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_bitable_app_table_view": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_calendar_calendar": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_calendar_event": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_calendar_event_attendee": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_calendar_freebusy": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_chat": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_chat_members": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_create_doc": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_doc_comments": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_doc_media": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_drive_file": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_fetch_doc": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_get_user": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_im_bot_image": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_im_user_fetch_resource": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_im_user_get_messages": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_im_user_get_thread_messages": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_im_user_message": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_im_user_search_messages": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_oauth": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_oauth_batch_auth": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_search_doc_wiki": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_search_user": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_sheet": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_task_comment": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_task_subtask": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_task_task": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_task_agent": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_task_attachment": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_task_tasklist": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_update_doc": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_wiki_space": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_wiki_space_node": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    },
+    "feishu_task_section": {
+      "configSignals": [
+        {
+          "rootPath": "channels.feishu",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        },
+        {
+          "rootPath": "channels.feishu",
+          "overlayMapPath": "accounts",
+          "required": [
+            "appId",
+            "appSecret"
+          ]
+        }
+      ]
+    }
+  },
   "channelConfigs": {
     "feishu": {
       "schema": {

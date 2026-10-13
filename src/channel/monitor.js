@@ -17,6 +17,8 @@ const lark_logger_1 = require("../core/lark-logger.js");
 const shutdown_hooks_1 = require("../core/shutdown-hooks.js");
 const dedup_1 = require("../messaging/inbound/dedup.js");
 const event_handlers_1 = require("./event-handlers.js");
+const webhook_1 = require("./webhook.js");
+const ingress_1 = require("./ingress.js");
 const mlog = (0, lark_logger_1.larkLogger)('channel/monitor');
 // ---------------------------------------------------------------------------
 // Single-account monitor
@@ -33,12 +35,7 @@ async function monitorSingleAccount(params) {
     const { accountId } = account;
     const log = runtime?.log ?? ((...args) => mlog.info(args.map(String).join(' ')));
     const error = runtime?.error ?? ((...args) => mlog.error(args.map(String).join(' ')));
-    // Only websocket mode is supported in the monitor path.
     const connectionMode = account.config.connectionMode ?? 'websocket';
-    if (connectionMode !== 'websocket') {
-        log(`feishu[${accountId}]: webhook mode not implemented in monitor`);
-        return;
-    }
     // Message dedup — filters duplicate deliveries from WebSocket reconnects.
     const dedupCfg = account.config.dedup;
     const messageDedup = new dedup_1.MessageDedup({
@@ -46,7 +43,6 @@ async function monitorSingleAccount(params) {
         maxEntries: dedupCfg?.maxEntries,
     });
     log(`feishu[${accountId}]: message dedup enabled (ttl=${messageDedup['ttlMs']}ms, max=${messageDedup['maxEntries']})`);
-    log(`feishu[${accountId}]: starting WebSocket connection...`);
     // Create LarkClient instance — manages SDK client, WS, and bot identity.
     const lark = lark_client_1.LarkClient.fromAccount(account);
     // Attach dedup instance so it is disposed together with the client.
@@ -65,32 +61,71 @@ async function monitorSingleAccount(params) {
         log,
         error,
     };
-    await lark.startWS({
-        handlers: {
-            'im.message.receive_v1': (data) => (0, event_handlers_1.handleMessageEvent)(ctx, data),
-            'im.message.message_read_v1': async () => { },
-            'im.message.reaction.created_v1': (data) => (0, event_handlers_1.handleReactionEvent)(ctx, data),
-            // These events are expected in normal usage but do not affect the
-            // plugin's current behavior. Register no-op handlers to avoid SDK
-            // warnings about missing handlers.
-            'im.message.reaction.deleted_v1': async () => { },
-            'im.chat.access_event.bot_p2p_chat_entered_v1': async () => { },
-            'im.chat.member.bot.added_v1': (data) => (0, event_handlers_1.handleBotMembershipEvent)(ctx, data, 'added'),
-            'im.chat.member.bot.deleted_v1': (data) => (0, event_handlers_1.handleBotMembershipEvent)(ctx, data, 'removed'),
-            'vc.bot.meeting_invited_v1': (data) => (0, event_handlers_1.handleVcMeetingInvitedEvent)(ctx, data),
-            // Drive comment event — fires when a user adds a comment or reply on a document.
-            'drive.notice.comment_add_v1': (data) => (0, event_handlers_1.handleCommentEvent)(ctx, data),
-            // 飞书 SDK EventDispatcher.register 不支持带返回值的处理器，此处 as any 是 SDK 类型限制的变通
-            'card.action.trigger': ((data) => 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (0, event_handlers_1.handleCardActionEvent)(ctx, data)),
-        },
-        abortSignal,
-    });
+    const handlers = buildFeishuEventHandlers(ctx);
+    if (connectionMode === 'webhook') {
+        // Webhook transport still needs bot identity for mention gating.
+        await lark.probe();
+        log(`feishu[${accountId}]: bot open_id resolved: ${lark.botOpenId ?? 'unknown'}`);
+        await (0, webhook_1.monitorFeishuWebhook)({ account, accountId, runtime, abortSignal, handlers, log });
+        return;
+    }
+    log(`feishu[${accountId}]: starting WebSocket connection...`);
+    // Durable admission is opt-in (`durableIngress: true`): recognised event
+    // types go through the host ingress queue, everything else (incl. card
+    // actions) still dispatches directly. Default off = unchanged behavior.
+    let wsIngress = null;
+    const wrapInvoke = account.config.durableIngress === true
+        ? (base) => {
+            const ingress = (0, ingress_1.createFeishuDurableIngress)({
+                accountId,
+                runtime,
+                dispatcher: base,
+                log: (message) => log(message),
+            });
+            if (!ingress) {
+                log(`feishu[${accountId}]: durableIngress requested but the host exposes no ingress queue; using direct dispatch`);
+                return base.invoke;
+            }
+            ingress.start();
+            wsIngress = ingress;
+            return (data, params) => ingress.invoke(data, params);
+        }
+        : undefined;
+    try {
+        await lark.startWS({ handlers, abortSignal, wrapInvoke });
+    }
+    finally {
+        // Stop the ingress even if the socket failed to start, so its poll
+        // loop does not outlive the account.
+        await wsIngress?.stop();
+    }
     // startWS resolves when abortSignal fires — probe result is logged inside startWS.
     log(`feishu[${accountId}]: bot open_id resolved: ${lark.botOpenId ?? 'unknown'}`);
     log(`feishu[${accountId}]: WebSocket client started`);
     mlog.info(`websocket started for account ${accountId}`);
+}
+/**
+ * Build the Feishu event → handler map shared by both transports
+ * (WebSocket EventDispatcher and the webhook route).
+ */
+function buildFeishuEventHandlers(ctx) {
+    return {
+        'im.message.receive_v1': (data) => (0, event_handlers_1.handleMessageEvent)(ctx, data),
+        'im.message.message_read_v1': async () => { },
+        'im.message.reaction.created_v1': (data) => (0, event_handlers_1.handleReactionEvent)(ctx, data),
+        // These events are expected in normal usage but do not affect the
+        // plugin's current behavior. Register no-op handlers to avoid SDK
+        // warnings about missing handlers.
+        'im.message.reaction.deleted_v1': async () => { },
+        'im.chat.access_event.bot_p2p_chat_entered_v1': async () => { },
+        'im.chat.member.bot.added_v1': (data) => (0, event_handlers_1.handleBotMembershipEvent)(ctx, data, 'added'),
+        'im.chat.member.bot.deleted_v1': (data) => (0, event_handlers_1.handleBotMembershipEvent)(ctx, data, 'removed'),
+        'vc.bot.meeting_invited_v1': (data) => (0, event_handlers_1.handleVcMeetingInvitedEvent)(ctx, data),
+        // Drive comment event — fires when a user adds a comment or reply on a document.
+        'drive.notice.comment_add_v1': (data) => (0, event_handlers_1.handleCommentEvent)(ctx, data),
+        // 飞书 SDK EventDispatcher.register 不支持带返回值的处理器，此处是 SDK 类型限制的变通。
+        'card.action.trigger': ((data) => (0, event_handlers_1.handleCardActionEvent)(ctx, data)),
+    };
 }
 // ---------------------------------------------------------------------------
 // Public API

@@ -26,6 +26,21 @@
  */
 export declare function extractLarkApiCode(err: unknown): number | undefined;
 /**
+ * Structured Feishu API error metadata (HTTP status, business code, msg,
+ * log_id) for tool error results. Mirrors @openclaw/feishu's
+ * `extractFeishuApiErrorMeta`.
+ */
+export interface FeishuApiErrorMeta {
+    message: string;
+    code?: unknown;
+    httpStatus?: number;
+    feishuCode?: number | string;
+    feishuMsg?: string;
+    feishuLogId?: string;
+    troubleshooter?: string;
+}
+export declare function extractFeishuApiErrorMeta(error: unknown): FeishuApiErrorMeta;
+/**
  * Assert that a Lark SDK response is successful (code === 0).
  *
  * For permission errors (code LARK_ERROR.APP_SCOPE_MISSING (99991672)), the thrown error includes the

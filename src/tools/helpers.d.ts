@@ -8,7 +8,7 @@
  */
 import type { ClawdbotConfig, OpenClawPluginApi } from 'openclaw/plugin-sdk';
 import type { Client as LarkSdkClient } from '@larksuiteoapi/node-sdk';
-import type { LarkAccount } from '../core/types';
+import type { ConfiguredLarkAccount } from '../core/types';
 import type { ToolClient } from '../core/tool-client';
 /**
  * 工具返回值的标准格式
@@ -22,8 +22,11 @@ export interface ToolResult {
 }
 /**
  * 客户端获取器函数类型
+ *
+ * 可传入显式 `executeParams`（含 `accountId`）覆盖当前工具调用作用域；
+ * 省略时使用注册时包裹的 per-tool-call 参数作用域。
  */
-export type ClientGetter = () => LarkSdkClient;
+export type ClientGetter = (executeParams?: Record<string, unknown>) => LarkSdkClient;
 /**
  * 工具日志记录器接口
  */
@@ -40,7 +43,7 @@ export interface ToolContext {
     /** @deprecated 使用 `toolClient().sdk` 代替 */
     getClient: ClientGetter;
     /** 获取当前请求对应的 {@link ToolClient} 实例 */
-    toolClient: () => ToolClient;
+    toolClient: (executeParams?: Record<string, unknown>) => ToolClient;
     /** 工具日志记录器 */
     log: ToolLogger;
 }
@@ -90,7 +93,7 @@ export declare function createClientGetter(config: ClawdbotConfig, accountIndex?
  * const client = LarkClient.fromAccount(account);
  * ```
  */
-export declare function getFirstAccount(config: ClawdbotConfig): LarkAccount;
+export declare function getFirstAccount(config: ClawdbotConfig, executeParams?: Record<string, unknown>): ConfiguredLarkAccount;
 /**
  * 创建工具上下文，一次性返回所有常用的辅助工具
  *

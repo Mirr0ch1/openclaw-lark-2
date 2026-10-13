@@ -58,6 +58,13 @@ const lark_logger_1 = require("./lark-logger.js");
 const runtime_store_1 = require("./runtime-store.js");
 const version_1 = require("./version.js");
 const log = (0, lark_logger_1.larkLogger)('core/lark-client');
+/**
+ * Failed probe results are cached for at most this long, regardless of the
+ * caller's requested max age. Keeps a healthy identity warm for the full
+ * window while letting a transient outage be re-checked promptly.
+ * Mirrors @openclaw/feishu probe TTLs (success 10m / error 1m).
+ */
+const PROBE_ERROR_TTL_MS = 60 * 1000;
 // ---------------------------------------------------------------------------
 // Inject User-Agent into all Feishu SDK requests
 // ---------------------------------------------------------------------------
@@ -254,8 +261,13 @@ class LarkClient {
      */
     async probe(opts) {
         const maxAge = opts?.maxAgeMs ?? 0;
-        if (maxAge > 0 && this._lastProbeResult && Date.now() - this._lastProbeAt < maxAge) {
-            return this._lastProbeResult;
+        if (maxAge > 0 && this._lastProbeResult) {
+            // Cache successes longer than failures so a transient error does not
+            // suppress recovery detection for the whole window.
+            const effectiveMaxAge = this._lastProbeResult.ok === false ? Math.min(maxAge, PROBE_ERROR_TTL_MS) : maxAge;
+            if (Date.now() - this._lastProbeAt < effectiveMaxAge) {
+                return this._lastProbeResult;
+            }
         }
         if (!this.account.appId || !this.account.appSecret) {
             return { ok: false, error: 'missing credentials (appId, appSecret)' };
@@ -317,7 +329,7 @@ class LarkClient {
      * The returned Promise resolves when `abortSignal` fires.
      */
     async startWS(opts) {
-        const { handlers, abortSignal, autoProbe = true } = opts;
+        const { handlers, abortSignal, autoProbe = true, wrapInvoke } = opts;
         if (autoProbe)
             await this.probe();
         const dispatcher = new Lark.EventDispatcher({
@@ -325,6 +337,13 @@ class LarkClient {
             verificationToken: this.account.verificationToken ?? '',
         });
         dispatcher.register(handlers);
+        if (typeof wrapInvoke === 'function') {
+            // Let the caller interpose dispatch (e.g. durable ingress admission)
+            // while the SDK keeps using this same dispatcher instance. The
+            // original invoke is handed over so the wrapper can fall back to it.
+            const baseInvoke = dispatcher.invoke.bind(dispatcher);
+            dispatcher.invoke = wrapInvoke({ invoke: baseInvoke });
+        }
         const { appId, appSecret } = this.requireCredentials();
         // Close any existing WSClient before creating a new one to prevent
         // orphaned connections when startWS is called multiple times.

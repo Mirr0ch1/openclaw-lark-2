@@ -16,6 +16,10 @@ exports.listFeishuDirectoryGroupsLive = listFeishuDirectoryGroupsLive;
 const accounts_1 = require("../core/accounts.js");
 const lark_client_1 = require("../core/lark-client.js");
 const targets_1 = require("../core/targets.js");
+const lark_logger_1 = require("../core/lark-logger.js");
+const log = (0, lark_logger_1.larkLogger)('channel/directory');
+/** Hard cap on live directory pagination to bound malformed page tokens. */
+const MAX_DIRECTORY_PAGES = 100;
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
@@ -116,7 +120,8 @@ async function listFeishuDirectoryPeersLive(params) {
             return [];
         const q = params.query?.trim().toLowerCase() || '';
         let pageToken;
-        do {
+        const seenPageTokens = new Set();
+        for (let page = 1; ; page++) {
             const remaining = limit - peers.length;
             const response = await client.contact.user.list({
                 params: {
@@ -137,8 +142,24 @@ async function listFeishuDirectoryPeersLive(params) {
                 if (peers.length >= limit)
                     break;
             }
-            pageToken = response.data?.page_token;
-        } while (pageToken && peers.length < limit);
+            if (peers.length >= limit)
+                break;
+            // Guard against malformed pagination: a repeated or missing token
+            // would otherwise loop forever. Ported from @openclaw/feishu directory.ts.
+            const nextPageToken = response.data?.page_token;
+            if (!nextPageToken)
+                break;
+            if (seenPageTokens.has(nextPageToken)) {
+                log.warn('directory(peers): repeated page token, stopping pagination');
+                break;
+            }
+            if (page >= MAX_DIRECTORY_PAGES) {
+                log.warn(`directory(peers): pagination limit (${MAX_DIRECTORY_PAGES}) exceeded, stopping`);
+                break;
+            }
+            seenPageTokens.add(nextPageToken);
+            pageToken = nextPageToken;
+        }
         return peers;
     }
     catch {
@@ -165,7 +186,8 @@ async function listFeishuDirectoryGroupsLive(params) {
             return [];
         const q = params.query?.trim().toLowerCase() || '';
         let pageToken;
-        do {
+        const seenPageTokens = new Set();
+        for (let page = 1; ; page++) {
             const remaining = limit - groups.length;
             const response = await client.im.chat.list({
                 params: {
@@ -186,8 +208,24 @@ async function listFeishuDirectoryGroupsLive(params) {
                 if (groups.length >= limit)
                     break;
             }
-            pageToken = response.data?.page_token;
-        } while (pageToken && groups.length < limit);
+            if (groups.length >= limit)
+                break;
+            // Guard against malformed pagination: a repeated or missing token
+            // would otherwise loop forever. Ported from @openclaw/feishu directory.ts.
+            const nextPageToken = response.data?.page_token;
+            if (!nextPageToken)
+                break;
+            if (seenPageTokens.has(nextPageToken)) {
+                log.warn('directory(groups): repeated page token, stopping pagination');
+                break;
+            }
+            if (page >= MAX_DIRECTORY_PAGES) {
+                log.warn(`directory(groups): pagination limit (${MAX_DIRECTORY_PAGES}) exceeded, stopping`);
+                break;
+            }
+            seenPageTokens.add(nextPageToken);
+            pageToken = nextPageToken;
+        }
         return groups;
     }
     catch {

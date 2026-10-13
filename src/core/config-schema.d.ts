@@ -47,6 +47,7 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
     }>>;
     webhookPath: z.ZodOptional<z.ZodString>;
     webhookPort: z.ZodOptional<z.ZodNumber>;
+    durableIngress: z.ZodOptional<z.ZodBoolean>;
     dmPolicy: z.ZodOptional<z.ZodEnum<{
         open: "open";
         pairing: "pairing";
@@ -200,6 +201,7 @@ export declare const FeishuConfigSchema: z.ZodObject<{
     }>>;
     webhookPath: z.ZodOptional<z.ZodString>;
     webhookPort: z.ZodOptional<z.ZodNumber>;
+    durableIngress: z.ZodOptional<z.ZodBoolean>;
     dmPolicy: z.ZodOptional<z.ZodEnum<{
         open: "open";
         pairing: "pairing";
@@ -352,6 +354,7 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         }>>;
         webhookPath: z.ZodOptional<z.ZodString>;
         webhookPort: z.ZodOptional<z.ZodNumber>;
+        durableIngress: z.ZodOptional<z.ZodBoolean>;
         dmPolicy: z.ZodOptional<z.ZodEnum<{
             open: "open";
             pairing: "pairing";
@@ -495,6 +498,7 @@ export declare const FeishuConfigSchema: z.ZodObject<{
             blockedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
         }, z.core.$strip>>;
     }, z.core.$strip>>>;
+    defaultAccount: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 /**
  * JSON Schema derived from FeishuConfigSchema.

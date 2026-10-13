@@ -23,6 +23,8 @@ const lark_client_1 = require("../../core/lark-client.js");
 const accounts_1 = require("../../core/accounts.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
 const reactions_1 = require("./reactions.js");
+const send_rate_limit_1 = require("./send-rate-limit.js");
+const native_card_1 = require("../../card/native-card.js");
 const pins_1 = require("./pins.js");
 const deliver_1 = require("./deliver.js");
 const media_1 = require("./media.js");
@@ -193,7 +195,11 @@ exports.feishuMessageActions = {
  * On media upload failure, falls back to sending the URL as a text link.
  */
 async function deliverMessage(cfg, sp, accountId, mediaLocalRoots) {
-    const { to, text, mediaUrl, fileName, replyToMessageId, replyInThread, card } = sp;
+    const { to, text, mediaUrl, fileName, replyToMessageId, replyInThread, card: rawCard } = sp;
+    // Sanitise the model-authored card before use (unsafe button URLs /
+    // callback values stripped, text escaped). `undefined` means nothing
+    // usable survived and the call falls through to text/media.
+    const card = rawCard ? (0, native_card_1.sanitizeModelAuthoredCard)(rawCard) : undefined;
     const payloadType = card ? 'card' : mediaUrl ? 'media' : 'text';
     const target = to || replyToMessageId || 'unknown';
     log.info(`deliverMessage: type=${payloadType}, target=${target}, ` +
@@ -330,9 +336,9 @@ async function handleDelete(cfg, params, accountId) {
     const messageId = (0, param_readers_1.readStringParam)(params, 'messageId', { required: true });
     log.info(`delete: messageId=${messageId}`);
     const client = lark_client_1.LarkClient.fromCfg(cfg, accountId).sdk;
-    const res = await client.im.message.delete({
+    const res = await (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.delete({
         path: { message_id: messageId },
-    });
+    }), 'im.message.delete');
     assertLarkOk(res, `delete message ${messageId}`);
     log.info(`delete: done, messageId=${messageId}`);
     return (0, sdk_compat_1.jsonResult)({ ok: true, messageId, deleted: true });

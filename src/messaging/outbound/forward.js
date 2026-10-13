@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.forwardMessageFeishu = forwardMessageFeishu;
 const lark_client_1 = require("../../core/lark-client.js");
 const targets_1 = require("../../core/targets.js");
+const send_rate_limit_1 = require("./send-rate-limit.js");
 // ---------------------------------------------------------------------------
 // forwardMessageFeishu
 // ---------------------------------------------------------------------------
@@ -32,7 +33,7 @@ async function forwardMessageFeishu(params) {
         throw new Error(`[feishu-forward] Invalid target: "${to}"`);
     }
     const receiveIdType = (0, targets_1.resolveReceiveIdType)(target);
-    const response = await client.im.message.forward({
+    const response = await (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.forward({
         path: {
             message_id: messageId,
         },
@@ -43,7 +44,7 @@ async function forwardMessageFeishu(params) {
         data: {
             receive_id: target,
         },
-    });
+    }), 'im.message.forward');
     return {
         messageId: response?.data?.message_id ?? '',
         chatId: response?.data?.chat_id ?? '',

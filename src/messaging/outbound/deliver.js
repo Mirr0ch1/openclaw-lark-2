@@ -10,8 +10,11 @@ const accounts_1 = require("../../core/accounts.js");
 const lark_client_1 = require("../../core/lark-client.js");
 const chat_queue_1 = require("../../channel/chat-queue.js");
 const targets_1 = require("../../core/targets.js");
+const send_rate_limit_1 = require("./send-rate-limit.js");
 const comment_target_1 = require("../../core/comment-target.js");
 const markdown_style_1 = require("../../card/markdown-style.js");
+const native_card_1 = require("../../card/native-card.js");
+const send_context_1 = require("./send-context.js");
 const api_error_1 = require("../../core/api-error.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
 const sentinel_store_1 = require("../inbound/sentinel-store.js");
@@ -83,10 +86,10 @@ async function sendImMessage(params) {
     // --- Reply path ---
     if (replyToMessageId) {
         log.info(`replying to message ${replyToMessageId} ` + `(msg_type=${msgType}, thread=${replyInThread ?? false})`);
-        const response = await client.im.message.reply({
+        const response = await (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.reply({
             path: { message_id: replyToMessageId },
             data: { content, msg_type: msgType, reply_in_thread: replyInThread },
-        });
+        }), 'im.message.reply');
         const result = {
             messageId: response?.data?.message_id ?? '',
             chatId: response?.data?.chat_id ?? '',
@@ -101,11 +104,11 @@ async function sendImMessage(params) {
     }
     const receiveIdType = (0, targets_1.resolveReceiveIdType)(target);
     log.info(`creating message to ${target} (msg_type=${msgType})`);
-    const response = await client.im.message.create({
+    const response = await (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.create({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         params: { receive_id_type: receiveIdType },
         data: { receive_id: target, msg_type: msgType, content },
-    });
+    }), 'im.message.create');
     const result = {
         messageId: response?.data?.message_id ?? '',
         chatId: response?.data?.chat_id ?? '',
@@ -189,7 +192,12 @@ function detectCardJson(text) {
 async function sendTextLark(params) {
     const { cfg, to, text, replyToMessageId, replyInThread, accountId, threadId } = params;
     // Detect card JSON in text — route to card sending before text preprocessing.
-    const card = detectCardJson(text);
+    // Sanitise model-authored card JSON before send (unsafe button URLs /
+    // callback values stripped, text escaped, elements allowlisted); when
+    // nothing usable survives, fall through to plain-text rendering.
+    // Sanitiser ported from @openclaw/feishu `sanitizeNativeFeishuCard`.
+    const detectedCard = detectCardJson(text);
+    const card = detectedCard ? (0, native_card_1.sanitizeModelAuthoredCard)(detectedCard) : undefined;
     if (card) {
         const version = card.schema === '2.0' ? 'v2' : 'v1';
         log.info(`detected ${version} card JSON in text (target=${to}), routing to sendCardLark`);
@@ -286,6 +294,11 @@ async function sendCardLark(params) {
         return await sendImMessage({ client, to, content, msgType: 'interactive', replyToMessageId, replyInThread });
     }
     catch (err) {
+        // A retired turn must surface as-is: re-wrapping it would drop
+        // `retryable:false` and the host would retry a stale send.
+        if (err instanceof send_context_1.PlatformMessageNotDispatchedError) {
+            throw err;
+        }
         const detail = (0, api_error_1.formatLarkError)(err);
         log.error(`sendCardLark failed: ${detail}`);
         throw new Error(`Card send failed: ${detail}\n\n` +
