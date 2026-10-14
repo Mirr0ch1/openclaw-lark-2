@@ -8,7 +8,7 @@
 
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#安装)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-214%20passing-22c55e?style=flat-square)](#开发)
+[![Tests](https://img.shields.io/badge/tests-226%20passing-22c55e?style=flat-square)](#开发)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
 
 [English](./README.en.md) · **中文**
@@ -73,6 +73,7 @@ OpenClaw 2.0（2026.8.1）重构了插件 SDK：
 - **全量 SSRF 防护**：所有出站 HTTP 请求统一走 SDK `fetchWithSsrFGuard` —— DNS pinning 防 rebinding、IPv4+IPv6 私有/保留地址阻断、重定向逐跳校验、hostname 白名单。
 - **工具结果围栏**：模型可见的工具输出统一包 `EXTERNAL_UNTRUSTED_CONTENT` 标记，防文档/消息中的提示注入；失败时附带 `http_status` / `feishu_code` / `feishu_msg` / `feishu_log_id`。
 - **原生卡消毒**：模型自建卡片在发送前做元素白名单、按钮 URL 仅允许 http(s)、callback value 门禁与文本转义。
+- **诊断 hook fail-safe**：`before_tool_call` / `after_tool_call` 在 OpenClaw 中是 **fail-closed** —— 插件 hook 抛一次异常就会阻断**整个**工具调用（不区分工具）。本插件的两个 hook 全程 `try/catch` + 防御式字段读取，只写日志、**永不阻断**工具链路。
 - **测试基座**：vitest 测试套件（`npm test`），覆盖核心安全与路由路径。
 - **Plugin Inspector 报告**：`clawhub package validate` 0 warning。
 
@@ -103,7 +104,7 @@ openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.10.5.tgz
+openclaw plugins install openclaw-lark-2-2026.10.6.tgz
 ```
 
 ---
@@ -170,7 +171,7 @@ openclaw plugins install openclaw-lark-2-2026.10.5.tgz
 
 | 维度 | **openclaw-lark-2（本插件）** | **@openclaw/feishu（官方 2.0）** | **@larksuite/openclaw-lark 7.16（字节）** |
 |---|:---:|:---:|:---:|
-| 版本 | **2026.10.5** | 2026.8.1 | 2026.7.16 |
+| 版本 | **2026.10.6** | 2026.8.1 | 2026.7.16 |
 | OpenClaw 兼容 | **≥2026.8.1（2.0 原生）** | ≥2026.8.1（2.0 原生） | ≥2026.5.4（1.x，2.0 下无法加载） |
 | Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃） |
 | 契约工具数 | **38** | 14 | 39 |
@@ -191,7 +192,7 @@ openclaw plugins install openclaw-lark-2-2026.10.5.tgz
 | 持久化入站队列 | ✅ **可选（`durableIngress`）** | ✅ 默认启用 | ❌ |
 | 读权限策略 | ✅ 对齐官方 | ✅ | ❌ |
 | 按调用指定账号 | ✅ 全工具 `accountId` | ✅ | ❌ |
-| 测试套件 | ✅ **vitest 基座（28 文件 / 214 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
+| 测试套件 | ✅ **vitest 基座（30 文件 / 226 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
 | 安全审计 | ✅ plugin-inspector 报告 | ✅ security-audit + SSRF | ⚠️ 无 |
 
 ### 取长补短的思路
@@ -210,7 +211,7 @@ openclaw plugins install openclaw-lark-2-2026.10.5.tgz
 | 持久化入站队列 | 已支持但**默认关闭**（`durableIngress: true` 开启）；官方默认启用。开启后行为与原 WS 直派发一致，但获得按会话保序与重启存活。 |
 | 读权限策略 | 已对齐官方语义；由于本插件工具无宿主上下文，读上下文从**当前消息 ticket** 还原，因此在 cron/heartbeat 等无消息上下文时，跨私聊读取按策略被拒。 |
 | PIN 消息 | 本插件已支持；字节 7.16 无。 |
-| 测试规模 | 本插件为最小基座（28 文件 / 214 用例），远小于官方（1202），但覆盖核心安全与路由路径。 |
+| 测试规模 | 本插件为最小基座（30 文件 / 226 用例），远小于官方（1202），但覆盖核心安全与路由路径。 |
 | 工具展示开关 | `toolUseDisplay.enabled:false` 可关，默认开。 |
 
 ---
@@ -218,6 +219,27 @@ openclaw plugins install openclaw-lark-2-2026.10.5.tgz
 ## 更新日志
 
 <details open>
+<summary><b>2026.10.6</b> · 2026-10-14 · 诊断 hook 加固：绝不 fail-close 工具链路</summary>
+
+`before_tool_call` 在 OpenClaw 中是 **fail-closed**：插件 hook 一旦抛异常，**整个工具调用**会被阻断 —— 而且**不区分工具**。本插件的这两个 hook 只做调用追踪与日志，不该具备这种破坏力。
+
+**修复**
+
+- `before_tool_call` / `after_tool_call` 两个诊断 hook 现在**整段包 `try/catch`**：任何异常降级为一条 `log.warn` 并放行，**永不阻断工具调用**。
+- hook 事件字段全部防御式读取（`event?.toolName ?? ''`、`ctx?.sessionKey`），对宿主契约变化免疫。
+
+**排查提示**
+
+> 热更新插件（`plugins install` / `plugins reload`）后，若**所有** cron / 无头任务的工具调用被阻断，且日志出现
+> `before_tool_call hook failed: … PluginInstanceUnavailableError: Plugin openclaw-lark-2 was reloaded or disabled; use its current tools.`
+> —— 那是宿主在 **drain 超时**后残留了**上一代插件实例的 hook**，与本插件的代码无关。
+> 执行 `openclaw plugins reload openclaw-lark-2` 清除（无效时重启网关）；交互会话通常不受影响。
+
+**测试**：30 文件 / 226 用例。
+
+</details>
+
+<details>
 <summary><b>2026.10.5</b> · 2026-10-14 · 对齐官方 <code>@openclaw/feishu</code>：可靠性原语 · 读权限 · 多账号路由</summary>
 
 以官方插件（openclaw `main` `2f620b9`，2026-10-12）为参照，移植其更成熟的工程原语，并补齐多账号与读权限。**新能力多为可选或对既有行为无影响**，其中读权限是唯一的有意收紧。
@@ -250,7 +272,7 @@ openclaw plugins install openclaw-lark-2-2026.10.5.tgz
 
 **修复**：`config-schema` 补齐 `durableIngress` / `defaultAccount` / `typingIndicator`；修掉 `config-schema.d.ts` 里 `accounts` 形态重复的 `multiImageMode`；`.d.ts` 与运行时同步。
 
-**测试**：15 文件 / 128 用例 → **28 文件 / 214 用例**；`clawhub package validate` 通过。
+**测试**：15 文件 / 128 用例 → **30 文件 / 226 用例**；`clawhub package validate` 通过。
 
 </details>
 

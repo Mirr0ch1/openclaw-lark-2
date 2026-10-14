@@ -8,7 +8,7 @@ An independent fork of `@larksuite/openclaw-lark`, fully adapted to the OpenClaw
 
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#installation)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-214%20passing-22c55e?style=flat-square)](#development)
+[![Tests](https://img.shields.io/badge/tests-226%20passing-22c55e?style=flat-square)](#development)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
 
 **English** · [中文](./README.md)
@@ -73,6 +73,7 @@ OpenClaw 2.0 (2026.8.1) reworked the plugin SDK:
 - **Full SSRF coverage**: all outbound HTTP goes through the SDK `fetchWithSsrFGuard` — DNS pinning (anti-rebinding), IPv4+IPv6 private/reserved-address blocking, per-hop redirect validation, hostname allowlist.
 - **Tool-result fencing**: model-visible tool output is wrapped in an `EXTERNAL_UNTRUSTED_CONTENT` marker to resist prompt injection from documents/messages; failures also carry `http_status` / `feishu_code` / `feishu_msg` / `feishu_log_id`.
 - **Native-card sanitization**: model-authored cards get an element allowlist, http(s)-only button URLs, a callback-value gate, and text escaping before send.
+- **Fail-safe diagnostic hooks**: `before_tool_call` / `after_tool_call` are **fail-closed** in OpenClaw — one thrown exception blocks the **entire** tool call (regardless of tool). Both hooks here run fully guarded (`try/catch` + defensive field reads), so they log only and **never block** the tool pipeline.
 - **Test base**: a vitest suite (`npm test`) covering core security and routing paths.
 - **Plugin Inspector report**: `clawhub package validate` with 0 warnings.
 
@@ -103,7 +104,7 @@ openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.10.5.tgz
+openclaw plugins install openclaw-lark-2-2026.10.6.tgz
 ```
 
 ---
@@ -171,7 +172,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 
 | Dimension | **openclaw-lark-2 (ours)** | **@openclaw/feishu (official 2.0)** | **@larksuite/openclaw-lark 7.16 (ByteDance)** |
 |---|:---:|:---:|:---:|
-| Version | **2026.10.5** | 2026.8.1 | 2026.7.16 |
+| Version | **2026.10.6** | 2026.8.1 | 2026.7.16 |
 | OpenClaw compat | **≥2026.8.1 (native 2.0)** | ≥2026.8.1 (native 2.0) | ≥2026.5.4 (1.x, cannot load on 2.0) |
 | Plugin API | 2.0 SDK (`runtime.config.current()`) | 2.0 SDK (`createChatChannelPlugin`) | 1.x API (`loadConfig`, deprecated) |
 | Contract tools | **38** | 14 | 39 |
@@ -192,7 +193,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 | Durable inbound queue | ✅ **optional (`durableIngress`)** | ✅ on by default | ❌ |
 | Read policy | ✅ matches official | ✅ | ❌ |
 | Per-call account targeting | ✅ `accountId` on every tool | ✅ | ❌ |
-| Test suite | ✅ **vitest base (28 files / 214 tests)** | ✅ 99 files / 1202 tests | ❌ none |
+| Test suite | ✅ **vitest base (30 files / 226 tests)** | ✅ 99 files / 1202 tests | ❌ none |
 | Security audit | ✅ plugin-inspector report | ✅ security-audit + SSRF | ⚠️ none |
 
 ### Design Rationale
@@ -211,7 +212,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 | Durable inbound queue | Supported but **off by default** (`durableIngress: true` to enable); the official enables it by default. When enabled, behavior matches the original direct WS dispatch, plus per-conversation ordering and restart survival. |
 | Read policy | Semantics match the official; because our tools get no host context, the read context is reconstructed from the **current message ticket** — so with no message context (cron/heartbeat) cross-DM reads are denied by policy. |
 | PIN actions | Supported here; missing in ByteDance 7.16. |
-| Test scale | Minimal base (28 files / 214 tests), far smaller than the official (1202), but covers core security & routing paths. |
+| Test scale | Minimal base (30 files / 226 tests), far smaller than the official (1202), but covers core security & routing paths. |
 | Tool-display toggle | Toggle via `toolUseDisplay.enabled:false`; on by default. |
 
 ---
@@ -219,6 +220,27 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 ## Changelog
 
 <details open>
+<summary><b>2026.10.6</b> · 2026-10-14 · Diagnostic hooks hardened: never fail-close the tool pipeline</summary>
+
+`before_tool_call` is **fail-closed** in OpenClaw: if a plugin hook throws, the **entire tool call** is blocked — and it does **not** discriminate by tool. These two hooks only do call tracing and logging, so they must not have that power.
+
+**Fixes**
+
+- Both diagnostic hooks (`before_tool_call` / `after_tool_call`) now wrap their **whole body in `try/catch`**: any error degrades to a single `log.warn` and the call proceeds — tools are **never blocked**.
+- Hook-event fields are read defensively (`event?.toolName ?? ''`, `ctx?.sessionKey`), immune to host contract changes.
+
+**Troubleshooting**
+
+> If, after a plugin hot-update (`plugins install` / `plugins reload`), **all** cron / headless tool calls are blocked and the log shows
+> `before_tool_call hook failed: … PluginInstanceUnavailableError: Plugin openclaw-lark-2 was reloaded or disabled; use its current tools.`
+> — the host retained a **hook from the previous plugin generation** after a **drain timeout**. It is unrelated to this plugin's code.
+> Run `openclaw plugins reload openclaw-lark-2` to clear it (restart the gateway if that fails); interactive sessions are usually unaffected.
+
+**Tests**: 30 files / 226 tests.
+
+</details>
+
+<details>
 <summary><b>2026.10.5</b> · 2026-10-14 · Align with official <code>@openclaw/feishu</code>: reliability primitives · read policy · multi-account routing</summary>
 
 Ported the official plugin's (openclaw `main` `2f620b9`, 2026-10-12) more mature engineering primitives, plus multi-account targeting and read policy. **Most additions are optional or behavior-neutral**; the read policy is the only intentional tightening.
@@ -251,7 +273,7 @@ Ported the official plugin's (openclaw `main` `2f620b9`, 2026-10-12) more mature
 
 **Fixes**: `config-schema` gained `durableIngress` / `defaultAccount` / `typingIndicator`; removed a duplicated `multiImageMode` in the `accounts` shape of `config-schema.d.ts`; `.d.ts` kept in sync with runtime.
 
-**Tests**: 15 files / 128 tests → **28 files / 214 tests**; `clawhub package validate` passes.
+**Tests**: 15 files / 128 tests → **30 files / 226 tests**; `clawhub package validate` passes.
 
 </details>
 
