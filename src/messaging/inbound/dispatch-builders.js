@@ -18,7 +18,6 @@ exports.buildFeishuIdentityFields = buildFeishuIdentityFields;
 exports.buildFeishuGroupSystemPrompt = buildFeishuGroupSystemPrompt;
 exports.buildEnvelopeWithHistory = buildEnvelopeWithHistory;
 const reply_history_1 = require("openclaw/plugin-sdk/reply-history");
-const chat_queue_1 = require("../../channel/chat-queue.js");
 const mention_1 = require("./mention.js");
 // ---------------------------------------------------------------------------
 // Mention annotation
@@ -221,11 +220,17 @@ function buildEnvelopeWithHistory(dc, messageBody, chatHistories, historyLimit) 
         body: messageBody,
     });
     let combinedBody = body;
-    // Key group history by the scope-derived session id (official `groupHistoryKey`),
-    // falling back to the bare chat id for the default `group` scope. Keeps a
-    // `group_sender` / `group_topic` group from sharing one history bucket.
-    const historyBase = dc.groupSession?.peerId ?? dc.ctx.chatId;
-    const historyKey = dc.isGroup ? (0, chat_queue_1.threadScopedKey)(historyBase, dc.isThread ? dc.ctx.threadId : undefined) : undefined;
+    // Key group history by the scope-derived session id (official `groupHistoryKey`
+    // at bot.ts:564), falling back to the bare chat id for the default `group`
+    // scope. Deliberately NO `:thread:` suffix: the key must be derivable purely
+    // from the raw message context so the no-mention WRITER (handler.ts) and this
+    // READER agree. `resolveFeishuReplyRouting` infers a synthetic thread id from
+    // `root_id` at dispatch time (threadSession + thread-capable group), so a
+    // thread-suffixed reader key would never match what the writer buffered and
+    // the pending context would be silently dropped. Per-topic isolation comes
+    // from `groupSessionScope` (peerId encodes the topic), matching the official.
+    const groupHistoryKey = dc.groupSession?.peerId ?? dc.ctx.chatId;
+    const historyKey = dc.isGroup ? groupHistoryKey : undefined;
     if (dc.isGroup && historyKey && chatHistories) {
         combinedBody = (0, reply_history_1.buildPendingHistoryContextFromMap)({
             historyMap: chatHistories,

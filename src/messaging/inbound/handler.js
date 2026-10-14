@@ -25,7 +25,6 @@ const lark_client_1 = require("../../core/lark-client.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
 const lark_ticket_1 = require("../../core/lark-ticket.js");
 const sdk_compat_1 = require("../../core/sdk-compat.js");
-const chat_queue_1 = require("../../channel/chat-queue.js");
 const send_1 = require("../outbound/send.js");
 const parse_1 = require("./parse.js");
 const enrich_1 = require("./enrich.js");
@@ -157,7 +156,12 @@ async function handleFeishuMessage(params) {
                     feishuCfg: accountFeishuCfg,
                 }).peerId
                 : ctx.chatId;
-            const historyKey = (0, chat_queue_1.threadScopedKey)(historyBase, ctx.threadId);
+            // No `:thread:` suffix — the pending-history key is the scope-derived
+            // group session id alone (official `groupHistoryKey`, bot.ts:564). This
+            // is what the dispatch-time READER (dispatch-builders) computes, so the
+            // two agree even when a root_id-only reply is later inferred into a
+            // synthetic thread id there. See buildEnvelopeWithHistory for details.
+            const historyKey = historyBase;
             (0, reply_history_1.recordPendingHistoryEntryIfEnabled)({
                 historyMap: chatHistories,
                 historyKey,

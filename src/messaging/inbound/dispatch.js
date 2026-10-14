@@ -329,9 +329,11 @@ async function dispatchToAgent(params) {
     // 7. Build InboundHistory for SDK metadata injection (>= 2026.2.10).
     //    The SDK's buildInboundUserContextPrefix renders these as structured
     //    JSON blocks; earlier SDK versions simply ignore unknown fields.
-    const threadHistoryKey = (0, chat_queue_1.threadScopedKey)(dc.groupSession?.peerId ?? dc.ctx.chatId, dc.isThread ? dc.ctx.threadId : undefined);
-    const inboundHistory = dc.isGroup && params.chatHistories && params.historyLimit > 0
-        ? (params.chatHistories.get(threadHistoryKey) ?? []).map((entry) => ({
+    //    Reuse the group-history key computed by buildEnvelopeWithHistory (official
+    //    `groupHistoryKey`, no `:thread:` suffix) so this read hits exactly the
+    //    bucket the pending-context reader and the no-mention writer use.
+    const inboundHistory = dc.isGroup && historyKey && params.chatHistories && params.historyLimit > 0
+        ? (params.chatHistories.get(historyKey) ?? []).map((entry) => ({
             sender: entry.sender,
             body: entry.body,
             timestamp: entry.timestamp ?? Date.now(),
