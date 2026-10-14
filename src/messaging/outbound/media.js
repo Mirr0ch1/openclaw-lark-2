@@ -58,6 +58,8 @@ exports.uploadAndSendMediaLark = uploadAndSendMediaLark;
 exports.fetchRemoteImageBuffer = fetchRemoteImageBuffer;
 exports.isImageMediaUrl = isImageMediaUrl;
 exports.uploadImageFromUrlLark = uploadImageFromUrlLark;
+exports.resolveOutboundMediaMaxBytes = resolveOutboundMediaMaxBytes;
+exports.readResponseBodyWithCap = readResponseBodyWithCap;
 const fs = __importStar(require("node:fs"));
 const os = __importStar(require("node:os"));
 const path = __importStar(require("node:path"));
@@ -66,9 +68,103 @@ const lark_client_1 = require("../../core/lark-client.js");
 const ssrf_1 = require("../../core/ssrf.js");
 const targets_1 = require("../../core/targets.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
+const accounts_1 = require("../../core/accounts.js");
 const send_rate_limit_1 = require("./send-rate-limit.js");
 const media_url_utils_1 = require("./media-url-utils.js");
 const log = (0, lark_logger_1.larkLogger)('outbound/media');
+// ---------------------------------------------------------------------------
+// Media size limits
+// ---------------------------------------------------------------------------
+/**
+ * Hard ceiling for outbound media uploads, mirroring the official plugin's
+ * `FEISHU_MAX_FILE_UPLOAD_BYTES`. Feishu rejects larger uploads anyway; the
+ * cap lets us fail fast (and bound memory) before buffering the whole file.
+ */
+const FEISHU_MAX_FILE_UPLOAD_BYTES = 30 * 1024 * 1024;
+exports.FEISHU_MAX_FILE_UPLOAD_BYTES = FEISHU_MAX_FILE_UPLOAD_BYTES;
+/**
+ * Resolve the outbound media size cap for an account.
+ *
+ * Effective limit = min(configured `mediaMaxMb` (default 30MB), the hard
+ * Feishu upload ceiling). Mirrors `media.ts` `mediaMaxBytes`.
+ */
+function resolveOutboundMediaMaxBytes(cfg, accountId) {
+    let configuredMb = 30;
+    try {
+        const account = (0, accounts_1.getLarkAccount)(cfg, accountId ?? undefined);
+        const mb = account?.config?.mediaMaxMb;
+        // Guard against a non-positive / non-finite value (a typo would
+        // otherwise produce a 0-byte cap and silently disable all media sends).
+        if (typeof mb === 'number' && Number.isFinite(mb) && mb > 0) {
+            configuredMb = mb;
+        }
+    }
+    catch {
+        // Account resolution is best-effort; fall back to the default cap.
+    }
+    return Math.min(configuredMb * 1024 * 1024, FEISHU_MAX_FILE_UPLOAD_BYTES);
+}
+function formatBytes(bytes) {
+    if (bytes >= 1024 * 1024)
+        return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+    if (bytes >= 1024)
+        return `${(bytes / 1024).toFixed(1)}KB`;
+    return `${bytes}B`;
+}
+/**
+ * Read a fetch Response body into a Buffer, aborting as soon as the running
+ * total exceeds `maxBytes`. Prefers a streaming read (bounds peak memory to
+ * the cap plus one chunk); falls back to a whole-body read when the runtime
+ * does not expose a readable body stream.
+ */
+async function readResponseBodyWithCap(response, maxBytes, url) {
+    const tooLarge = () => new Error(`[feishu-media] Media at "${url}" exceeds the ${formatBytes(maxBytes)} upload limit. ` +
+        `Increase channels.feishu.mediaMaxMb (max ${formatBytes(FEISHU_MAX_FILE_UPLOAD_BYTES)}) or send a smaller file.`);
+    // Prefer Content-Length when the server declares it.
+    const declared = Number(response.headers?.get?.('content-length'));
+    if (Number.isFinite(declared) && declared > maxBytes) {
+        throw tooLarge();
+    }
+    const body = response.body;
+    if (!body || typeof body.getReader !== 'function') {
+        const arrayBuffer = await response.arrayBuffer();
+        if (arrayBuffer.byteLength > maxBytes)
+            throw tooLarge();
+        return Buffer.from(arrayBuffer);
+    }
+    const reader = body.getReader();
+    const chunks = [];
+    let received = 0;
+    try {
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done)
+                break;
+            received += value.byteLength;
+            if (received > maxBytes) {
+                // Cancel the stream, but never let a cancel failure mask the
+                // size-limit error the caller needs to see.
+                try {
+                    await reader.cancel();
+                }
+                catch {
+                    // Ignore — the size error below is the actionable one.
+                }
+                throw tooLarge();
+            }
+            chunks.push(Buffer.from(value));
+        }
+    }
+    finally {
+        try {
+            reader.releaseLock?.();
+        }
+        catch {
+            // Ignore release errors.
+        }
+    }
+    return Buffer.concat(chunks);
+}
 // ---------------------------------------------------------------------------
 // Retry helpers
 // ---------------------------------------------------------------------------
@@ -338,7 +434,8 @@ function isImageMediaUrl(mediaUrl) {
  */
 async function uploadImageFromUrlLark(params) {
     const { cfg, mediaUrl, mediaLocalRoots, accountId } = params;
-    const buffer = await fetchMediaBuffer(mediaUrl, mediaLocalRoots);
+    const maxBytes = resolveOutboundMediaMaxBytes(cfg, accountId);
+    const buffer = await fetchMediaBuffer(mediaUrl, mediaLocalRoots, maxBytes);
     log.debug(`uploadImageFromUrlLark: fetched "${mediaUrl}", ${buffer.length} bytes`);
     return uploadImageLark({ cfg, image: buffer, imageType: 'message', accountId });
 }
@@ -695,12 +792,13 @@ async function uploadAndSendMediaLark(params) {
     // Resolve the media to a Buffer.
     let buffer;
     let resolvedFileName = fileName ?? 'file';
+    const maxBytes = resolveOutboundMediaMaxBytes(cfg, accountId);
     if (mediaBuffer) {
         buffer = mediaBuffer;
         log.debug(`using provided buffer: ${buffer.length} bytes`);
     }
     else if (mediaUrl) {
-        buffer = await fetchMediaBuffer(mediaUrl, mediaLocalRoots);
+        buffer = await fetchMediaBuffer(mediaUrl, mediaLocalRoots, maxBytes);
         log.debug(`fetched media: ${buffer.length} bytes from "${mediaUrl}"`);
         // Derive a file name from the URL if none was provided.
         if (!fileName) {
@@ -713,6 +811,13 @@ async function uploadAndSendMediaLark(params) {
     else {
         throw new Error('[feishu-media] uploadAndSendMediaLark requires either mediaUrl or mediaBuffer. ' +
             'Provide a URL (http/https/file://) or a raw Buffer to send media.');
+    }
+    // Defense-in-depth: enforce the cap on the resolved buffer too, so a
+    // directly-provided `mediaBuffer` cannot bypass the limit.
+    if (buffer.length > maxBytes) {
+        throw new Error(`[feishu-media] Media is ${formatBytes(buffer.length)}, ` +
+            `over the ${formatBytes(maxBytes)} upload limit. ` +
+            `Increase channels.feishu.mediaMaxMb (max ${formatBytes(FEISHU_MAX_FILE_UPLOAD_BYTES)}) or send a smaller file.`);
     }
     // Decide whether to send as image or file based on the extension.
     const isImage = isImageFileName(resolvedFileName);
@@ -773,7 +878,7 @@ async function uploadAndSendMediaLark(params) {
  * Local file access is denied. Includes SSRF protection.
  */
 async function fetchRemoteImageBuffer(url) {
-    return fetchMediaBuffer(url, undefined);
+    return fetchMediaBuffer(url, undefined, FEISHU_MAX_FILE_UPLOAD_BYTES);
 }
 // ---------------------------------------------------------------------------
 // SSRF protection — SDK fetch guard (DNS pinning + private-IP blocking)
@@ -812,7 +917,7 @@ async function validateRemoteUrl(raw) {
  * - `file://` URLs and bare file system paths (read from disk, gated
  *   by `localRoots` for path-traversal prevention)
  */
-async function fetchMediaBuffer(urlOrPath, localRoots) {
+async function fetchMediaBuffer(urlOrPath, localRoots, maxBytes = FEISHU_MAX_FILE_UPLOAD_BYTES) {
     const raw = (0, media_url_utils_1.normalizeMediaUrlInput)(urlOrPath);
     // Local file path (absolute or relative, or file:// URL).
     if ((0, media_url_utils_1.isLocalMediaPath)(raw)) {
@@ -828,6 +933,13 @@ async function fetchMediaBuffer(urlOrPath, localRoots) {
                 `mediaLocalRoots is not configured. ` +
                 `Configure mediaLocalRoots to explicitly allow local file access.`);
         }
+        // Enforce the size cap before reading the whole file into memory.
+        const stat = fs.statSync(filePath);
+        if (stat.size > maxBytes) {
+            throw new Error(`[feishu-media] Local media "${filePath}" is ${formatBytes(stat.size)}, ` +
+                `over the ${formatBytes(maxBytes)} upload limit. ` +
+                `Increase channels.feishu.mediaMaxMb (max ${formatBytes(FEISHU_MAX_FILE_UPLOAD_BYTES)}) or send a smaller file.`);
+        }
         const buf = fs.readFileSync(filePath);
         log.debug(`local file read: "${filePath}", ${buf.length} bytes`);
         return buf;
@@ -837,7 +949,7 @@ async function fetchMediaBuffer(urlOrPath, localRoots) {
     const FETCH_TIMEOUT_MS = 30_000;
     log.info(`fetching remote media: ${raw}`);
     // Retry transient server errors (502/503/504) with bounded backoff.
-    const arrayBuffer = await withRetry(async () => {
+    const buffer = await withRetry(async () => {
         const { response, release } = await (0, ssrf_1.guardedRemoteFetch)(raw, undefined, {
             timeoutMs: FETCH_TIMEOUT_MS,
             auditContext: 'feishu-media-fetch',
@@ -851,12 +963,12 @@ async function fetchMediaBuffer(urlOrPath, localRoots) {
                 err.status = response.status;
                 throw err;
             }
-            return response.arrayBuffer();
+            return await readResponseBodyWithCap(response, maxBytes, raw);
         }
         finally {
             await release();
         }
     }, `fetchMedia(${raw})`);
-    log.debug(`remote media fetched: ${raw}, ${arrayBuffer.byteLength} bytes`);
-    return Buffer.from(arrayBuffer);
+    log.debug(`remote media fetched: ${raw}, ${buffer.length} bytes`);
+    return buffer;
 }

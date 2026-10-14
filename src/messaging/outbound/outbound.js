@@ -40,6 +40,28 @@ function applyOutboundMentions(text, chatId) {
 }
 const log = (0, lark_logger_1.larkLogger)('outbound/outbound');
 /**
+ * Forward a per-physical-send delivery result to the core callback.
+ *
+ * Core passes `onDeliveryResult` into the adapter (via its outbound bridge)
+ * and uses each receipt for partial-delivery accounting and subagent/cron
+ * completion tracking. Ported from @openclaw/feishu `reportFeishuOutboundDelivery`
+ * (channel.ts / outbound.ts). No-op when the host does not provide the callback.
+ *
+ * A failure in the host callback must NOT fail a send that already succeeded
+ * (that would make core treat a delivered message as retryable and duplicate
+ * it), so errors are logged and swallowed.
+ */
+async function reportDeliveryResult(onDeliveryResult, result) {
+    if (typeof onDeliveryResult !== 'function')
+        return;
+    try {
+        await onDeliveryResult(result);
+    }
+    catch (err) {
+        log.warn(`onDeliveryResult callback failed (send already delivered): ${String(err)}`);
+    }
+}
+/**
  * Map adapter-level parameters to internal send context.
  *
  * Mirrors the pattern used by Telegram (`resolveTelegramSendContext`) and
@@ -74,7 +96,7 @@ exports.feishuOutbound = {
     chunker: (text, limit) => (0, post_chunking_1.chunkFeishuPostMarkdown)({ text, limit }),
     chunkerMode: 'markdown',
     textChunkLimit: 15000,
-    sendText: async ({ cfg, to, text, accountId, replyToId, threadId }) => {
+    sendText: async ({ cfg, to, text, accountId, replyToId, threadId, onDeliveryResult }) => {
         log.info(`sendText: target=${to}, textLength=${text.length}`);
         // Synthetic targets (e.g. VC meeting-invited) have no real IM peer —
         // drop the send silently so the agent pipeline stays uniform without
@@ -87,14 +109,18 @@ exports.feishuOutbound = {
         if ((0, comment_target_1.isCommentTarget)(to)) {
             log.info(`sendText: detected comment target, routing through Drive comment API`);
             const result = await (0, deliver_1.sendCommentReplyLark)({ cfg, to, text, accountId: accountId ?? undefined });
-            return { channel: 'feishu', ...result };
+            const out = { channel: 'feishu', ...result };
+            await reportDeliveryResult(onDeliveryResult, out);
+            return out;
         }
         const ctx = resolveFeishuSendContext({ cfg, to, accountId, replyToId, threadId });
         const finalText = applyOutboundMentions(text, ctx.to);
         const result = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text: finalText });
-        return { channel: 'feishu', ...result };
+        const out = { channel: 'feishu', ...result };
+        await reportDeliveryResult(onDeliveryResult, out);
+        return out;
     },
-    sendMedia: async ({ cfg, to, text, mediaUrl, mediaLocalRoots, accountId, replyToId, threadId }) => {
+    sendMedia: async ({ cfg, to, text, mediaUrl, mediaLocalRoots, accountId, replyToId, threadId, onDeliveryResult }) => {
         log.info(`sendMedia: target=${to}, ` + `hasText=${Boolean(text?.trim())}, mediaUrl=${mediaUrl ?? '(none)'}`);
         // Synthetic targets — drop silently (see sendText for rationale).
         if ((0, synthetic_target_1.isSyntheticTarget)(to)) {
@@ -111,7 +137,9 @@ exports.feishuOutbound = {
                 parts.push(`📎 ${mediaUrl}`);
             const combinedText = parts.join('\n') || '(media)';
             const result = await (0, deliver_1.sendCommentReplyLark)({ cfg, to, text: combinedText, accountId: accountId ?? undefined });
-            return { channel: 'feishu', ...result };
+            const out = { channel: 'feishu', ...result };
+            await reportDeliveryResult(onDeliveryResult, out);
+            return out;
         }
         const ctx = resolveFeishuSendContext({ cfg, to, accountId, replyToId, threadId });
         const normalizedCaption = text ? applyOutboundMentions(text, ctx.to) : text;
@@ -120,27 +148,32 @@ exports.feishuOutbound = {
         let captionResult;
         if (normalizedCaption?.trim()) {
             captionResult = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text: normalizedCaption });
+            await reportDeliveryResult(onDeliveryResult, { channel: 'feishu', ...captionResult });
         }
         // No mediaUrl — text-only flow.
         if (!mediaUrl) {
             log.info('sendMedia: no mediaUrl provided, falling back to text-only');
             if (captionResult) {
-                // Caption was already sent above; return that result.
+                // Caption was already sent and reported above; return that result.
                 return { channel: 'feishu', ...captionResult };
             }
             // No caption text — send empty/raw text to satisfy the contract.
             const result = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text: normalizedCaption ?? '' });
-            return { channel: 'feishu', ...result };
+            const out = { channel: 'feishu', ...result };
+            await reportDeliveryResult(onDeliveryResult, out);
+            return out;
         }
         const result = await (0, deliver_1.sendMediaLark)({ ...ctx, to: ctx.to, mediaUrl, mediaLocalRoots });
-        return {
+        const out = {
             channel: 'feishu',
             messageId: result.messageId,
             chatId: result.chatId,
             ...(result.warning ? { meta: { warnings: [result.warning] } } : {}),
         };
+        await reportDeliveryResult(onDeliveryResult, out);
+        return out;
     },
-    sendPayload: async ({ cfg, to, payload, mediaLocalRoots, accountId, replyToId, threadId }) => {
+    sendPayload: async ({ cfg, to, payload, mediaLocalRoots, accountId, replyToId, threadId, onDeliveryResult }) => {
         // Synthetic targets — drop silently (see sendText for rationale).
         if ((0, synthetic_target_1.isSyntheticTarget)(to)) {
             log.debug(`sendPayload: synthetic target ${to}, dropping outbound IM send`);
@@ -165,12 +198,20 @@ exports.feishuOutbound = {
             : undefined;
         if (modelCard) {
             if (text.trim()) {
-                await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text });
+                const textResult = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text });
+                await reportDeliveryResult(onDeliveryResult, { channel: 'feishu', ...textResult });
             }
             const cardResult = await (0, deliver_1.sendCardLark)({ ...ctx, to: ctx.to, card: modelCard });
+            await reportDeliveryResult(onDeliveryResult, { channel: 'feishu', ...cardResult });
             const warnings = [];
             for (const mediaUrl of mediaUrls) {
                 const mediaResult = await (0, deliver_1.sendMediaLark)({ ...ctx, to: ctx.to, mediaUrl, mediaLocalRoots });
+                await reportDeliveryResult(onDeliveryResult, {
+                    channel: 'feishu',
+                    messageId: mediaResult.messageId,
+                    chatId: mediaResult.chatId,
+                    ...(mediaResult.warning ? { meta: { warnings: [mediaResult.warning] } } : {}),
+                });
                 if (mediaResult.warning) {
                     warnings.push(mediaResult.warning);
                 }
@@ -186,11 +227,14 @@ exports.feishuOutbound = {
         // No media: text-only
         if (mediaUrls.length === 0) {
             const result = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text });
-            return { channel: 'feishu', ...result };
+            const out = { channel: 'feishu', ...result };
+            await reportDeliveryResult(onDeliveryResult, out);
+            return out;
         }
         // Has media: send leading text, then media
         if (text.trim()) {
-            await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text });
+            const textResult = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text });
+            await reportDeliveryResult(onDeliveryResult, { channel: 'feishu', ...textResult });
         }
         // --- Multi-image merge (default): one Feishu post, one img per paragraph ---
         // Feishu has no album/media-group API, so ≥2 image URLs are merged into
@@ -223,7 +267,9 @@ exports.feishuOutbound = {
                     imageKeys,
                 });
                 log.info(`sendPayload: sent ${imageKeys.length} images as a single post`);
-                return { channel: 'feishu', messageId: groupResult.messageId, chatId: groupResult.chatId };
+                const out = { channel: 'feishu', messageId: groupResult.messageId, chatId: groupResult.chatId };
+                await reportDeliveryResult(onDeliveryResult, out);
+                return out;
             }
             catch (err) {
                 log.warn(`sendPayload: multi-image post failed (${err instanceof Error ? err.message : String(err)}), ` +
@@ -234,6 +280,12 @@ exports.feishuOutbound = {
         let lastResult;
         for (const mediaUrl of mediaUrls) {
             lastResult = await (0, deliver_1.sendMediaLark)({ ...ctx, to: ctx.to, mediaUrl, mediaLocalRoots });
+            await reportDeliveryResult(onDeliveryResult, {
+                channel: 'feishu',
+                messageId: lastResult.messageId,
+                chatId: lastResult.chatId,
+                ...(lastResult.warning ? { meta: { warnings: [lastResult.warning] } } : {}),
+            });
             if (lastResult.warning) {
                 warnings.push(lastResult.warning);
             }

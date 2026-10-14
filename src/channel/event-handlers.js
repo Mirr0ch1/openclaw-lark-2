@@ -133,66 +133,85 @@ async function handleMessageEvent(ctx, data) {
         // create_time+content) so a redelivery with a fresh message_id is
         // still caught (#46778); everything else falls back to message_id.
         const dedupeKey = (0, dedupe_key_1.resolveFeishuMessageDedupeKey)(event) ?? msgId;
-        if (!ctx.messageDedup.tryRecord(dedupeKey, accountId)) {
+        // Claim (do NOT record) the key: recording at admission would suppress a
+        // durable-ingress redelivery if we crash before the message is enqueued.
+        // Commit once enqueued; release on failure so a retry can proceed.
+        const dedupeClaim = await ctx.messageDedup.claim(dedupeKey, accountId);
+        if (!dedupeClaim.claimed) {
             log(`feishu[${accountId}]: duplicate message ${msgId}, skipping`);
             return;
         }
-        // Expiry — discard stale messages from reconnect replay.
-        if ((0, dedup_1.isMessageExpired)(event.message?.create_time)) {
-            log(`feishu[${accountId}]: message ${msgId} expired, discarding`);
-            return;
-        }
-        // ---- Abort fast-path ----
-        // If the message looks like an abort trigger and there is an active
-        // reply dispatcher for this chat, fire abortCard() immediately
-        // (before the message enters the serial queue) so the streaming
-        // card is terminated without waiting for the current task.
-        const abortText = (0, abort_detect_1.extractRawTextFromEvent)(event);
-        if (abortText && (0, abort_detect_1.isLikelyAbortText)(abortText)) {
-            const queueKey = (0, chat_queue_1.buildQueueKey)(accountId, chatId, threadId);
-            if ((0, chat_queue_1.hasActiveTask)(queueKey)) {
-                const active = (0, chat_queue_1.getActiveDispatcher)(queueKey);
-                if (active) {
-                    log(`feishu[${accountId}]: abort fast-path triggered for chat ${chatId} (text="${abortText}")`);
-                    active.abortController?.abort();
-                    active.abortCard().catch((err) => {
-                        error(`feishu[${accountId}]: abort fast-path abortCard failed: ${String(err)}`);
-                    });
+        let dedupeSettled = false;
+        try {
+            // Expiry — discard stale messages from reconnect replay.
+            if ((0, dedup_1.isMessageExpired)(event.message?.create_time)) {
+                log(`feishu[${accountId}]: message ${msgId} expired, discarding`);
+                await ctx.messageDedup.commit(dedupeKey, accountId);
+                dedupeSettled = true;
+                return;
+            }
+            // ---- Abort fast-path ----
+            // If the message looks like an abort trigger and there is an active
+            // reply dispatcher for this chat, fire abortCard() immediately
+            // (before the message enters the serial queue) so the streaming
+            // card is terminated without waiting for the current task.
+            const abortText = (0, abort_detect_1.extractRawTextFromEvent)(event);
+            if (abortText && (0, abort_detect_1.isLikelyAbortText)(abortText)) {
+                const queueKey = (0, chat_queue_1.buildQueueKey)(accountId, chatId, threadId);
+                if ((0, chat_queue_1.hasActiveTask)(queueKey)) {
+                    const active = (0, chat_queue_1.getActiveDispatcher)(queueKey);
+                    if (active) {
+                        log(`feishu[${accountId}]: abort fast-path triggered for chat ${chatId} (text="${abortText}")`);
+                        active.abortController?.abort();
+                        active.abortCard().catch((err) => {
+                            error(`feishu[${accountId}]: abort fast-path abortCard failed: ${String(err)}`);
+                        });
+                    }
                 }
             }
+            const { status } = (0, chat_queue_1.enqueueFeishuChatTask)({
+                accountId,
+                chatId,
+                threadId,
+                onTaskTimeout: (key, timeoutMs) => {
+                    log(`feishu[${accountId}]: per-chat task exceeded ${timeoutMs}ms cap (key=${key}); evicting from queue so later same-key messages can proceed (#70133)`);
+                },
+                task: async () => {
+                    try {
+                        await (0, lark_ticket_1.withTicket)({
+                            messageId: msgId,
+                            chatId,
+                            accountId,
+                            startTime: Date.now(),
+                            senderOpenId: event.sender?.sender_id?.open_id || '',
+                            chatType: event.message?.chat_type || undefined,
+                            threadId,
+                        }, () => (0, handler_1.handleFeishuMessage)({
+                            cfg: ctx.cfg,
+                            event,
+                            botOpenId: ctx.lark.botOpenId,
+                            runtime: ctx.runtime,
+                            chatHistories: ctx.chatHistories,
+                            accountId,
+                        }));
+                    }
+                    catch (err) {
+                        error(`feishu[${accountId}]: error handling message: ${String(err)}`);
+                    }
+                },
+            });
+            log(`feishu[${accountId}]: message ${msgId} in chat ${chatId}${threadId ? ` thread ${threadId}` : ''} — ${status}`);
+            // Message is safely enqueued — record it so a redelivery is a no-op.
+            await ctx.messageDedup.commit(dedupeKey, accountId);
+            dedupeSettled = true;
         }
-        const { status } = (0, chat_queue_1.enqueueFeishuChatTask)({
-            accountId,
-            chatId,
-            threadId,
-            onTaskTimeout: (key, timeoutMs) => {
-                log(`feishu[${accountId}]: per-chat task exceeded ${timeoutMs}ms cap (key=${key}); evicting from queue so later same-key messages can proceed (#70133)`);
-            },
-            task: async () => {
-                try {
-                    await (0, lark_ticket_1.withTicket)({
-                        messageId: msgId,
-                        chatId,
-                        accountId,
-                        startTime: Date.now(),
-                        senderOpenId: event.sender?.sender_id?.open_id || '',
-                        chatType: event.message?.chat_type || undefined,
-                        threadId,
-                    }, () => (0, handler_1.handleFeishuMessage)({
-                        cfg: ctx.cfg,
-                        event,
-                        botOpenId: ctx.lark.botOpenId,
-                        runtime: ctx.runtime,
-                        chatHistories: ctx.chatHistories,
-                        accountId,
-                    }));
-                }
-                catch (err) {
-                    error(`feishu[${accountId}]: error handling message: ${String(err)}`);
-                }
-            },
-        });
-        log(`feishu[${accountId}]: message ${msgId} in chat ${chatId}${threadId ? ` thread ${threadId}` : ''} — ${status}`);
+        finally {
+            // Any failure before commit (e.g. enqueue threw) must release the
+            // claim so a durable-ingress retry is not suppressed.
+            if (!dedupeSettled) {
+                ctx.messageDedup.release(dedupeKey, accountId);
+            }
+        }
     }
     catch (err) {
         error(`feishu[${accountId}]: error handling message: ${String(err)}`);
@@ -213,7 +232,7 @@ async function handleReactionEvent(ctx, data) {
         const emojiType = event.reaction_type?.emoji_type ?? '';
         const operatorOpenId = event.user_id?.open_id ?? '';
         const dedupKey = `${msgId}:reaction:${emojiType}:${operatorOpenId}`;
-        if (!ctx.messageDedup.tryRecord(dedupKey, accountId)) {
+        if (!(await ctx.messageDedup.tryRecord(dedupKey, accountId))) {
             log(`feishu[${accountId}]: duplicate reaction ${dedupKey}, skipping`);
             return;
         }
@@ -341,7 +360,7 @@ async function handleVcMeetingInvitedEvent(ctx, data) {
         // payload shapes still remain deduplicated.
         const dedupBotKey = ctx.lark.botOpenId ?? invitedBotOpenId ?? 'no-bot';
         const dedupKey = eventId ? `vc-invited:by-event:${eventId}` : `vc-invited:by-meeting:${meetingNo}:${dedupBotKey}`;
-        if (!ctx.messageDedup.tryRecord(dedupKey, accountId)) {
+        if (!(await ctx.messageDedup.tryRecord(dedupKey, accountId))) {
             log(`feishu[${accountId}]: duplicate vc invited event detected, skipping`);
             return;
         }
@@ -383,7 +402,7 @@ async function handleCommentEvent(ctx, data) {
             `${isMentioned ? ', @bot' : ''}`);
         // Dedup: build a deterministic key from the comment/reply IDs
         const dedupKey = replyId ? `comment:${commentId}:reply:${replyId}` : `comment:${commentId}`;
-        if (!ctx.messageDedup.tryRecord(dedupKey, accountId)) {
+        if (!(await ctx.messageDedup.tryRecord(dedupKey, accountId))) {
             log(`feishu[${accountId}]: duplicate comment event ${dedupKey}, skipping`);
             return;
         }

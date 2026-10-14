@@ -2,24 +2,59 @@
  * Copyright (c) 2026 ByteDance Ltd. and/or its affiliates
  * SPDX-License-Identifier: MIT
  *
- * FIFO-based message deduplication.
+ * Message deduplication.
  *
- * Feishu WebSocket connections may redeliver messages on reconnect.
- * This module tracks recently-seen message IDs and filters duplicates.
+ * Feishu WebSocket connections may redeliver messages on reconnect, and the
+ * gateway may redeliver across restarts. This module tracks recently-seen
+ * message IDs and filters duplicates.
  *
- * Design choices:
- * - FIFO eviction (not LRU) — message IDs are write-once/check-once,
- *   no hot/cold access pattern.  FIFO naturally expires the oldest entry
- *   first, which matches the dedup semantics.
- * - ES2015 `Map` preserves insertion order, giving us FIFO for free.
- * - Periodic sweep leverages FIFO ordering: iterate from oldest and
- *   `break` at the first non-expired entry → O(expired), not O(n).
+ * Backends:
+ * - Persistent (default) — host SDK `openclaw/plugin-sdk/persistent-dedupe`,
+ *   SQLite-backed, survives restarts.
+ * - Memory-only fallback — process-local, used when the SDK subpath is absent.
+ *
+ * Claim/commit semantics: `claim` takes ownership without recording, `commit`
+ * records a handled key, `release` drops a claim so a retry can proceed.
+ * `tryRecord` is claim+commit for handlers that record at admission.
  */
+/** Claim result from the underlying guard. */
+export interface DedupeClaimResult {
+    kind: 'claimed' | 'duplicate' | 'inflight';
+    pending?: Promise<boolean>;
+}
+/** The subset of the host SDK claimable-dedupe guard this module relies on. */
+export interface ClaimableDedupeGuard {
+    claim: (key: string, options?: {
+        namespace?: string;
+    }) => Promise<DedupeClaimResult>;
+    commit: (key: string, options?: {
+        namespace?: string;
+    }) => Promise<boolean>;
+    release: (key: string, options?: {
+        namespace?: string;
+        error?: unknown;
+    }) => void;
+    hasRecent: (key: string, options?: {
+        namespace?: string;
+    }) => Promise<boolean>;
+    forget: (key: string, options?: {
+        namespace?: string;
+    }) => Promise<boolean>;
+    warmup: (namespace?: string, onError?: (error: unknown) => void) => Promise<number>;
+    clearMemory: () => void;
+    memorySize: () => number;
+}
 export interface MessageDedupOpts {
-    /** Time-to-live for each entry in milliseconds (default: 5 min). */
+    /** Time-to-live for each entry in milliseconds (default: 12 h). */
     ttlMs?: number;
-    /** Maximum number of tracked entries (default: 10 000). */
+    /** Maximum number of tracked entries (default: 5 000). */
     maxEntries?: number;
+    /** Force the in-memory fallback (`false`) regardless of SDK availability. */
+    persistent?: boolean;
+    /** Pre-built claim/commit guard (tests / dependency injection). */
+    guard?: ClaimableDedupeGuard;
+    /** Disk-error hook for the persistent backend (defaults to a warn log). */
+    onDiskError?: (error: unknown) => void;
 }
 /**
  * Check whether a message is too old to process.
@@ -31,29 +66,42 @@ export interface MessageDedupOpts {
  */
 export declare function isMessageExpired(createTimeStr: string | undefined, expiryMs?: number): boolean;
 export declare class MessageDedup {
-    private readonly store;
     private readonly ttlMs;
     private readonly maxEntries;
-    private readonly sweepTimer;
+    private readonly guard;
+    private readonly onDiskError;
+    /** Whether the guard is backed by persistent (SQLite) storage. */
+    readonly persistent: boolean;
     constructor(opts?: MessageDedupOpts);
     /**
-     * Try to record a message ID.
-     *
-     * @param id   Unique message identifier (e.g. Feishu `message_id`).
-     * @param scope Optional scope prefix (e.g. accountId) to namespace IDs.
-     * @returns `true` if the message is **new**; `false` if it is a duplicate.
+     * Take ownership of a key without recording it. Callers must `commit` (on
+     * success) or `release` (on failure) a claimed key.
      */
-    tryRecord(id: string, scope?: string): boolean;
+    claim(id: string, scope?: string): Promise<{
+        claimed: boolean;
+    }>;
+    /** Record a claimed key as handled. */
+    commit(id: string, scope?: string): Promise<boolean>;
+    /** Drop a claimed key without recording it, so a retry can proceed. */
+    release(id: string, scope?: string): void;
+    /**
+     * Claim and immediately commit a key. Returns `true` if the message is new,
+     * `false` if it is a duplicate.
+     */
+    tryRecord(id: string, scope?: string): Promise<boolean>;
+    /** Whether a key was recently recorded (without claiming or recording). */
+    hasRecent(id: string, scope?: string): Promise<boolean>;
+    /** Forget a recorded key so it can be processed again. */
+    forget(id: string, scope?: string): Promise<boolean>;
     /** Current number of tracked entries (for diagnostics). */
     get size(): number;
-    /** Remove all entries and stop the periodic sweep. */
-    clear(): void;
-    /** Stop the periodic sweep timer and clear all tracked entries. */
-    dispose(): void;
     /**
-     * Sweep expired entries from the front of the map.
-     * Because entries are in insertion order (FIFO), we can stop as soon as
-     * we hit one that hasn't expired yet.
+     * Load persisted entries for a namespace into memory. Call once at account
+     * start. Returns the number of entries loaded; 0 in memory-only mode.
      */
-    private sweep;
+    warmup(namespace?: string): Promise<number>;
+    /** Remove all in-memory entries (persisted state is left intact). */
+    clear(): void;
+    /** Clear in-memory state. Alias of {@link clear}. */
+    dispose(): void;
 }

@@ -205,7 +205,7 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
     textChunkLimit: zod_1.z.number().optional(),
     chunkMode: ChunkModeEnum.optional(),
     blockStreamingCoalesce: BlockStreamingCoalesceSchema,
-    mediaMaxMb: zod_1.z.number().optional(),
+    mediaMaxMb: zod_1.z.number().positive().optional(),
     heartbeat: HeartbeatSchema,
     replyMode: ReplyModeSchema,
     streaming: exports.FeishuStreamingSchema,

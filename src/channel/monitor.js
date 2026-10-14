@@ -38,12 +38,25 @@ async function monitorSingleAccount(params) {
     const error = runtime?.error ?? ((...args) => mlog.error(args.map(String).join(' ')));
     const connectionMode = account.config.connectionMode ?? 'websocket';
     // Message dedup — filters duplicate deliveries from WebSocket reconnects.
+    // Persistent backend (SQLite) survives restarts; the memory-only fallback
+    // is used when the host SDK lacks `persistent-dedupe`.
     const dedupCfg = account.config.dedup;
     const messageDedup = new dedup_1.MessageDedup({
         ttlMs: dedupCfg?.ttlMs,
         maxEntries: dedupCfg?.maxEntries,
     });
-    log(`feishu[${accountId}]: message dedup enabled (ttl=${messageDedup['ttlMs']}ms, max=${messageDedup['maxEntries']})`);
+    // Warm persisted entries into memory before accepting traffic so a
+    // redelivery racing startup is still caught across a gateway restart.
+    try {
+        const warmed = await messageDedup.warmup(accountId);
+        if (warmed > 0) {
+            log(`feishu[${accountId}]: warmed ${warmed} persisted dedupe entr${warmed === 1 ? 'y' : 'ies'}`);
+        }
+    }
+    catch (err) {
+        log(`feishu[${accountId}]: dedupe warmup failed, continuing memory-only: ${String(err)}`);
+    }
+    log(`feishu[${accountId}]: message dedup enabled (ttl=${messageDedup['ttlMs']}ms, max=${messageDedup['maxEntries']}, persistent=${messageDedup['persistent'] ? 'yes' : 'no'})`);
     // Create LarkClient instance — manages SDK client, WS, and bot identity.
     const lark = lark_client_1.LarkClient.fromAccount(account);
     // Attach dedup instance so it is disposed together with the client.

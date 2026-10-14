@@ -192,7 +192,7 @@ exports.feishuMessageActions = {
  * optional reply-to and thread routing.
  *
  * Supports `fileName` for named file uploads via `uploadAndSendMediaLark`.
- * On media upload failure, falls back to sending the URL as a text link.
+ * On media upload failure the error is propagated (see `deliverMedia`).
  */
 async function deliverMessage(cfg, sp, accountId, mediaLocalRoots) {
     const { to, text, mediaUrl, fileName, replyToMessageId, replyInThread, card: rawCard } = sp;
@@ -232,7 +232,14 @@ async function deliverMessage(cfg, sp, accountId, mediaLocalRoots) {
     return (0, sdk_compat_1.jsonResult)({ ok: true, messageId: result.messageId, chatId: result.chatId });
 }
 /**
- * Upload and send a media file with text-link fallback on failure.
+ * Upload and send a media file for the direct `send` action.
+ *
+ * Unlike the channel-level media adapter (which degrades to a text link so an
+ * agent's reply is never lost), this path is an explicit attachment request
+ * from the agent. A failed upload is therefore surfaced as a visible error
+ * (thrown) rather than an `ok:true` receipt for a text-only fallback — an
+ * agent that asked to deliver an attachment must learn it could not be
+ * delivered (issue #112244).
  */
 async function deliverMedia(cfg, sp, accountId, mediaLocalRoots) {
     const { to, mediaUrl, fileName, replyToMessageId, replyInThread } = sp;
@@ -254,22 +261,9 @@ async function deliverMedia(cfg, sp, accountId, mediaLocalRoots) {
     catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         log.error(`deliverMedia: upload failed for "${mediaUrl}": ${errMsg}`);
-        // Fallback: send the URL with error reason as a quote above.
-        log.info('deliverMedia: falling back to text link');
-        const fallback = await (0, deliver_1.sendTextLark)({
-            cfg,
-            to,
-            text: `> ${mediaUrl}`,
-            replyToMessageId,
-            replyInThread,
-            accountId,
-        });
-        return (0, sdk_compat_1.jsonResult)({
-            ok: true,
-            messageId: fallback.messageId,
-            chatId: fallback.chatId,
-            warning: `Media upload failed (${errMsg}). A text link was sent instead.`,
-        });
+        // Propagate: the agent requested an attachment; do not report success
+        // for a fallback it did not ask for (#112244). The caller surfaces this.
+        throw new Error(`Feishu send could not deliver the requested media attachment: ${errMsg}`, { cause: err });
     }
 }
 // ---------------------------------------------------------------------------

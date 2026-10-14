@@ -20,6 +20,13 @@
  * means the outbound mention falls back to plain "@Name" text (which Feishu
  * won't deliver as a notification — that's a graceful degradation, not a
  * functional failure).
+ *
+ * Growth is bounded on BOTH dimensions (matching the official plugin's
+ * bounded-cache convention):
+ *   - per chat: at most MAX_NAMES_PER_CHAT distinct names
+ *   - overall:  at most MAX_CHATS distinct chats
+ * Writes refresh an entry's insertion position (delete + set) so the pruning
+ * is LRU-ish: actively-seen names/chats survive ahead of stale ones.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.recordMention = recordMention;
@@ -28,8 +35,33 @@ exports.lookupByName = lookupByName;
 exports.resetMentionRegistry = resetMentionRegistry;
 exports.purgeStaleEntries = purgeStaleEntries;
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+/** Max distinct names tracked per chat. Mirrors the official's 500-entry caches. */
+const MAX_NAMES_PER_CHAT = 500;
+/** Max distinct chats tracked. Bounds the outer map the same way. */
+const MAX_CHATS = 500;
 // chatId -> lowercased name -> Entry
 const registry = new Map();
+/**
+ * Prune a Map in insertion order until it fits `maxSize`.
+ *
+ * Ported from `openclaw/plugin-sdk/collection-runtime` (the helper the
+ * official plugin uses for its bounded caches) with a local fallback so an
+ * older core missing that SDK subpath does not break plugin load.
+ */
+function pruneMapToMaxSize(map, maxSize) {
+    if (Number.isNaN(maxSize) || maxSize === Number.POSITIVE_INFINITY)
+        return;
+    const limit = Math.max(0, Math.floor(maxSize));
+    if (limit <= 0) {
+        map.clear();
+        return;
+    }
+    for (const key of map.keys()) {
+        if (map.size <= limit)
+            break;
+        map.delete(key);
+    }
+}
 function normalizeName(name) {
     return name.trim().toLowerCase();
 }
@@ -47,7 +79,16 @@ function recordEntry(chatId, openId, name) {
     const key = normalizeName(name);
     if (!key)
         return;
-    getChatMap(chatId).set(key, { openId, name, recordedAt: Date.now() });
+    const chatMap = getChatMap(chatId);
+    // delete + set refreshes insertion order so an actively-updated name is not
+    // pruned ahead of a stale one, then bound the per-chat name map.
+    chatMap.delete(key);
+    chatMap.set(key, { openId, name, recordedAt: Date.now() });
+    pruneMapToMaxSize(chatMap, MAX_NAMES_PER_CHAT);
+    // Refresh this chat's position, then bound the number of tracked chats.
+    registry.delete(chatId);
+    registry.set(chatId, chatMap);
+    pruneMapToMaxSize(registry, MAX_CHATS);
 }
 /**
  * Record an @-mention target observed in inbound text.
@@ -100,7 +141,7 @@ function resetMentionRegistry() {
 /**
  * Drop all entries older than `ttlMs` across every chat. Optional helper
  * for callers that want a deterministic cleanup tick — `lookupByName`
- * already does lazy eviction on read.
+ * already does lazy eviction on read, and `recordEntry` bounds total size.
  */
 function purgeStaleEntries(ttlMs = DEFAULT_TTL_MS) {
     const cutoff = Date.now() - ttlMs;

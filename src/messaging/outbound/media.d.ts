@@ -283,3 +283,15 @@ export declare function uploadImageFromUrlLark(params: {
     mediaLocalRoots?: readonly string[];
     accountId?: string;
 }): Promise<UploadImageResult>;
+/** Hard ceiling for outbound media uploads (mirrors the official plugin). */
+export declare const FEISHU_MAX_FILE_UPLOAD_BYTES: number;
+/**
+ * Resolve the outbound media size cap for an account:
+ * `min(configured mediaMaxMb (default 30), FEISHU_MAX_FILE_UPLOAD_BYTES)`.
+ */
+export declare function resolveOutboundMediaMaxBytes(cfg: OpenClawConfig, accountId?: string): number;
+/**
+ * Read a fetch Response body into a Buffer, aborting once the running total
+ * exceeds `maxBytes`. Prefers a streaming read to bound peak memory.
+ */
+export declare function readResponseBodyWithCap(response: Response, maxBytes: number, url: string): Promise<Buffer>;
