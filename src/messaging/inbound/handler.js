@@ -33,6 +33,7 @@ const gate_1 = require("./gate.js");
 const handler_registry_1 = require("./handler-registry.js");
 const dispatch_1 = require("./dispatch.js");
 const policy_1 = require("./policy.js");
+const bot_content_1 = require("./bot-content.js");
 const mention_registry_1 = require("./mention-registry.js");
 const bot_loop_guard_1 = require("./bot-loop-guard.js");
 const logger = (0, lark_logger_1.larkLogger)('inbound/handler');
@@ -137,7 +138,26 @@ async function handleFeishuMessage(params) {
         }
         // Record history entry if the gate produced one (group no-mention case)
         if (gate.historyEntry && chatHistories) {
-            const historyKey = (0, chat_queue_1.threadScopedKey)(ctx.chatId, ctx.threadId);
+            // The key MUST match the reader in dispatch-builders (which now uses the
+            // scope-derived group session id). Otherwise a `group_sender` /
+            // `group_topic` group would write pending history under the bare chat id
+            // and never read it back when the bot is finally mentioned.
+            const historyBase = ctx.chatType === 'group'
+                ? (0, bot_content_1.resolveFeishuGroupSession)({
+                    chatId: ctx.chatId,
+                    senderOpenId: ctx.senderId,
+                    messageId: ctx.messageId,
+                    rootId: ctx.rootId,
+                    threadId: ctx.threadId,
+                    chatType: ctx.chatType,
+                    groupConfig: (0, policy_1.resolveFeishuGroupConfigWithWildcard)({
+                        cfg: accountFeishuCfg,
+                        groupId: ctx.chatId,
+                    }),
+                    feishuCfg: accountFeishuCfg,
+                }).peerId
+                : ctx.chatId;
+            const historyKey = (0, chat_queue_1.threadScopedKey)(historyBase, ctx.threadId);
             (0, reply_history_1.recordPendingHistoryEntryIfEnabled)({
                 historyMap: chatHistories,
                 historyKey,

@@ -51,6 +51,47 @@ export declare function resolveBotPeerForMention(params: {
     mentions: MentionInfo[];
     botOpenId?: string;
 }): BotPeerTarget | undefined;
+/** The four group session scoping modes (most specific last). */
+export type FeishuGroupSessionScope = 'group' | 'group_sender' | 'group_topic' | 'group_topic_sender';
+/** The resolved inbound group session identity. */
+export interface ResolvedFeishuGroupSession {
+    /** Conversation id fed to `resolveAgentRoute` and used as the group history key. */
+    peerId: string;
+    /** Whole-chat peer to fall back to for topic-scoped sessions; null otherwise. */
+    parentPeer: {
+        kind: 'group';
+        id: string;
+    } | null;
+    groupSessionScope: FeishuGroupSessionScope;
+    replyInThread: boolean;
+    threadReply: boolean;
+}
+/**
+ * Resolve the inbound group session identity from the configured
+ * `groupSessionScope` (or legacy `topicSessionMode`).
+ *
+ * Ported from @openclaw/feishu `src/bot-content.ts` (openclaw main 2f620b9).
+ * Makes `groupSessionScope` actually scope inbound sessions (per-sender /
+ * per-topic) instead of collapsing every group message onto `chatId`.
+ */
+export declare function resolveFeishuGroupSession(params: {
+    chatId: string;
+    senderOpenId: string;
+    messageId: string;
+    rootId?: string;
+    threadId?: string;
+    chatType?: string;
+    groupConfig?: {
+        groupSessionScope?: FeishuGroupSessionScope;
+        topicSessionMode?: 'enabled' | 'disabled';
+        replyInThread?: 'enabled' | 'disabled';
+    };
+    feishuCfg?: {
+        groupSessionScope?: FeishuGroupSessionScope;
+        topicSessionMode?: 'enabled' | 'disabled';
+        replyInThread?: 'enabled' | 'disabled';
+    };
+}): ResolvedFeishuGroupSession;
 export interface FeishuReplyRouting {
     /** Whether to send the reply as a thread-scoped message. */
     replyInThread: boolean;

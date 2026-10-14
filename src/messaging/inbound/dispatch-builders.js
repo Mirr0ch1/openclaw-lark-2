@@ -221,7 +221,11 @@ function buildEnvelopeWithHistory(dc, messageBody, chatHistories, historyLimit) 
         body: messageBody,
     });
     let combinedBody = body;
-    const historyKey = dc.isGroup ? (0, chat_queue_1.threadScopedKey)(dc.ctx.chatId, dc.isThread ? dc.ctx.threadId : undefined) : undefined;
+    // Key group history by the scope-derived session id (official `groupHistoryKey`),
+    // falling back to the bare chat id for the default `group` scope. Keeps a
+    // `group_sender` / `group_topic` group from sharing one history bucket.
+    const historyBase = dc.groupSession?.peerId ?? dc.ctx.chatId;
+    const historyKey = dc.isGroup ? (0, chat_queue_1.threadScopedKey)(historyBase, dc.isThread ? dc.ctx.threadId : undefined) : undefined;
     if (dc.isGroup && historyKey && chatHistories) {
         combinedBody = (0, reply_history_1.buildPendingHistoryContextFromMap)({
             historyMap: chatHistories,

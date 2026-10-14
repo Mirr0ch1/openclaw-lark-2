@@ -22,10 +22,19 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveBotPeerForMention = resolveBotPeerForMention;
+exports.resolveFeishuGroupSession = resolveFeishuGroupSession;
 exports.resolveFeishuReplyRouting = resolveFeishuReplyRouting;
 const chat_info_cache_1 = require("../../core/chat-info-cache.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
+const conversation_id_1 = require("../../core/conversation-id.js");
 const log = (0, lark_logger_1.larkLogger)('inbound/bot-content');
+/** Trim a value to a non-empty string, otherwise `undefined`. */
+function normalizeText(raw) {
+    if (typeof raw !== 'string')
+        return undefined;
+    const trimmed = raw.trim();
+    return trimmed ? trimmed : undefined;
+}
 /**
  * Decide which peer (if any) an outbound reply must be guaranteed to
  * @-mention, so the deterministic `ensureMention` backstop can wake them up.
@@ -114,4 +123,89 @@ async function resolveFeishuReplyRouting(dc, opts = {}) {
     const replyInThread = !suppressForBotPeer && dc.isThread;
     const threadId = replyInThread ? dc.ctx.threadId : undefined;
     return { replyInThread, threadId, suppressForBotPeer };
+}
+/**
+ * Resolve the inbound group *session identity* from the configured
+ * `groupSessionScope` (or the legacy `topicSessionMode`).
+ *
+ * Ported from @openclaw/feishu `src/bot-content.ts` (openclaw main 2f620b9).
+ *
+ * Without this, `groupSessionScope` was an inbound no-op: every message in a
+ * group resolved to the same `peer.id = chatId`, so per-sender / per-topic
+ * scoping only ever applied outbound. The returned `peerId` is the conversation
+ * id fed to `resolveAgentRoute` (and used as the group history key), so a
+ * `group_sender` group gives each speaker their own session and a
+ * `group_topic` group gives each topic its own.
+ *
+ * `parentPeer` is set for topic scopes so core can fall back from the topic
+ * session to the whole-chat session (per-conversation model overrides,
+ * binding resolution).
+ *
+ * `chatType === 'topic_group'` is defensive: the raw Feishu `chat_type` is
+ * `p2p`/`group`, so in practice the `rootId`/`threadId` fallbacks drive the
+ * topic id — matching the official behaviour.
+ */
+function resolveFeishuGroupSession(params) {
+    const { chatId, senderOpenId, messageId, rootId, threadId, chatType, groupConfig, feishuCfg } = params;
+    const normalizedThreadId = normalizeText(threadId);
+    const normalizedRootId = normalizeText(rootId);
+    const threadReply = Boolean(normalizedThreadId || normalizedRootId);
+    const replyInThread = (groupConfig?.replyInThread ?? feishuCfg?.replyInThread ?? 'disabled') === 'enabled' ||
+        threadReply;
+    const groupSessionScope = (0, conversation_id_1.resolveConfiguredFeishuGroupSessionScope)({
+        groupConfig,
+        feishuCfg,
+    });
+    const normalizedTopicGroupThreadId = chatType === 'topic_group' ? (normalizedThreadId ?? normalizedRootId) : undefined;
+    const topicScope = groupSessionScope === 'group_topic' || groupSessionScope === 'group_topic_sender'
+        ? (normalizedTopicGroupThreadId ??
+            normalizedRootId ??
+            normalizedThreadId ??
+            (replyInThread ? messageId : null))
+        : null;
+    let peerId;
+    switch (groupSessionScope) {
+        case 'group_sender':
+            peerId = (0, conversation_id_1.buildFeishuConversationId)({
+                chatId,
+                scope: 'group_sender',
+                senderOpenId,
+            });
+            break;
+        case 'group_topic':
+            peerId = topicScope
+                ? (0, conversation_id_1.buildFeishuConversationId)({
+                    chatId,
+                    scope: 'group_topic',
+                    topicId: topicScope,
+                })
+                : chatId;
+            break;
+        case 'group_topic_sender':
+            peerId = topicScope
+                ? (0, conversation_id_1.buildFeishuConversationId)({
+                    chatId,
+                    scope: 'group_topic_sender',
+                    topicId: topicScope,
+                    senderOpenId,
+                })
+                : (0, conversation_id_1.buildFeishuConversationId)({
+                    chatId,
+                    scope: 'group_sender',
+                    senderOpenId,
+                });
+            break;
+        default:
+            peerId = chatId;
+            break;
+    }
+    return {
+        peerId,
+        parentPeer: topicScope && (groupSessionScope === 'group_topic' || groupSessionScope === 'group_topic_sender')
+            ? { kind: 'group', id: chatId }
+            : null,
+        groupSessionScope,
+        replyInThread,
+        threadReply,
+    };
 }

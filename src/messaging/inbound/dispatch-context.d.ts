@@ -11,6 +11,7 @@
 import type { ClawdbotConfig, RuntimeEnv } from 'openclaw/plugin-sdk';
 import type { MessageContext } from '../types';
 import type { LarkAccount } from '../../core/types';
+import type { ResolvedFeishuGroupSession } from './bot-content';
 import { LarkClient } from '../../core/lark-client';
 export interface DispatchContext {
     ctx: MessageContext;
@@ -30,6 +31,8 @@ export interface DispatchContext {
     envelopeFrom: string;
     envelopeOptions: ReturnType<typeof LarkClient.runtime.channel.reply.resolveEnvelopeFormatOptions>;
     route: ReturnType<typeof LarkClient.runtime.channel.routing.resolveAgentRoute>;
+    /** Resolved group session identity (undefined for DMs / comment targets). */
+    groupSession?: ResolvedFeishuGroupSession;
     threadSessionKey?: string;
     commandAuthorized?: boolean;
 }

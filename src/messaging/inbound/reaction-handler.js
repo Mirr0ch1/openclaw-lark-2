@@ -58,6 +58,7 @@ const chat_info_cache_1 = require("../../core/chat-info-cache.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
 const user_name_cache_1 = require("./user-name-cache.js");
 const dispatch_1 = require("./dispatch.js");
+const gate_1 = require("./gate.js");
 const policy_1 = require("./policy.js");
 const logger = (0, lark_logger_1.larkLogger)('inbound/reaction-handler');
 const REACTION_VERIFY_TIMEOUT_MS = 3_000;
@@ -234,6 +235,26 @@ async function handleFeishuReaction(params) {
     const groupConfig = isGroup ? (0, policy_1.resolveFeishuGroupConfig)({ cfg: accountFeishuCfg, groupId: ctx.chatId }) : undefined;
     const defaultGroupConfig = isGroup ? accountFeishuCfg?.groups?.['*'] : undefined;
     const historyLimit = Math.max(0, accountFeishuCfg?.historyLimit ?? accountScopedCfg.messages?.groupChat?.historyLimit ?? reply_history_1.DEFAULT_GROUP_HISTORY_LIMIT);
+    // ---- Step D2: Access control ----
+    // Reaction events bypass the normal message pipeline, so the same
+    // admission gate must be enforced here (group/dm policy + sender
+    // allowlists). A reaction is an implicit interaction, so the group
+    // mention requirement is treated as satisfied (same rationale as card
+    // actions) — but a disallowed group or sender is still rejected. Without
+    // this, a member rejected by dmPolicy/groupPolicy/allowlist could trigger
+    // the agent simply by reacting to any bot message.
+    const gate = await (0, gate_1.checkMessageGate)({
+        ctx,
+        accountFeishuCfg,
+        account,
+        accountScopedCfg,
+        log,
+        mentionSatisfied: true,
+    });
+    if (!gate.allowed) {
+        log(`feishu[${accountId}]: reaction rejected by access gate (${gate.reason})`);
+        return;
+    }
     // ---- Step E: Dispatch directly to agent ----
     try {
         await (0, dispatch_1.dispatchToAgent)({

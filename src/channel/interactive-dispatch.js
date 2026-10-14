@@ -13,6 +13,7 @@
  * We intentionally do NOT maintain any channel-local global registry here.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.resolveInteractiveDedupeId = resolveInteractiveDedupeId;
 exports.dispatchFeishuPluginInteractiveHandler = dispatchFeishuPluginInteractiveHandler;
 // NOTE: This is the SDK-standard interactive pipeline.
 const plugin_runtime_1 = require("openclaw/plugin-sdk/plugin-runtime");
@@ -33,6 +34,8 @@ function extractBasics(data) {
             senderOpenId: (0, card_action_operator_1.resolveCardCallbackOperatorId)(ev.operator),
             openChatId,
             openMessageId,
+            eventId: ev.event_id?.trim() || undefined,
+            token: ev.token?.trim() || undefined,
         };
     }
     catch {
@@ -57,6 +60,23 @@ function buildMarkdownCard(text) {
             ],
         },
     };
+}
+/**
+ * Build the core dedupe id for a card callback.
+ *
+ * The id MUST identify the *event*, not the button. Core claims this key on
+ * match and commits a 5-minute TTL entry, so a stable card+button(+sender)
+ * string silently swallows a second, deliberate click on the same button
+ * inside that window (`duplicate:true`, handler never invoked). Mirror the
+ * inject_prompt path (and Telegram's `callbackId`): key on the callback's
+ * unique event id, falling back to the token. A genuine redelivery reuses the
+ * same event id and is still deduped; a real re-click carries a new one.
+ * Returns `undefined` when neither id is present so core skips dedupe rather
+ * than risk collapsing distinct clicks.
+ */
+function resolveInteractiveDedupeId(accountId, eventId, token) {
+    const callbackEventId = eventId ?? token;
+    return callbackEventId ? `feishu:${accountId}:${callbackEventId}` : undefined;
 }
 /**
  * Dispatch a Feishu interactive card action to business plugins through
@@ -153,7 +173,9 @@ async function dispatchFeishuPluginInteractiveHandler(params) {
         },
     };
     try {
-        const dedupeId = `feishu:${params.accountId}:${basics.openChatId ?? '-'}:${basics.openMessageId ?? '-'}:${basics.senderOpenId ?? '-'}:${basics.action}`;
+        // Dedupe key must identify the *event*, not the button. See
+        // resolveInteractiveDedupeId for the full rationale.
+        const dedupeId = resolveInteractiveDedupeId(params.accountId, basics.eventId, basics.token);
         let cardResponse;
         const result = await (0, plugin_runtime_1.dispatchPluginInteractiveHandler)({
             channel: 'feishu',

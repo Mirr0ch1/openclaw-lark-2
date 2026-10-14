@@ -18,6 +18,8 @@ const lark_client_1 = require("../../core/lark-client.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
 const chat_info_cache_1 = require("../../core/chat-info-cache.js");
 const comment_target_1 = require("../../core/comment-target.js");
+const bot_content_1 = require("./bot-content.js");
+const policy_1 = require("./policy.js");
 const log = (0, lark_logger_1.larkLogger)('inbound/dispatch-context');
 // ---------------------------------------------------------------------------
 // RuntimeEnv fallback
@@ -70,6 +72,29 @@ function buildDispatchContext(params) {
             : `user:${ctx.senderId}`;
     const envelopeFrom = isGroup ? `${ctx.chatId}:${ctx.senderId}` : ctx.senderId;
     const envelopeOptions = core.channel.reply.resolveEnvelopeFormatOptions(accountScopedCfg);
+    // ---- Group session identity ----
+    // Resolve the configured group session scope (groupSessionScope /
+    // topicSessionMode) into a conversation id, so per-sender / per-topic
+    // scoping actually applies to the *inbound* session. Uses the wildcard-aware
+    // group lookup (`groups["*"]` is the documented per-group default) to stay
+    // consistent with the outbound session-route; policy/read-policy keep the
+    // strict (non-wildcard) lookup elsewhere on purpose.
+    const groupSession = isGroup
+        ? (0, bot_content_1.resolveFeishuGroupSession)({
+            chatId: ctx.chatId,
+            senderOpenId: ctx.senderId,
+            messageId: ctx.messageId,
+            rootId: ctx.rootId,
+            threadId: ctx.threadId,
+            chatType: ctx.chatType,
+            groupConfig: (0, policy_1.resolveFeishuGroupConfigWithWildcard)({
+                cfg: account.config,
+                groupId: ctx.chatId,
+            }),
+            feishuCfg: account.config,
+        })
+        : undefined;
+    const groupPeerId = groupSession?.peerId ?? ctx.chatId;
     // ---- Route resolution ----
     // Comment targets use the comment target as the peer ID so each
     // comment thread gets its own session key.
@@ -81,8 +106,9 @@ function buildDispatchContext(params) {
             ? { kind: 'direct', id: ctx.chatId }
             : {
                 kind: isGroup ? 'group' : 'direct',
-                id: isGroup ? ctx.chatId : ctx.senderId,
+                id: isGroup ? groupPeerId : ctx.senderId,
             },
+        parentPeer: groupSession?.parentPeer ?? null,
     });
     // ---- System event ----
     const sender = ctx.senderName ? `${ctx.senderName} (${ctx.senderId})` : ctx.senderId;
@@ -121,6 +147,7 @@ function buildDispatchContext(params) {
         envelopeFrom,
         envelopeOptions,
         route,
+        groupSession,
         threadSessionKey: undefined,
         commandAuthorized: params.commandAuthorized,
     };

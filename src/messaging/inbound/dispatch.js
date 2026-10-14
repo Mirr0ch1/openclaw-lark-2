@@ -220,7 +220,14 @@ async function dispatchNormalMessage(dc, ctxPayload, routing, chatHistories, his
     const abortController = new AbortController();
     // Register the active dispatcher so the monitor abort fast-path can
     // terminate the streaming card before this task completes.
-    const queueKey = (0, chat_queue_1.buildQueueKey)(dc.account.accountId, dc.ctx.chatId, dc.ctx.threadId);
+    //
+    // The key MUST match the enqueue key used by the monitor: in topic groups a
+    // reply event often carries only `root_id` (no `thread_id`), and the monitor
+    // keys the queue on `thread_id || root_id`. Using `ctx.threadId` alone here
+    // registered under the bare chat, so `getActiveDispatcher` missed it and the
+    // fast abort path was dead for root_id-only topics (and topics overwrote
+    // each other under the shared chat key).
+    const queueKey = (0, chat_queue_1.buildQueueKey)(dc.account.accountId, dc.ctx.chatId, dc.ctx.threadId ?? dc.ctx.rootId);
     (0, chat_queue_1.registerActiveDispatcher)(queueKey, { abortCard, abortController });
     dc.log(`feishu[${dc.account.accountId}]: dispatching to agent (session=${effectiveSessionKey})`);
     log.info(`dispatching to agent (session=${effectiveSessionKey})`);
@@ -322,7 +329,7 @@ async function dispatchToAgent(params) {
     // 7. Build InboundHistory for SDK metadata injection (>= 2026.2.10).
     //    The SDK's buildInboundUserContextPrefix renders these as structured
     //    JSON blocks; earlier SDK versions simply ignore unknown fields.
-    const threadHistoryKey = (0, chat_queue_1.threadScopedKey)(dc.ctx.chatId, dc.isThread ? dc.ctx.threadId : undefined);
+    const threadHistoryKey = (0, chat_queue_1.threadScopedKey)(dc.groupSession?.peerId ?? dc.ctx.chatId, dc.isThread ? dc.ctx.threadId : undefined);
     const inboundHistory = dc.isGroup && params.chatHistories && params.historyLimit > 0
         ? (params.chatHistories.get(threadHistoryKey) ?? []).map((entry) => ({
             sender: entry.sender,

@@ -41,6 +41,14 @@ export interface FeishuInteractiveHandlerContext {
     };
 }
 /**
+ * Build the core dedupe id for a card callback.
+ *
+ * Keyed on the callback event id (falling back to the token) so a real
+ * re-click on the same button is not collapsed by core's 5-minute TTL dedupe.
+ * Returns `undefined` when neither id is present so core skips dedupe.
+ */
+export declare function resolveInteractiveDedupeId(accountId: string, eventId?: string, token?: string): string | undefined;
+/**
  * Dispatch a Feishu interactive card action to business plugins through
  * the OpenClaw SDK's standard interactive dispatch pipeline.
  *

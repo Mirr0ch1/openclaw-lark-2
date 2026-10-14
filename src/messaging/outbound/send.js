@@ -27,6 +27,7 @@ const normalize_mentions_1 = require("./normalize-mentions.js");
 const outbound_mention_1 = require("./outbound-mention.js");
 const bot_peer_context_1 = require("./bot-peer-context.js");
 const send_rate_limit_1 = require("./send-rate-limit.js");
+const reply_fallback_1 = require("./reply-fallback.js");
 const sendLog = (0, lark_logger_1.larkLogger)('outbound/send');
 /**
  * Runs the outbound text through mention normalization. Returns the
@@ -72,6 +73,21 @@ function recordFeishuSendSentinels(resolvedAccountId, to, threadId, sentinels) {
         return;
     const threadKey = (0, chat_queue_1.threadScopedKey)(to, threadId);
     (0, sentinel_store_1.getSentinelStore)(resolvedAccountId).recordSentinels(threadKey, sentinels);
+}
+/**
+ * Resolve `to` into an `im.message.create` payload. Shared by the primary
+ * non-reply path and the withdrawn-reply fallback so both agree on target
+ * normalization and `receive_id_type`.
+ */
+function buildCreateRequest(to) {
+    const target = (0, targets_1.normalizeFeishuTarget)(to);
+    if (!target) {
+        throw new Error(`[feishu-send] Invalid target: "${to}"`);
+    }
+    return {
+        receive_id: target,
+        receive_id_type: (0, targets_1.resolveReceiveIdType)(target),
+    };
 }
 // ---------------------------------------------------------------------------
 // sendMessageFeishu
@@ -144,19 +160,40 @@ async function sendMessageFeishu(params) {
         // Send as a threaded reply.
         // 规范化 message_id，处理合成 ID（如 "om_xxx:auth-complete"）
         const normalizedId = (0, targets_1.normalizeMessageId)(replyToMessageId);
-        const response = await (0, message_unavailable_1.runWithMessageUnavailableGuard)({
-            messageId: normalizedId,
-            operation: 'im.message.reply(post)',
-            fn: () => (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.reply({
-                path: {
-                    message_id: normalizedId,
-                },
-                data: {
-                    content: contentPayload,
-                    msg_type: 'post',
-                    reply_in_thread: replyInThread,
-                },
-            }), 'im.message.reply(post)'),
+        // A withdrawn/deleted reply target is terminal for `im.message.reply`;
+        // fall back to a top-level create so the answer is still delivered.
+        // The fallback wraps the guard (not the other way around) so an
+        // already-marked-unavailable target also recovers.
+        const response = await (0, reply_fallback_1.withReplyFallback)({
+            replyInThread,
+            attemptReply: () => (0, message_unavailable_1.runWithMessageUnavailableGuard)({
+                messageId: normalizedId,
+                operation: 'im.message.reply(post)',
+                fn: () => (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.reply({
+                    path: {
+                        message_id: normalizedId,
+                    },
+                    data: {
+                        content: contentPayload,
+                        msg_type: 'post',
+                        reply_in_thread: replyInThread,
+                    },
+                }), 'im.message.reply(post)'),
+            }),
+            attemptCreate: () => {
+                const create = buildCreateRequest(to);
+                return (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.create({
+                    params: {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        receive_id_type: create.receive_id_type,
+                    },
+                    data: {
+                        receive_id: create.receive_id,
+                        msg_type: 'post',
+                        content: contentPayload,
+                    },
+                }), 'im.message.create(post)');
+            },
         });
         recordFeishuSendSentinels(normalizationAccountId, to, threadId, normalizationSentinels);
         return {
@@ -165,18 +202,14 @@ async function sendMessageFeishu(params) {
         };
     }
     // Send as a new message.
-    const target = (0, targets_1.normalizeFeishuTarget)(to);
-    if (!target) {
-        throw new Error(`[feishu-send] Invalid target: "${to}"`);
-    }
-    const receiveIdType = (0, targets_1.resolveReceiveIdType)(target);
+    const create = buildCreateRequest(to);
     const response = await (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.create({
         params: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            receive_id_type: receiveIdType,
+            receive_id_type: create.receive_id_type,
         },
         data: {
-            receive_id: target,
+            receive_id: create.receive_id,
             msg_type: 'post',
             content: contentPayload,
         },
@@ -203,37 +236,50 @@ async function sendCardFeishu(params) {
     if (replyToMessageId) {
         // 规范化 message_id，处理合成 ID（如 "om_xxx:auth-complete"）
         const normalizedId = (0, targets_1.normalizeMessageId)(replyToMessageId);
-        const response = await (0, message_unavailable_1.runWithMessageUnavailableGuard)({
-            messageId: normalizedId,
-            operation: 'im.message.reply(interactive)',
-            fn: () => (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.reply({
-                path: {
-                    message_id: normalizedId,
-                },
-                data: {
-                    content: contentPayload,
-                    msg_type: 'interactive',
-                    reply_in_thread: replyInThread,
-                },
-            }), 'im.message.reply(interactive)'),
+        const response = await (0, reply_fallback_1.withReplyFallback)({
+            replyInThread,
+            attemptReply: () => (0, message_unavailable_1.runWithMessageUnavailableGuard)({
+                messageId: normalizedId,
+                operation: 'im.message.reply(interactive)',
+                fn: () => (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.reply({
+                    path: {
+                        message_id: normalizedId,
+                    },
+                    data: {
+                        content: contentPayload,
+                        msg_type: 'interactive',
+                        reply_in_thread: replyInThread,
+                    },
+                }), 'im.message.reply(interactive)'),
+            }),
+            attemptCreate: () => {
+                const create = buildCreateRequest(to);
+                return (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.create({
+                    params: {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        receive_id_type: create.receive_id_type,
+                    },
+                    data: {
+                        receive_id: create.receive_id,
+                        msg_type: 'interactive',
+                        content: contentPayload,
+                    },
+                }), 'im.message.create(interactive)');
+            },
         });
         return {
             messageId: response?.data?.message_id ?? '',
             chatId: response?.data?.chat_id ?? '',
         };
     }
-    const target = (0, targets_1.normalizeFeishuTarget)(to);
-    if (!target) {
-        throw new Error(`[feishu-send] Invalid target: "${to}"`);
-    }
-    const receiveIdType = (0, targets_1.resolveReceiveIdType)(target);
+    const create = buildCreateRequest(to);
     const response = await (0, send_rate_limit_1.feishuSendRequest)(() => client.im.message.create({
         params: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            receive_id_type: receiveIdType,
+            receive_id_type: create.receive_id_type,
         },
         data: {
-            receive_id: target,
+            receive_id: create.receive_id,
             msg_type: 'interactive',
             content: contentPayload,
         },
