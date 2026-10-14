@@ -53,6 +53,8 @@ const policy_1 = require("../messaging/inbound/policy.js");
 const lark_client_1 = require("../core/lark-client.js");
 const send_1 = require("../messaging/outbound/send.js");
 const targets_1 = require("../core/targets.js");
+const conversation_id_1 = require("../core/conversation-id.js");
+const thread_bindings_1 = require("../core/thread-bindings.js");
 const onboarding_auth_1 = require("../tools/onboarding-auth.js");
 const lark_logger_1 = require("../core/lark-logger.js");
 const config_schema_1 = require("../core/config-schema.js");
@@ -225,6 +227,25 @@ exports.feishuPlugin = {
     // -------------------------------------------------------------------------
     messaging: {
         normalizeTarget: (raw) => (0, targets_1.normalizeFeishuTarget)(raw) ?? undefined,
+        /**
+         * Resolve where a bound conversation delivers. Core calls this when it
+         * has a conversationId (from a thread binding) and needs a Feishu
+         * target + thread id. Mirrors @openclaw/feishu `resolveDeliveryTarget`.
+         */
+        resolveDeliveryTarget: ({ conversationId, parentConversationId }) => {
+            const directId = (0, conversation_id_1.parseFeishuDirectConversationId)(conversationId);
+            if (directId) {
+                return { to: `user:${directId}` };
+            }
+            const parsed = (0, conversation_id_1.parseFeishuConversationId)({ conversationId, parentConversationId });
+            if (parsed?.topicId) {
+                return {
+                    to: `chat:${parentConversationId?.trim() || parsed.chatId}`,
+                    threadId: parsed.topicId,
+                };
+            }
+            return { to: `chat:${parsed?.chatId ?? conversationId.trim()}` };
+        },
         targetResolver: {
             looksLikeId: targets_1.looksLikeFeishuId,
             hint: '<chatId|user:openId|chat:chatId>',
@@ -318,6 +339,9 @@ exports.feishuPlugin = {
         },
         stopAccount: async (ctx) => {
             ctx.log?.info(`stopping feishu[${ctx.accountId}]`);
+            // The monitor stops its own manager on abort; this covers the case
+            // where teardown does not go through that path. Idempotent.
+            (0, thread_bindings_1.stopFeishuThreadBindingManager)(ctx.accountId);
             await lark_client_1.LarkClient.clearCache(ctx.accountId);
             ctx.log?.info(`stopped feishu[${ctx.accountId}]`);
         },

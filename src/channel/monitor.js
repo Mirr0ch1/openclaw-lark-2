@@ -15,6 +15,7 @@ const accounts_1 = require("../core/accounts.js");
 const lark_client_1 = require("../core/lark-client.js");
 const lark_logger_1 = require("../core/lark-logger.js");
 const shutdown_hooks_1 = require("../core/shutdown-hooks.js");
+const thread_bindings_1 = require("../core/thread-bindings.js");
 const dedup_1 = require("../messaging/inbound/dedup.js");
 const event_handlers_1 = require("./event-handlers.js");
 const webhook_1 = require("./webhook.js");
@@ -47,6 +48,16 @@ async function monitorSingleAccount(params) {
     const lark = lark_client_1.LarkClient.fromAccount(account);
     // Attach dedup instance so it is disposed together with the client.
     lark.messageDedup = messageDedup;
+    // Thread/conversation bindings — registers this account's session-binding
+    // adapter with the host so a subagent/ACP conversation can bind to a Feishu
+    // chat/topic. `null` on cores that lack the manager API (feature-detected).
+    const threadBindings = (0, thread_bindings_1.createFeishuThreadBindingManager)({
+        cfg: params.cfg,
+        accountId,
+    });
+    if (!threadBindings) {
+        log(`feishu[${accountId}]: thread bindings unavailable on this core (needs createAccountScopedConversationBindingManager)`);
+    }
     /** Per-chat history maps (used for group-chat context window). */
     const chatHistories = new Map();
     const ctx = {
@@ -63,10 +74,15 @@ async function monitorSingleAccount(params) {
     };
     const handlers = buildFeishuEventHandlers(ctx);
     if (connectionMode === 'webhook') {
-        // Webhook transport still needs bot identity for mention gating.
-        await lark.probe();
-        log(`feishu[${accountId}]: bot open_id resolved: ${lark.botOpenId ?? 'unknown'}`);
-        await (0, webhook_1.monitorFeishuWebhook)({ account, accountId, runtime, abortSignal, handlers, log });
+        try {
+            // Webhook transport still needs bot identity for mention gating.
+            await lark.probe();
+            log(`feishu[${accountId}]: bot open_id resolved: ${lark.botOpenId ?? 'unknown'}`);
+            await (0, webhook_1.monitorFeishuWebhook)({ account, accountId, runtime, abortSignal, handlers, log });
+        }
+        finally {
+            threadBindings?.stop();
+        }
         return;
     }
     log(`feishu[${accountId}]: starting WebSocket connection...`);
@@ -98,6 +114,7 @@ async function monitorSingleAccount(params) {
         // Stop the ingress even if the socket failed to start, so its poll
         // loop does not outlive the account.
         await wsIngress?.stop();
+        threadBindings?.stop();
     }
     // startWS resolves when abortSignal fires — probe result is logged inside startWS.
     log(`feishu[${accountId}]: bot open_id resolved: ${lark.botOpenId ?? 'unknown'}`);
