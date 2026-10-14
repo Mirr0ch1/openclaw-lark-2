@@ -34,3 +34,20 @@ describe("channel messaging.resolveDeliveryTarget", () => {
     expect(resolve({ conversationId: "oc_chat:sender:ou_s" })).toEqual({ to: "chat:oc_chat" });
   });
 });
+
+describe("channel messaging adapter wiring", () => {
+  it("exposes the session-conversation resolvers core consumes", () => {
+    expect(typeof feishuPlugin.messaging.resolveSessionConversation).toBe("function");
+    expect(typeof feishuPlugin.messaging.resolveOutboundSessionRoute).toBe("function");
+    expect(typeof feishuPlugin.messaging.resolveDeliveryTarget).toBe("function");
+  });
+
+  it("wires them to the real implementations", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const sc = require("../../src/core/session-conversation.js");
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const sr = require("../../src/core/session-route.js");
+    expect(feishuPlugin.messaging.resolveSessionConversation).toBe(sc.resolveFeishuSessionConversation);
+    expect(feishuPlugin.messaging.resolveOutboundSessionRoute).toBe(sr.resolveFeishuOutboundSessionRoute);
+  });
+});

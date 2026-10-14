@@ -15,6 +15,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.detectIdType = detectIdType;
+exports.stripFeishuProviderPrefix = stripFeishuProviderPrefix;
 exports.normalizeFeishuTarget = normalizeFeishuTarget;
 exports.parseFeishuRouteTarget = parseFeishuRouteTarget;
 exports.encodeFeishuRouteTarget = encodeFeishuRouteTarget;
@@ -31,8 +32,6 @@ const OPEN_ID_PREFIX = 'ou_';
 const TAG_CHAT = 'chat:';
 const TAG_USER = 'user:';
 const TAG_OPEN_ID = 'open_id:';
-// Feishu channel prefix (used by SDK for some routing scenarios).
-const TAG_FEISHU = 'feishu:';
 const ROUTE_META_FRAGMENT_REPLY_TO = '__feishu_reply_to';
 const ROUTE_META_FRAGMENT_THREAD_ID = '__feishu_thread_id';
 // ---------------------------------------------------------------------------
@@ -58,9 +57,14 @@ function detectIdType(id) {
 // ---------------------------------------------------------------------------
 // Normalisation
 // ---------------------------------------------------------------------------
+/** Strip a leading `feishu:` / `lark:` provider tag. Mirrors @openclaw/feishu. */
+function stripFeishuProviderPrefix(raw) {
+    return typeof raw === 'string' ? raw.replace(/^(feishu|lark):/i, '').trim() : '';
+}
 /**
- * Strip OpenClaw routing prefixes (`chat:`, `user:`, `open_id:`) from a
- * raw target string, returning the bare Feishu identifier.
+ * Strip the `feishu:`/`lark:` provider tag and one target-kind tag
+ * (`chat:`, `group:`, `channel:`, `user:`, `dm:`, `open_id:`) from a raw target
+ * string, returning the bare Feishu identifier.
  *
  * Returns `null` when the input is empty or falsy.
  */
@@ -70,19 +74,15 @@ function normalizeFeishuTarget(raw) {
     const trimmed = parseFeishuRouteTarget(raw).target.trim();
     if (!trimmed)
         return null;
-    // Handle Feishu channel prefix (e.g., "feishu:ou_xxx" -> "ou_xxx")
-    if (trimmed.startsWith(TAG_FEISHU)) {
-        const inner = trimmed.slice(TAG_FEISHU.length).trim();
-        if (inner)
-            return inner;
-    }
-    if (trimmed.startsWith(TAG_CHAT))
-        return trimmed.slice(TAG_CHAT.length);
-    if (trimmed.startsWith(TAG_USER))
-        return trimmed.slice(TAG_USER.length);
-    if (trimmed.startsWith(TAG_OPEN_ID))
-        return trimmed.slice(TAG_OPEN_ID.length);
-    return trimmed;
+    // Strip the provider tag, then at most one target-kind tag — the same order
+    // and tag set as @openclaw/feishu `normalizeFeishuTarget` (previously we
+    // returned early on `feishu:` and lacked lark:/group:/channel:/dm:, which
+    // left a tagged id in the target handed to the API).
+    const withoutProvider = stripFeishuProviderPrefix(trimmed);
+    if (!withoutProvider)
+        return null;
+    const prefix = /^(chat|group|channel|user|dm|open_id):/i.exec(withoutProvider);
+    return prefix ? withoutProvider.slice(prefix[0].length).trim() || null : withoutProvider;
 }
 function parseFeishuRouteTarget(raw) {
     const trimmed = raw.trim();
@@ -141,9 +141,20 @@ function formatFeishuTarget(id, type) {
  * API based on the target identifier.
  */
 function resolveReceiveIdType(id) {
-    if (id.startsWith(CHAT_PREFIX))
+    const trimmed = typeof id === 'string' ? id.trim() : '';
+    const lowered = trimmed.toLowerCase();
+    // Target-kind tags may still be present: outbound send paths strip them via
+    // normalizeFeishuTarget first, but the session-route contract hands us the
+    // raw target. Mirrors @openclaw/feishu `resolveReceiveIdType` (which also
+    // returns "user_id" for a bare tenant id; ours keeps the historical
+    // "open_id" default to avoid changing unrelated outbound behaviour).
+    if (lowered.startsWith('chat:') || lowered.startsWith('group:') || lowered.startsWith('channel:'))
         return 'chat_id';
-    if (id.startsWith(OPEN_ID_PREFIX))
+    if (lowered.startsWith('open_id:') || lowered.startsWith('user:') || lowered.startsWith('dm:'))
+        return 'open_id';
+    if (trimmed.startsWith(CHAT_PREFIX))
+        return 'chat_id';
+    if (trimmed.startsWith(OPEN_ID_PREFIX))
         return 'open_id';
     return 'open_id';
 }

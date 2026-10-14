@@ -19,9 +19,12 @@ import type { FeishuIdType } from './types';
  * Returns `null` when the string does not match any known pattern.
  */
 export declare function detectIdType(id: string): FeishuIdType | null;
+/** Strip a leading `feishu:` / `lark:` provider tag. */
+export declare function stripFeishuProviderPrefix(raw: string): string;
 /**
- * Strip OpenClaw routing prefixes (`chat:`, `user:`, `open_id:`) from a
- * raw target string, returning the bare Feishu identifier.
+ * Strip the `feishu:`/`lark:` provider tag and one target-kind tag
+ * (`chat:`, `group:`, `channel:`, `user:`, `dm:`, `open_id:`) from a raw target
+ * string, returning the bare Feishu identifier.
  *
  * Returns `null` when the input is empty or falsy.
  */
@@ -47,7 +50,14 @@ export declare function formatFeishuTarget(id: string, type?: FeishuIdType): str
  * Determine the `receive_id_type` query parameter for the Feishu send-message
  * API based on the target identifier.
  */
-export declare function resolveReceiveIdType(id: string): 'chat_id' | 'open_id' | 'user_id';
+/**
+ * Resolve the `receive_id_type` for a raw target.
+ *
+ * Note: unlike @openclaw/feishu this never returns `"user_id"` — a bare id
+ * defaults to `"open_id"` (historical behaviour; changing it would alter
+ * outbound sends for tenant ids).
+ */
+export declare function resolveReceiveIdType(id: string): 'chat_id' | 'open_id';
 /**
  * 规范化 message_id，去除合成后缀（如 `om_xxx:auth-complete` → `om_xxx`）。
  */

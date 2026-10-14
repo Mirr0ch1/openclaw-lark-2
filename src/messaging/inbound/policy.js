@@ -11,6 +11,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveFeishuAllowlistMatch = resolveFeishuAllowlistMatch;
 exports.resolveFeishuGroupConfig = resolveFeishuGroupConfig;
+exports.resolveFeishuGroupConfigWithWildcard = resolveFeishuGroupConfigWithWildcard;
 exports.resolveFeishuGroupToolPolicy = resolveFeishuGroupToolPolicy;
 exports.isFeishuGroupAllowed = isFeishuGroupAllowed;
 exports.splitLegacyGroupAllowFrom = splitLegacyGroupAllowFrom;
@@ -68,6 +69,26 @@ function resolveFeishuGroupConfig(params) {
     const lowered = groupId.toLowerCase();
     const matchKey = Object.keys(groups).find((key) => key.toLowerCase() === lowered);
     return matchKey ? groups[matchKey] : undefined;
+}
+/**
+ * Like {@link resolveFeishuGroupConfig} but falls back to the `groups["*"]`
+ * default entry, matching @openclaw/feishu.
+ *
+ * The plain helper deliberately has NO wildcard fallback: inbound gating and
+ * the read policy treat `undefined` as "no explicit group config", so widening
+ * it there would change those decisions. New consumers that want the documented
+ * "*" default should use this one.
+ */
+function resolveFeishuGroupConfigWithWildcard(params) {
+    const resolved = resolveFeishuGroupConfig(params);
+    if (resolved !== undefined) {
+        return resolved;
+    }
+    const groupId = params.groupId?.trim();
+    if (!groupId) {
+        return undefined;
+    }
+    return params.cfg?.groups?.['*'];
 }
 // ---------------------------------------------------------------------------
 // Group tool policy

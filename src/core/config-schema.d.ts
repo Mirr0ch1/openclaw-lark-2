@@ -32,6 +32,16 @@ export declare const FeishuGroupSchema: z.ZodObject<{
     systemPrompt: z.ZodOptional<z.ZodString>;
     allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
     replyInThread: z.ZodOptional<z.ZodBoolean>;
+    groupSessionScope: z.ZodOptional<z.ZodEnum<{
+        group: "group";
+        group_sender: "group_sender";
+        group_topic: "group_topic";
+        group_topic_sender: "group_topic_sender";
+    }>>;
+    topicSessionMode: z.ZodOptional<z.ZodEnum<{
+        disabled: "disabled";
+        enabled: "enabled";
+    }>>;
 }, z.core.$strip>;
 export declare const FeishuAccountConfigSchema: z.ZodObject<{
     appId: z.ZodOptional<z.ZodString>;
@@ -81,6 +91,16 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
         systemPrompt: z.ZodOptional<z.ZodString>;
         allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
         replyInThread: z.ZodOptional<z.ZodBoolean>;
+        groupSessionScope: z.ZodOptional<z.ZodEnum<{
+            group: "group";
+            group_sender: "group_sender";
+            group_topic: "group_topic";
+            group_topic_sender: "group_topic_sender";
+        }>>;
+        topicSessionMode: z.ZodOptional<z.ZodEnum<{
+            disabled: "disabled";
+            enabled: "enabled";
+        }>>;
     }, z.core.$strip>>>;
     historyLimit: z.ZodOptional<z.ZodNumber>;
     dmHistoryLimit: z.ZodOptional<z.ZodNumber>;
@@ -182,6 +202,16 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
     threadSession: z.ZodOptional<z.ZodBoolean>;
     allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
     replyInThread: z.ZodOptional<z.ZodBoolean>;
+    groupSessionScope: z.ZodOptional<z.ZodEnum<{
+        group: "group";
+        group_sender: "group_sender";
+        group_topic: "group_topic";
+        group_topic_sender: "group_topic_sender";
+    }>>;
+    topicSessionMode: z.ZodOptional<z.ZodEnum<{
+        disabled: "disabled";
+        enabled: "enabled";
+    }>>;
     uat: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodOptional<z.ZodBoolean>;
         allowedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -236,6 +266,16 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         systemPrompt: z.ZodOptional<z.ZodString>;
         allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
         replyInThread: z.ZodOptional<z.ZodBoolean>;
+        groupSessionScope: z.ZodOptional<z.ZodEnum<{
+            group: "group";
+            group_sender: "group_sender";
+            group_topic: "group_topic";
+            group_topic_sender: "group_topic_sender";
+        }>>;
+        topicSessionMode: z.ZodOptional<z.ZodEnum<{
+            disabled: "disabled";
+            enabled: "enabled";
+        }>>;
     }, z.core.$strip>>>;
     historyLimit: z.ZodOptional<z.ZodNumber>;
     dmHistoryLimit: z.ZodOptional<z.ZodNumber>;
@@ -337,6 +377,16 @@ export declare const FeishuConfigSchema: z.ZodObject<{
     threadSession: z.ZodOptional<z.ZodBoolean>;
     allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
     replyInThread: z.ZodOptional<z.ZodBoolean>;
+    groupSessionScope: z.ZodOptional<z.ZodEnum<{
+        group: "group";
+        group_sender: "group_sender";
+        group_topic: "group_topic";
+        group_topic_sender: "group_topic_sender";
+    }>>;
+    topicSessionMode: z.ZodOptional<z.ZodEnum<{
+        disabled: "disabled";
+        enabled: "enabled";
+    }>>;
     uat: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodOptional<z.ZodBoolean>;
         allowedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -390,6 +440,16 @@ export declare const FeishuConfigSchema: z.ZodObject<{
             systemPrompt: z.ZodOptional<z.ZodString>;
             allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
             replyInThread: z.ZodOptional<z.ZodBoolean>;
+            groupSessionScope: z.ZodOptional<z.ZodEnum<{
+                group: "group";
+                group_sender: "group_sender";
+                group_topic: "group_topic";
+                group_topic_sender: "group_topic_sender";
+            }>>;
+            topicSessionMode: z.ZodOptional<z.ZodEnum<{
+                disabled: "disabled";
+                enabled: "enabled";
+            }>>;
         }, z.core.$strip>>>;
         historyLimit: z.ZodOptional<z.ZodNumber>;
         dmHistoryLimit: z.ZodOptional<z.ZodNumber>;
@@ -491,6 +551,16 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         threadSession: z.ZodOptional<z.ZodBoolean>;
         allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
         replyInThread: z.ZodOptional<z.ZodBoolean>;
+        groupSessionScope: z.ZodOptional<z.ZodEnum<{
+            group: "group";
+            group_sender: "group_sender";
+            group_topic: "group_topic";
+            group_topic_sender: "group_topic_sender";
+        }>>;
+        topicSessionMode: z.ZodOptional<z.ZodEnum<{
+            disabled: "disabled";
+            enabled: "enabled";
+        }>>;
         uat: z.ZodOptional<z.ZodObject<{
             enabled: z.ZodOptional<z.ZodBoolean>;
             allowedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;

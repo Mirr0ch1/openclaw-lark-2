@@ -38,6 +38,14 @@ export declare function resolveFeishuGroupConfig(params: {
     groupId?: string | null;
 }): FeishuGroupConfig | undefined;
 /**
+ * Like {@link resolveFeishuGroupConfig} but falls back to the `groups["*"]`
+ * default entry (matching @openclaw/feishu).
+ */
+export declare function resolveFeishuGroupConfigWithWildcard(params: {
+    cfg?: FeishuConfig;
+    groupId?: string | null;
+}): FeishuGroupConfig | undefined;
+/**
  * Extract the tool policy configuration from the group config that
  * corresponds to the given group context.
  *

@@ -54,6 +54,8 @@ const lark_client_1 = require("../core/lark-client.js");
 const send_1 = require("../messaging/outbound/send.js");
 const targets_1 = require("../core/targets.js");
 const conversation_id_1 = require("../core/conversation-id.js");
+const session_conversation_1 = require("../core/session-conversation.js");
+const session_route_1 = require("../core/session-route.js");
 const thread_bindings_1 = require("../core/thread-bindings.js");
 const onboarding_auth_1 = require("../tools/onboarding-auth.js");
 const lark_logger_1 = require("../core/lark-logger.js");
@@ -246,6 +248,15 @@ exports.feishuPlugin = {
             }
             return { to: `chat:${parsed?.chatId ?? conversationId.trim()}` };
         },
+        /**
+         * Canonical plugin-owned session conversation grammar: how a raw id
+         * encodes topic/sender scope and which parents to fall back to.
+         */
+        resolveSessionConversation: session_conversation_1.resolveFeishuSessionConversation,
+        /** Outbound session route for a target (`feishu:ou_…`, `chat:oc_…`, …). */
+        ...(session_route_1.isFeishuOutboundSessionRouteSupported()
+            ? { resolveOutboundSessionRoute: session_route_1.resolveFeishuOutboundSessionRoute }
+            : {}),
         targetResolver: {
             looksLikeId: targets_1.looksLikeFeishuId,
             hint: '<chatId|user:openId|chat:chatId>',

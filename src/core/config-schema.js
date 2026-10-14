@@ -18,6 +18,18 @@ Object.defineProperty(exports, "z", { enumerable: true, get: function () { retur
 const DmPolicyEnum = zod_1.z.enum(['open', 'pairing', 'allowlist', 'disabled']);
 const GroupPolicyEnum = zod_1.z.enum(['open', 'allowlist', 'disabled']);
 const ConnectionModeEnum = zod_1.z.enum(['websocket', 'webhook']);
+/**
+ * How many sessions a Feishu group can host:
+ * - `group` — one session per chat (default)
+ * - `group_sender` — one per (chat + sender)
+ * - `group_topic` — one per (chat + topic thread)
+ * - `group_topic_sender` — one per (chat + topic + sender)
+ */
+const GroupSessionScopeSchema = zod_1.z
+    .enum(['group', 'group_sender', 'group_topic', 'group_topic_sender'])
+    .optional();
+/** @deprecated Use `groupSessionScope: "group_topic"` instead. */
+const TopicSessionModeSchema = zod_1.z.enum(['disabled', 'enabled']).optional();
 const ReplyModeValue = zod_1.z.enum(['auto', 'static', 'streaming']);
 const ReplyModeSchema = zod_1.z
     .union([
@@ -135,6 +147,9 @@ exports.FeishuGroupSchema = zod_1.z.object({
     // When true, bot-to-bot replies are allowed to stay inside a thread/topic
     // instead of being forced to the main chat (relaxes the #32980 guard).
     replyInThread: zod_1.z.boolean().optional(),
+    // Session scoping for this group (overrides the account-level default).
+    groupSessionScope: GroupSessionScopeSchema,
+    topicSessionMode: TopicSessionModeSchema,
 });
 // ---------------------------------------------------------------------------
 // Account config schema (same shape as top-level minus `accounts`)
@@ -192,6 +207,10 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
     // Account-level default for letting bot-to-bot replies stay in a thread
     // (per-group `replyInThread` overrides this).
     replyInThread: zod_1.z.boolean().optional(),
+    // Group session scoping. Without declaring these the host strips them and
+    // the scope can never resolve (see conversation-id / session-route).
+    groupSessionScope: GroupSessionScopeSchema,
+    topicSessionMode: TopicSessionModeSchema,
     uat: exports.UATConfigSchema,
 });
 // ---------------------------------------------------------------------------

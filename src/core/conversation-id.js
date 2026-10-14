@@ -40,10 +40,6 @@ function normalizeText(raw) {
 function normalizeLowercaseStringOrEmpty(raw) {
     return typeof raw === 'string' ? raw.trim().toLowerCase() : '';
 }
-/** Strip a leading `feishu:` / `lark:` provider tag. */
-function stripFeishuProviderPrefix(raw) {
-    return raw.replace(/^(feishu|lark):/i, '').trim();
-}
 // ---------------------------------------------------------------------------
 // Scope grammar
 // ---------------------------------------------------------------------------
@@ -93,7 +89,7 @@ function parseFeishuDirectConversationId(raw) {
     const target = normalizeText(raw);
     if (!target)
         return undefined;
-    const withoutProvider = stripFeishuProviderPrefix(target);
+    const withoutProvider = (0, targets_1.stripFeishuProviderPrefix)(target);
     if (!withoutProvider)
         return undefined;
     const lowered = normalizeLowercaseStringOrEmpty(withoutProvider);
@@ -101,8 +97,6 @@ function parseFeishuDirectConversationId(raw) {
         if (lowered.startsWith(prefix))
             return normalizeText(withoutProvider.slice(prefix.length));
     }
-    // Use the provider-stripped value: our `normalizeFeishuTarget` only strips
-    // `feishu:` (not `lark:`), so passing the raw target would drop `lark:ou_…`.
     const id = parseFeishuTargetId(withoutProvider);
     if (!id)
         return undefined;
