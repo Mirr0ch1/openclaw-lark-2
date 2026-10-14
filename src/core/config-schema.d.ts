@@ -14,6 +14,31 @@ export declare const UATConfigSchema: z.ZodOptional<z.ZodObject<{
     allowedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
     blockedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>>;
+/**
+ * Streaming config: canonical object form (`{ mode: "partial" }` enables Card
+ * Kit streaming cards; `"off"` disables them) or a legacy boolean (`true` ≡
+ * `mode: "partial"`). Mirrors `@openclaw/feishu` `FeishuStreamingSchema`.
+ */
+export declare const FeishuStreamingSchema: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodObject<{
+    mode: z.ZodOptional<z.ZodEnum<{
+        off: "off";
+        partial: "partial";
+    }>>;
+    chunkMode: z.ZodOptional<z.ZodEnum<{
+        length: "length";
+        newline: "newline";
+        paragraph: "paragraph";
+        none: "none";
+    }>>;
+    block: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodOptional<z.ZodBoolean>;
+        coalesce: z.ZodOptional<z.ZodObject<{
+            minChars: z.ZodOptional<z.ZodNumber>;
+            maxChars: z.ZodOptional<z.ZodNumber>;
+            idleMs: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>>;
+}, z.core.$strip>]>>;
 export declare const FeishuGroupSchema: z.ZodObject<{
     groupPolicy: z.ZodOptional<z.ZodEnum<{
         open: "open";
@@ -152,7 +177,7 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
             streaming: "streaming";
         }>>;
     }, z.core.$strip>]>>;
-    streaming: z.ZodOptional<z.ZodBoolean>;
+    streaming: typeof FeishuStreamingSchema;
     blockStreaming: z.ZodOptional<z.ZodBoolean>;
     multiImageMode: z.ZodOptional<z.ZodEnum<{
         post: "post";
@@ -327,7 +352,7 @@ export declare const FeishuConfigSchema: z.ZodObject<{
             streaming: "streaming";
         }>>;
     }, z.core.$strip>]>>;
-    streaming: z.ZodOptional<z.ZodBoolean>;
+    streaming: typeof FeishuStreamingSchema;
     blockStreaming: z.ZodOptional<z.ZodBoolean>;
     multiImageMode: z.ZodOptional<z.ZodEnum<{
         post: "post";
@@ -501,7 +526,7 @@ export declare const FeishuConfigSchema: z.ZodObject<{
                 streaming: "streaming";
             }>>;
         }, z.core.$strip>]>>;
-        streaming: z.ZodOptional<z.ZodBoolean>;
+        streaming: typeof FeishuStreamingSchema;
         blockStreaming: z.ZodOptional<z.ZodBoolean>;
         multiImageMode: z.ZodOptional<z.ZodEnum<{
             post: "post";

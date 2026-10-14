@@ -11,6 +11,12 @@ export declare function getFeishuSendRateLimitCodeFromResponse(response: unknown
 /** Classify a thrown error (Axios-shaped `error.response` or a raw body). */
 export declare function getFeishuSendRateLimitCode(error: unknown): number | undefined;
 /**
+ * Assert that a fulfilled Feishu send response is a business success
+ * (`code === 0`). Throws an error carrying `code` + a synthetic
+ * `response.data` for non-zero business codes.
+ */
+export declare function assertFeishuSendSuccess(response: unknown, label: string): void;
+/**
  * Run a Feishu send request with rate-limit-aware retry.
  */
 export declare function feishuSendRequest<T>(request: () => Promise<T>, label: string): Promise<T>;

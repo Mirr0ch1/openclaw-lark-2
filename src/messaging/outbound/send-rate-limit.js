@@ -19,6 +19,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FEISHU_SEND_MAX_RETRIES = void 0;
 exports.getFeishuSendRateLimitCode = getFeishuSendRateLimitCode;
 exports.getFeishuSendRateLimitCodeFromResponse = getFeishuSendRateLimitCodeFromResponse;
+exports.assertFeishuSendSuccess = assertFeishuSendSuccess;
 exports.feishuSendRequest = feishuSendRequest;
 const lark_logger_1 = require("../../core/lark-logger.js");
 const send_context_1 = require("./send-context.js");
@@ -47,6 +48,36 @@ function getFeishuSendRateLimitCode(error) {
     if (response?.status === 429)
         return 429;
     return getFeishuSendRateLimitCodeFromResponse(response?.data);
+}
+/**
+ * Assert that a fulfilled Feishu send response is a business success.
+ *
+ * The Lark SDK *resolves* (does not reject) responses whose body carries a
+ * non-zero business `code` — e.g. permission failures, invalid `image_key`,
+ * withdrawn reply targets, `200860`/`300305`. Treating those as success makes
+ * a lost message look delivered (empty `message_id`, no retry, no error), so
+ * we throw instead.
+ *
+ * The thrown error carries both `code` and a synthetic `response.data` so
+ * downstream classifiers — the message-unavailable guard
+ * (`extractLarkApiCode`) and `getFeishuSendRateLimitCode` — still recognise it.
+ */
+function assertFeishuSendSuccess(response, label) {
+    if (!response || typeof response !== 'object')
+        return;
+    const raw = response.code;
+    // No code at all → cannot judge; leave the response alone.
+    if (raw === undefined || raw === null)
+        return;
+    // The SDK emits numbers, but tolerate numeric strings too.
+    const code = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(code) || code === 0)
+        return;
+    const msg = typeof response.msg === 'string' && response.msg.trim() ? response.msg : `code ${code}`;
+    throw Object.assign(new Error(`${label}: ${msg} (code ${code})`), {
+        code,
+        response: { status: 200, data: response },
+    });
 }
 /**
  * Run a Feishu send request with rate-limit-aware retry.
@@ -79,8 +110,12 @@ async function feishuSendRequest(request, label) {
             continue;
         }
         const code = getFeishuSendRateLimitCodeFromResponse(result);
-        if (code === undefined)
+        if (code === undefined) {
+            // Not a throttling response — but a non-zero business `code` means
+            // the send failed. Assert before reporting success.
+            assertFeishuSendSuccess(result, label);
             return result;
+        }
         if (attempt >= FEISHU_SEND_MAX_RETRIES) {
             throw Object.assign(new Error(`${label}: rate-limited (code=${code})`), {
                 response: { status: 200, data: result },

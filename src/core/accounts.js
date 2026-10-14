@@ -32,6 +32,26 @@ function getLarkConfig(cfg) {
 function getAccountMap(section) {
     return section.accounts;
 }
+/**
+ * Look up an account entry by its normalized id.
+ *
+ * `requestedId` is already normalized (lower-cased by `normalizeAccountId`),
+ * but the config keys are raw — so an account declared as `ProdAO` would never
+ * match a `[requestedId]` lookup and would silently fall back to the top-level
+ * (default app) credentials. Match keys case-insensitively (mirrors core's
+ * `resolveNormalizedAccountEntry`).
+ */
+function findAccountEntry(accountMap, requestedId) {
+    if (!accountMap)
+        return undefined;
+    if (Object.prototype.hasOwnProperty.call(accountMap, requestedId))
+        return accountMap[requestedId];
+    for (const key of Object.keys(accountMap)) {
+        if (normalizeAccountId(key) === requestedId)
+            return accountMap[key];
+    }
+    return undefined;
+}
 /** Strip the `accounts` key and return the remaining top-level config. */
 function baseConfig(section) {
     const { accounts: _ignored, ...rest } = section;
@@ -97,7 +117,16 @@ function getLarkAccountIds(cfg) {
 }
 /** Return the first (default) account ID. */
 function getDefaultLarkAccountId(cfg) {
-    return getLarkAccountIds(cfg)[0];
+    // Honour an explicit `channels.feishu.defaultAccount` first (mirrors
+    // @openclaw/feishu `resolveDefaultFeishuAccountSelection`); otherwise
+    // prefer the `default` account, then fall back to the first declared id.
+    const preferred = normalizeAccountId(getLarkConfig(cfg)?.defaultAccount);
+    if (preferred)
+        return preferred;
+    const ids = getLarkAccountIds(cfg);
+    if (ids.some((id) => normalizeAccountId(id) === account_id_1.DEFAULT_ACCOUNT_ID))
+        return account_id_1.DEFAULT_ACCOUNT_ID;
+    return ids[0] ?? account_id_1.DEFAULT_ACCOUNT_ID;
 }
 /**
  * Resolve a single account by merging the top-level config with
@@ -126,15 +155,19 @@ function getLarkAccount(cfg, accountId) {
     // (resolveFallbackAccountConfig) reads `accounts.default`, so ignoring it
     // here made the plugin and core disagree and left default-account group
     // commands unauthorized.
-    const accountOverride = accountMap ? accountMap[requestedId] : undefined;
+    const accountOverride = findAccountEntry(accountMap, requestedId);
     const merged = accountOverride
         ? mergeAccountConfig(base, accountOverride)
         : { ...base };
     const appId = merged.appId;
     const appSecret = merged.appSecret;
     const configured = !!(appId && appSecret);
-    // Respect explicit `enabled` when set; otherwise derive from `configured`.
-    const enabled = !!(merged.enabled ?? configured);
+    // Channel-level kill switch: `channels.feishu.enabled === false` disables
+    // every account (mirrors @openclaw/feishu `baseEnabled && accountEnabled`).
+    // An account may still opt out via its own `enabled: false`; otherwise it
+    // defaults to "enabled when configured".
+    const baseEnabled = section.enabled !== false;
+    const enabled = baseEnabled && !!(merged.enabled ?? configured);
     const brand = toBrand(merged.domain);
     if (configured) {
         return {

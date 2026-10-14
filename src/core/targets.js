@@ -45,12 +45,15 @@ const ROUTE_META_FRAGMENT_THREAD_ID = '__feishu_thread_id';
 function detectIdType(id) {
     if (!id)
         return null;
-    if (id.startsWith(CHAT_PREFIX))
+    const trimmed = typeof id === 'string' ? id.trim() : '';
+    if (!trimmed)
+        return null;
+    if (trimmed.startsWith(CHAT_PREFIX))
         return 'chat_id';
-    if (id.startsWith(OPEN_ID_PREFIX))
+    if (trimmed.startsWith(OPEN_ID_PREFIX))
         return 'open_id';
-    // Plain alphanumeric strings (no prefix) are treated as tenant user IDs.
-    if (/^[a-zA-Z0-9]+$/.test(id))
+    // Tenant user IDs: letters/digits plus `-`/`_` (mirrors @openclaw/feishu).
+    if (/^[a-zA-Z0-9_-]+$/.test(trimmed))
         return 'user_id';
     return null;
 }
@@ -145,18 +148,21 @@ function resolveReceiveIdType(id) {
     const lowered = trimmed.toLowerCase();
     // Target-kind tags may still be present: outbound send paths strip them via
     // normalizeFeishuTarget first, but the session-route contract hands us the
-    // raw target. Mirrors @openclaw/feishu `resolveReceiveIdType` (which also
-    // returns "user_id" for a bare tenant id; ours keeps the historical
-    // "open_id" default to avoid changing unrelated outbound behaviour).
+    // raw target. Mirrors @openclaw/feishu `resolveReceiveIdType`.
     if (lowered.startsWith('chat:') || lowered.startsWith('group:') || lowered.startsWith('channel:'))
         return 'chat_id';
-    if (lowered.startsWith('open_id:') || lowered.startsWith('user:') || lowered.startsWith('dm:'))
+    if (lowered.startsWith('open_id:'))
         return 'open_id';
+    if (lowered.startsWith('user:') || lowered.startsWith('dm:')) {
+        const normalized = trimmed.replace(/^(user|dm):/i, '').trim();
+        return normalized.startsWith(OPEN_ID_PREFIX) ? 'open_id' : 'user_id';
+    }
     if (trimmed.startsWith(CHAT_PREFIX))
         return 'chat_id';
     if (trimmed.startsWith(OPEN_ID_PREFIX))
         return 'open_id';
-    return 'open_id';
+    // Bare tenant user id (letters/digits/`_`/`-`) → `user_id`.
+    return 'user_id';
 }
 function normalizeMessageId(messageId) {
     if (!messageId)

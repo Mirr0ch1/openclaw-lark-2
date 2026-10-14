@@ -11,8 +11,32 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveReplyMode = resolveReplyMode;
 exports.expandAutoMode = expandAutoMode;
+exports.isFeishuStreamingEnabled = isFeishuStreamingEnabled;
 exports.shouldUseCard = shouldUseCard;
 const card_error_1 = require("./card-error.js");
+// ---------------------------------------------------------------------------
+// streaming gate
+// ---------------------------------------------------------------------------
+/**
+ * Whether streaming-card replies are enabled by the `streaming` config value.
+ *
+ * Accepted forms:
+ * - legacy boolean — `true` enables, `false` disables;
+ * - canonical object — `{ mode: "partial" }` enables, `{ mode: "off" }`
+ *   disables. A missing `mode` means the official default ("partial"), so any
+ *   other object (e.g. `{ chunkMode: "newline" }` or `{}`) enables too.
+ *
+ * An absent key stays disabled: this plugin's documented default is static
+ * (unlike the official channel, which defaults a bare config to streaming).
+ */
+function isFeishuStreamingEnabled(streaming) {
+    if (streaming === true)
+        return true;
+    if (!streaming || typeof streaming !== 'object')
+        return false;
+    // Only an explicit `"off"` turns the canonical object form off.
+    return streaming.mode !== 'off';
+}
 // ---------------------------------------------------------------------------
 // resolveReplyMode
 // ---------------------------------------------------------------------------
@@ -23,8 +47,9 @@ const card_error_1 = require("./card-error.js");
  */
 function resolveReplyMode(params) {
     const { feishuCfg, chatType } = params;
-    // streaming 布尔总开关：仅 true 时允许流式，未设置或 false 一律 static
-    if (feishuCfg?.streaming !== true)
+    // streaming 总开关：对象形式 `{ mode: "partial" }` 或布尔 true 均视为开启；
+    // 未设置 / false / `{ mode: "off" }` 一律 static。
+    if (!isFeishuStreamingEnabled(feishuCfg?.streaming))
         return 'static';
     const replyMode = feishuCfg?.replyMode;
     if (!replyMode)
@@ -48,7 +73,7 @@ function expandAutoMode(params) {
     const { mode, streaming, chatType } = params;
     if (mode !== 'auto')
         return mode;
-    return streaming === true ? (chatType === 'group' ? 'static' : 'streaming') : 'static';
+    return isFeishuStreamingEnabled(streaming) ? (chatType === 'group' ? 'static' : 'streaming') : 'static';
 }
 // ---------------------------------------------------------------------------
 // shouldUseCard

@@ -216,7 +216,7 @@ async function monitorFeishuWebhook(params) {
     if (!encryptKey) {
         throw new Error(`Feishu account "${accountId}" webhook mode requires encryptKey`);
     }
-    const path = normalizeFeishuWebhookPath(account.config?.webhookPath, accountId);
+    const path = webhook_path_1.normalizeFeishuWebhookPath(account.config?.webhookPath, accountId);
     const dispatcher = new Lark.EventDispatcher({
         encryptKey,
         verificationToken: account.verificationToken ?? '',

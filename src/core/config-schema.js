@@ -9,7 +9,7 @@
  * so that every consuming module can rely on well-typed configuration objects.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FEISHU_CONFIG_JSON_SCHEMA = exports.FeishuConfigSchema = exports.FeishuAccountConfigSchema = exports.FeishuGroupSchema = exports.UATConfigSchema = exports.z = void 0;
+exports.FEISHU_CONFIG_JSON_SCHEMA = exports.FeishuConfigSchema = exports.FeishuAccountConfigSchema = exports.FeishuGroupSchema = exports.FeishuStreamingSchema = exports.UATConfigSchema = exports.z = void 0;
 const zod_1 = require("zod");
 Object.defineProperty(exports, "z", { enumerable: true, get: function () { return zod_1.z; } });
 // ---------------------------------------------------------------------------
@@ -82,6 +82,31 @@ const BlockStreamingCoalesceSchema = zod_1.z
     maxChars: zod_1.z.number().optional(),
     idleMs: zod_1.z.number().optional(),
 })
+    .optional();
+/**
+ * Streaming config. Canonical shape is an object — `mode: "partial"` enables
+ * Card Kit streaming-card replies (`"off"` disables them) — which is what
+ * `@openclaw/feishu` uses. A legacy boolean is still accepted so existing
+ * configs (`streaming: true`) keep working; `true` is equivalent to
+ * `mode: "partial"`. Both forms are honoured at runtime via
+ * `isFeishuStreamingEnabled` (see `card/reply-mode.js`).
+ */
+exports.FeishuStreamingSchema = zod_1.z
+    .union([
+    zod_1.z.boolean(),
+    zod_1.z.object({
+        mode: zod_1.z.enum(['off', 'partial']).optional(),
+        // Accept both the official vocabulary (`length`/`newline`) and the
+        // plugin's legacy values so a canonical config is never rejected.
+        chunkMode: zod_1.z.enum(['length', 'newline', 'paragraph', 'none']).optional(),
+        block: zod_1.z
+            .object({
+            enabled: zod_1.z.boolean().optional(),
+            coalesce: BlockStreamingCoalesceSchema,
+        })
+            .optional(),
+    }),
+])
     .optional();
 const MarkdownConfigSchema = zod_1.z
     .object({
@@ -183,7 +208,7 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
     mediaMaxMb: zod_1.z.number().optional(),
     heartbeat: HeartbeatSchema,
     replyMode: ReplyModeSchema,
-    streaming: zod_1.z.boolean().optional(),
+    streaming: exports.FeishuStreamingSchema,
     blockStreaming: zod_1.z.boolean().optional(),
     // Merge multiple image URLs into one rich-text post ("post", default) or
     // keep the legacy per-image sends ("sequential").

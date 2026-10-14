@@ -53,11 +53,11 @@ export declare function formatFeishuTarget(id: string, type?: FeishuIdType): str
 /**
  * Resolve the `receive_id_type` for a raw target.
  *
- * Note: unlike @openclaw/feishu this never returns `"user_id"` — a bare id
- * defaults to `"open_id"` (historical behaviour; changing it would alter
- * outbound sends for tenant ids).
+ * Mirrors @openclaw/feishu: `chat:`/`group:`/`channel:`/`oc_` → `chat_id`,
+ * `open_id:`/`ou_` → `open_id`, `user:`/`dm:` → `open_id` when the remainder
+ * is an `ou_` id else `user_id`, and a bare tenant id → `user_id`.
  */
-export declare function resolveReceiveIdType(id: string): 'chat_id' | 'open_id';
+export declare function resolveReceiveIdType(id: string): 'chat_id' | 'open_id' | 'user_id';
 /**
  * 规范化 message_id，去除合成后缀（如 `om_xxx:auth-complete` → `om_xxx`）。
  */
