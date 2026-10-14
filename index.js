@@ -104,37 +104,55 @@ const plugin = {
         (0, oauth_1.registerFeishuOAuthTool)(api);
         // Register OAuth batch auth tool (batch authorization for all app scopes)
         (0, oauth_batch_auth_1.registerFeishuOAuthBatchAuthTool)(api);
+        // These hooks are purely diagnostic (tool-usage tracing). OpenClaw treats
+        // `before_tool_call` as fail-closed: if a plugin handler throws, the whole
+        // tool call is blocked — for EVERY tool, not just ours. So the hook body
+        // must never propagate an error. All field access is defensive because the
+        // hook event is an external contract that can change between OpenClaw
+        // versions.
         api.on('before_tool_call', (event, ctx) => {
-            (0, tool_use_trace_store_1.recordToolUseStart)({
-                sessionKey: ctx.sessionKey,
-                toolName: event.toolName,
-                toolParams: event.params,
-                toolCallId: event.toolCallId ?? ctx.toolCallId,
-                runId: event.runId ?? ctx.runId,
-            });
-            if (!event.toolName.startsWith('feishu_'))
-                return;
-            const paramsPreview = (0, reasoning_utils_1.sanitizeParamsForLog)(event.params);
-            log.info(`tool call: ${event.toolName} session=${ctx.sessionKey ?? '-'} params=${paramsPreview}`);
+            try {
+                const toolName = event?.toolName ?? '';
+                (0, tool_use_trace_store_1.recordToolUseStart)({
+                    sessionKey: ctx?.sessionKey,
+                    toolName,
+                    toolParams: event?.params,
+                    toolCallId: event?.toolCallId ?? ctx?.toolCallId,
+                    runId: event?.runId ?? ctx?.runId,
+                });
+                if (!toolName.startsWith('feishu_'))
+                    return;
+                const paramsPreview = (0, reasoning_utils_1.sanitizeParamsForLog)(event?.params);
+                log.info(`tool call: ${toolName} session=${ctx?.sessionKey ?? '-'} params=${paramsPreview}`);
+            }
+            catch (err) {
+                log.warn(`before_tool_call hook error (ignored): ${err instanceof Error ? err.message : String(err)}`);
+            }
         });
         api.on('after_tool_call', (event, ctx) => {
-            (0, tool_use_trace_store_1.recordToolUseEnd)({
-                sessionKey: ctx.sessionKey,
-                toolName: event.toolName,
-                toolParams: event.params,
-                toolCallId: event.toolCallId ?? ctx.toolCallId,
-                runId: event.runId ?? ctx.runId,
-                result: event.result,
-                error: event.error,
-                durationMs: event.durationMs,
-            });
-            if (!event.toolName.startsWith('feishu_'))
-                return;
-            if (event.error) {
-                log.error(`tool fail: ${event.toolName} session=${ctx.sessionKey ?? '-'} ${event.error} (${event.durationMs ?? 0}ms)`);
+            try {
+                const toolName = event?.toolName ?? '';
+                (0, tool_use_trace_store_1.recordToolUseEnd)({
+                    sessionKey: ctx?.sessionKey,
+                    toolName,
+                    toolParams: event?.params,
+                    toolCallId: event?.toolCallId ?? ctx?.toolCallId,
+                    runId: event?.runId ?? ctx?.runId,
+                    result: event?.result,
+                    error: event?.error,
+                    durationMs: event?.durationMs,
+                });
+                if (!toolName.startsWith('feishu_'))
+                    return;
+                if (event?.error) {
+                    log.error(`tool fail: ${toolName} session=${ctx?.sessionKey ?? '-'} ${event.error} (${event?.durationMs ?? 0}ms)`);
+                }
+                else {
+                    log.info(`tool done: ${toolName} session=${ctx?.sessionKey ?? '-'} ok (${event?.durationMs ?? 0}ms)`);
+                }
             }
-            else {
-                log.info(`tool done: ${event.toolName} session=${ctx.sessionKey ?? '-'} ok (${event.durationMs ?? 0}ms)`);
+            catch (err) {
+                log.warn(`after_tool_call hook error (ignored): ${err instanceof Error ? err.message : String(err)}`);
             }
         });
         // ---- Diagnostic commands ----
