@@ -8,7 +8,7 @@
 
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#安装)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-428%20passing-22c55e?style=flat-square)](#开发)
+[![Tests](https://img.shields.io/badge/tests-448%20passing-22c55e?style=flat-square)](#开发)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
 
 [English](./README.en.md) · **中文**
@@ -192,7 +192,7 @@ openclaw plugins install openclaw-lark-2-2026.10.8.tgz
 | 持久化入站队列 | ✅ **可选（`durableIngress`）** | ✅ 默认启用 | ❌ |
 | 读权限策略 | ✅ 对齐官方 | ✅ | ❌ |
 | 按调用指定账号 | ✅ 全工具 `accountId` | ✅ | ❌ |
-| 测试套件 | ✅ **vitest 基座（56 文件 / 428 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
+| 测试套件 | ✅ **vitest 基座（59 文件 / 448 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
 | 安全审计 | ✅ plugin-inspector 报告 | ✅ security-audit + SSRF | ⚠️ 无 |
 
 ### 取长补短的思路
@@ -211,7 +211,7 @@ openclaw plugins install openclaw-lark-2-2026.10.8.tgz
 | 持久化入站队列 | 已支持但**默认关闭**（`durableIngress: true` 开启）；官方默认启用。开启后行为与原 WS 直派发一致，但获得按会话保序与重启存活。 |
 | 读权限策略 | 已对齐官方语义；由于本插件工具无宿主上下文，读上下文从**当前消息 ticket** 还原，因此在 cron/heartbeat 等无消息上下文时，跨私聊读取按策略被拒。 |
 | PIN 消息 | 本插件已支持；字节 7.16 无。 |
-| 测试规模 | 本插件为最小基座（56 文件 / 428 用例），远小于官方（1202），但覆盖核心安全与路由路径。 |
+| 测试规模 | 本插件为最小基座（59 文件 / 448 用例），远小于官方（1202），但覆盖核心安全与路由路径。 |
 | 工具展示开关 | `toolUseDisplay.enabled:false` 可关，默认开。 |
 
 ---
@@ -251,7 +251,16 @@ openclaw plugins install openclaw-lark-2-2026.10.8.tgz
 - 核心配置 `messages.inbound.debounceMs`（默认 0 = 关）。开启后，同一 `(账号 / 会话 / 话题 / 发送者)` 在安静窗口内的连续**文本**消息合并为**一条**再触发一次 agent 回合（控制命令不合并），减少刷屏并让上下文更完整。
 - 与 `durableIngress` 联动：按 `event_id` 把耐久入站行的生命周期传给处理器，flush 完成前不墓碑化 —— **debounce 窗口内崩溃也不丢消息**（对齐官方 `buildFeishuFlushIngressLifecycle`）。
 
-**测试**：30 文件 / 226 用例 → **56 文件 / 428 用例**。
+**最终复核（对齐官方 main `c36af74`）**
+
+- **`replyInThread` 配置类型**：schema 与运行时不一致（schema 为 boolean，运行时按官方字符串枚举 `"enabled"` 比较），导致布尔 `true` 静默失效、官方写法 `"enabled"` 校验失败。现同时接受两者并统一归一化。
+- **allowlist 前缀**：`feishu:` / `lark:` / `user:` / `open_id:` 等前缀条目此前被静默拒绝，现按官方归一化。
+- **`@all` 识别**：放宽为官方的 `@all` / `@_all` 键 + `id.* === "all"`（原先仅 `@_all`）。
+- **reaction / 文档评论派发**：补上 `botOpenId`（此前群系统提示 / 身份字段 / bot-peer 提及解析为空）。
+- **媒体回退链接**：上传失败回退为文本链接前先做 SSRF 校验（仅公网 http(s) 才回显，否则发通用失败提示），对齐官方 `resolvePublicFeishuMediaReference`。
+- **移除死代码**：删除从未接入且宿主已移除 `OnboardingAdapter` 契约的 onboarding 适配器（3 模块）与 `agent-config` 模块。
+
+**测试**：30 文件 / 226 用例 → **59 文件 / 448 用例**。
 
 </details>
 

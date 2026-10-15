@@ -8,7 +8,7 @@ An independent fork of `@larksuite/openclaw-lark`, fully adapted to the OpenClaw
 
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#installation)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-428%20passing-22c55e?style=flat-square)](#development)
+[![Tests](https://img.shields.io/badge/tests-448%20passing-22c55e?style=flat-square)](#development)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
 
 **English** · [中文](./README.md)
@@ -193,7 +193,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 | Durable inbound queue | ✅ **optional (`durableIngress`)** | ✅ on by default | ❌ |
 | Read policy | ✅ matches official | ✅ | ❌ |
 | Per-call account targeting | ✅ `accountId` on every tool | ✅ | ❌ |
-| Test suite | ✅ **vitest base (56 files / 428 tests)** | ✅ 99 files / 1202 tests | ❌ none |
+| Test suite | ✅ **vitest base (59 files / 448 tests)** | ✅ 99 files / 1202 tests | ❌ none |
 | Security audit | ✅ plugin-inspector report | ✅ security-audit + SSRF | ⚠️ none |
 
 ### Design Rationale
@@ -212,7 +212,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 | Durable inbound queue | Supported but **off by default** (`durableIngress: true` to enable); the official enables it by default. When enabled, behavior matches the original direct WS dispatch, plus per-conversation ordering and restart survival. |
 | Read policy | Semantics match the official; because our tools get no host context, the read context is reconstructed from the **current message ticket** — so with no message context (cron/heartbeat) cross-DM reads are denied by policy. |
 | PIN actions | Supported here; missing in ByteDance 7.16. |
-| Test scale | Minimal base (56 files / 428 tests), far smaller than the official (1202), but covers core security & routing paths. |
+| Test scale | Minimal base (59 files / 448 tests), far smaller than the official (1202), but covers core security & routing paths. |
 | Tool-display toggle | Toggle via `toolUseDisplay.enabled:false`; on by default. |
 
 ---
@@ -252,7 +252,16 @@ A systematic robustness pass over the plugin's own code (batches A / B / C plus 
 - Core config `messages.inbound.debounceMs` (default 0 = off). When enabled, consecutive **text** messages from one `(account / chat / thread / sender)` within a quiet window are merged into one and trigger a single agent turn (control commands are excluded), reducing reply spam and giving the model fuller context.
 - Integrates with `durableIngress`: the durable row's lifecycle is handed to the handler keyed by `event_id`, so the row is not tombstoned until the flush completes — **a crash inside the debounce window does not lose messages** (official `buildFeishuFlushIngressLifecycle`).
 
-**Tests**: 30 files / 226 tests → **56 files / 428 tests**.
+**Final review (parity pass vs. official main `c36af74`)**
+
+- **`replyInThread` config type**: the schema and runtime disagreed (schema `boolean` vs runtime comparing the official string enum `"enabled"`), so a boolean `true` was a silent no-op and the official `"enabled"` failed validation. Both forms are now accepted and normalised.
+- **Allowlist prefixes**: `feishu:` / `lark:` / `user:` / `open_id:` entries were silently rejected; now normalised like the official.
+- **`@all` detection**: widened to the official `@all` / `@_all` keys plus `id.* === "all"` (previously only `@_all`).
+- **Reaction / doc-comment dispatch**: `botOpenId` is now threaded through (the group system prompt / identity fields / bot-peer mention resolution were empty).
+- **Media fallback link**: the upload-failure fallback now SSRF-validates the URL (only a public http(s) reference is echoed, otherwise a generic failure notice) — official `resolvePublicFeishuMediaReference`.
+- **Dead code removed**: the never-wired onboarding adapter (3 modules) targeting the removed `OnboardingAdapter` host contract, and the unused `agent-config` module.
+
+**Tests**: 30 files / 226 tests → **59 files / 448 tests**.
 
 </details>
 
