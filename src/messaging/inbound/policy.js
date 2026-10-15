@@ -10,6 +10,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveFeishuAllowlistMatch = resolveFeishuAllowlistMatch;
+exports.normalizeFeishuAllowEntry = normalizeFeishuAllowEntry;
 exports.resolveFeishuGroupConfig = resolveFeishuGroupConfig;
 exports.resolveFeishuGroupConfigWithWildcard = resolveFeishuGroupConfigWithWildcard;
 exports.resolveFeishuGroupToolPolicy = resolveFeishuGroupToolPolicy;
@@ -18,14 +19,44 @@ exports.splitLegacyGroupAllowFrom = splitLegacyGroupAllowFrom;
 exports.resolveGroupSenderPolicyContext = resolveGroupSenderPolicyContext;
 const accounts_1 = require("../../core/accounts.js");
 /**
+ * Normalise a Feishu allowlist entry to its bare id (or `*`).
+ *
+ * Ported (simplified) from the official `normalizeFeishuAllowEntry`: strips any
+ * provider prefix (`feishu:` / `lark:`, repeated) and a typed prefix
+ * (`chat:` / `group:` / `channel:` / `user:` / `dm:` / `open_id:`), lowercasing
+ * the result. Without this, configs written as `feishu:ou_xxx` or
+ * `user:ou_xxx` (both valid upstream) were silently rejected here.
+ *
+ * The kind (`chat:` vs `user:`) is intentionally dropped: Feishu id namespaces
+ * never overlap (`oc_*` chats vs `ou_*`/`on_*` users), so comparing bare ids is
+ * equivalent to the official's kind-bound match for every real value.
+ */
+function normalizeFeishuAllowEntry(raw) {
+    let s = String(raw ?? '').trim();
+    if (!s)
+        return '';
+    if (s === '*')
+        return '*';
+    while (/^(feishu|lark):/i.test(s)) {
+        s = s.replace(/^(feishu|lark):/i, '').trim();
+    }
+    if (s === '*')
+        return '*';
+    s = s.replace(/^(chat|group|channel|user|dm|open_id):/i, '').trim();
+    if (s === '*')
+        return '*';
+    return s.toLowerCase();
+}
+/**
  * Check whether a sender is permitted by a given allowlist.
  *
- * Entries are normalised to lowercase strings before comparison.
- * A single "*" entry acts as a wildcard that matches everyone.
- * When the allowlist is empty the result is `{ allowed: false }`.
+ * Entries and the sender id are normalised (provider/typed prefixes stripped,
+ * lowercased) before comparison. A single "*" entry acts as a wildcard that
+ * matches everyone. When the allowlist is empty the result is
+ * `{ allowed: false }`.
  */
 function resolveFeishuAllowlistMatch(params) {
-    const allowFrom = params.allowFrom.map((entry) => String(entry).trim().toLowerCase()).filter(Boolean);
+    const allowFrom = params.allowFrom.map(normalizeFeishuAllowEntry).filter(Boolean);
     if (allowFrom.length === 0) {
         return { allowed: false };
     }
@@ -34,15 +65,10 @@ function resolveFeishuAllowlistMatch(params) {
         return { allowed: true, matchKey: '*', matchSource: 'wildcard' };
     }
     // Match by sender ID
-    const senderId = params.senderId.toLowerCase();
-    if (allowFrom.includes(senderId)) {
+    const senderId = normalizeFeishuAllowEntry(params.senderId);
+    if (senderId && allowFrom.includes(senderId)) {
         return { allowed: true, matchKey: senderId, matchSource: 'id' };
     }
-    /*  // Match by sender display name
-      const senderName = params.senderName?.toLowerCase();
-      if (senderName && allowFrom.includes(senderName)) {
-        return { allowed: true, matchKey: senderName, matchSource: 'name' };
-      }*/
     return { allowed: false };
 }
 // ---------------------------------------------------------------------------

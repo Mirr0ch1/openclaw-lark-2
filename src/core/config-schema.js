@@ -30,6 +30,10 @@ const GroupSessionScopeSchema = zod_1.z
     .optional();
 /** @deprecated Use `groupSessionScope: "group_topic"` instead. */
 const TopicSessionModeSchema = zod_1.z.enum(['disabled', 'enabled']).optional();
+// `replyInThread` accepts the official string enum ("disabled"/"enabled") and
+// the legacy boolean form, so both old and new configs validate. The runtime
+// normalises either form via `isReplyInThreadEnabled`.
+const ReplyInThreadSchema = zod_1.z.union([zod_1.z.boolean(), zod_1.z.enum(['disabled', 'enabled'])]).optional();
 const ReplyModeValue = zod_1.z.enum(['auto', 'static', 'streaming']);
 const ReplyModeSchema = zod_1.z
     .union([
@@ -171,7 +175,7 @@ exports.FeishuGroupSchema = zod_1.z.object({
     allowBots: AllowBotsSchema,
     // When true, bot-to-bot replies are allowed to stay inside a thread/topic
     // instead of being forced to the main chat (relaxes the #32980 guard).
-    replyInThread: zod_1.z.boolean().optional(),
+    replyInThread: ReplyInThreadSchema,
     // Session scoping for this group (overrides the account-level default).
     groupSessionScope: GroupSessionScopeSchema,
     topicSessionMode: TopicSessionModeSchema,
@@ -231,7 +235,7 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
     allowBots: AllowBotsSchema,
     // Account-level default for letting bot-to-bot replies stay in a thread
     // (per-group `replyInThread` overrides this).
-    replyInThread: zod_1.z.boolean().optional(),
+    replyInThread: ReplyInThreadSchema,
     // Group session scoping. Without declaring these the host strips them and
     // the scope can never resolve (see conversation-id / session-route).
     groupSessionScope: GroupSessionScopeSchema,

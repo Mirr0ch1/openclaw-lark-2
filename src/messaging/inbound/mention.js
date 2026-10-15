@@ -26,13 +26,19 @@ const utils_1 = require("../converters/utils.js");
 // Derive helpers (work on MentionInfo[])
 // ---------------------------------------------------------------------------
 /**
- * Detect whether a raw mention entry represents @all / @所有人.
+ * Detect whether a raw mention entry represents @all / 所有人 (a broadcast).
  *
- * Feishu @all mentions have `key: "@_all"` and empty ID fields.
- * We match on `key` as the primary signal (most stable across locales).
+ * Matches the official `isFeishuBroadcastMention`: the `key` may be `@all` or
+ * `@_all` (case-insensitive), and any of the id fields may be the literal
+ * `all`. Matching on `key` alone missed locales/versions that emit `@all`.
  */
 function isMentionAll(mention) {
-    return mention.key === '@_all';
+    const key = typeof mention?.key === 'string' ? mention.key.trim().toLowerCase() : '';
+    if (key === '@all' || key === '@_all') {
+        return true;
+    }
+    const ids = [mention?.id?.open_id, mention?.id?.user_id, mention?.id?.union_id];
+    return ids.some((id) => typeof id === 'string' && id.trim().toLowerCase() === 'all');
 }
 /** Whether the receiving bot itself was @-mentioned. */
 function mentionedBot(ctx) {

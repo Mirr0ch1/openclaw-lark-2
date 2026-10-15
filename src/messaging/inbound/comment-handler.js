@@ -273,6 +273,7 @@ async function handleFeishuCommentEvent(params) {
             replyToMessageId: undefined, // No IM message to reply to
             commandAuthorized: false,
             skipTyping: true, // No IM typing indicator for comment events
+            botOpenId,
         });
     }
     catch (err) {

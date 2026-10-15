@@ -16,11 +16,18 @@ export interface FeishuAllowlistMatch {
     matchSource?: 'wildcard' | 'id' | 'name';
 }
 /**
+ * Normalise a Feishu allowlist entry to its bare id (or `*`), stripping
+ * provider (`feishu:` / `lark:`) and typed (`user:` / `open_id:` / `chat:` …)
+ * prefixes.
+ */
+export declare function normalizeFeishuAllowEntry(raw: unknown): string;
+/**
  * Check whether a sender is permitted by a given allowlist.
  *
- * Entries are normalised to lowercase strings before comparison.
- * A single "*" entry acts as a wildcard that matches everyone.
- * When the allowlist is empty the result is `{ allowed: false }`.
+ * Entries and the sender id are normalised (provider/typed prefixes stripped,
+ * lowercased) before comparison. A single "*" entry acts as a wildcard that
+ * matches everyone. When the allowlist is empty the result is
+ * `{ allowed: false }`.
  */
 export declare function resolveFeishuAllowlistMatch(params: {
     allowFrom: Array<string | number>;

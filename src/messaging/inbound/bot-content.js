@@ -24,10 +24,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveBotPeerForMention = resolveBotPeerForMention;
 exports.resolveFeishuGroupSession = resolveFeishuGroupSession;
 exports.resolveFeishuReplyRouting = resolveFeishuReplyRouting;
+exports.isReplyInThreadEnabled = isReplyInThreadEnabled;
 const chat_info_cache_1 = require("../../core/chat-info-cache.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
 const conversation_id_1 = require("../../core/conversation-id.js");
 const log = (0, lark_logger_1.larkLogger)('inbound/bot-content');
+/**
+ * Whether `channels.feishu.replyInThread` (or a per-group override) enables
+ * thread replies.
+ *
+ * The official schema uses the string enum `"disabled" | "enabled"`; this
+ * plugin also accepts the legacy boolean (`true`/`false`) for backwards
+ * compatibility, so both forms are normalised here. Treating a boolean
+ * `true` as disabled (the previous `=== "enabled"` comparison) made the
+ * setting a silent no-op.
+ */
+function isReplyInThreadEnabled(value) {
+    return value === true || value === 'enabled';
+}
 /** Trim a value to a non-empty string, otherwise `undefined`. */
 function normalizeText(raw) {
     if (typeof raw !== 'string')
@@ -118,7 +132,7 @@ async function resolveFeishuReplyRouting(dc, opts = {}) {
     //     inbound is in a thread) is human-visible by design — keep it threaded.
     //   - replyInThread config: operators can opt in per-group/account.
     const isTopicSession = dc.isThread && dc.account.config?.threadSession === true;
-    const configReplyInThread = opts.replyInThreadConfig === true;
+    const configReplyInThread = isReplyInThreadEnabled(opts.replyInThreadConfig);
     const suppressForBotPeer = dc.isGroup && !!dc.ctx.senderIsBot && !isTopicSession && !configReplyInThread;
     const replyInThread = !suppressForBotPeer && dc.isThread;
     const threadId = replyInThread ? dc.ctx.threadId : undefined;
@@ -150,7 +164,7 @@ function resolveFeishuGroupSession(params) {
     const normalizedThreadId = normalizeText(threadId);
     const normalizedRootId = normalizeText(rootId);
     const threadReply = Boolean(normalizedThreadId || normalizedRootId);
-    const replyInThread = (groupConfig?.replyInThread ?? feishuCfg?.replyInThread ?? 'disabled') === 'enabled' ||
+    const replyInThread = isReplyInThreadEnabled(groupConfig?.replyInThread ?? feishuCfg?.replyInThread) ||
         threadReply;
     const groupSessionScope = (0, conversation_id_1.resolveConfiguredFeishuGroupSessionScope)({
         groupConfig,

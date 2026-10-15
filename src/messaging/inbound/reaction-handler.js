@@ -175,7 +175,7 @@ async function resolveReactionContext(params) {
 // Public API
 // ---------------------------------------------------------------------------
 async function handleFeishuReaction(params) {
-    const { cfg, event, runtime, chatHistories, accountId, preResolved } = params;
+    const { cfg, event, botOpenId, runtime, chatHistories, accountId, preResolved } = params;
     const log = runtime?.log ?? ((...args) => logger.info(args.map(String).join(' ')));
     const error = runtime?.error ?? ((...args) => logger.error(args.map(String).join(' ')));
     const emojiType = event.reaction_type?.emoji_type ?? '';
@@ -273,6 +273,7 @@ async function handleFeishuReaction(params) {
             groupConfig,
             defaultGroupConfig,
             skipTyping: true,
+            botOpenId,
         });
     }
     catch (err) {

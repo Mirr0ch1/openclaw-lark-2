@@ -56,7 +56,10 @@ export declare const FeishuGroupSchema: z.ZodObject<{
     allowFrom: z.ZodPipe<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>, z.ZodTransform<string[] | undefined, string | string[] | undefined>>;
     systemPrompt: z.ZodOptional<z.ZodString>;
     allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
-    replyInThread: z.ZodOptional<z.ZodBoolean>;
+    replyInThread: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodEnum<{
+        disabled: "disabled";
+        enabled: "enabled";
+    >]>>;
     groupSessionScope: z.ZodOptional<z.ZodEnum<{
         group: "group";
         group_sender: "group_sender";
@@ -115,7 +118,10 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
         allowFrom: z.ZodPipe<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>, z.ZodTransform<string[] | undefined, string | string[] | undefined>>;
         systemPrompt: z.ZodOptional<z.ZodString>;
         allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
-        replyInThread: z.ZodOptional<z.ZodBoolean>;
+        replyInThread: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodEnum<{
+            disabled: "disabled";
+            enabled: "enabled";
+        >]>>;
         groupSessionScope: z.ZodOptional<z.ZodEnum<{
             group: "group";
             group_sender: "group_sender";
@@ -226,7 +232,10 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
     }>>;
     threadSession: z.ZodOptional<z.ZodBoolean>;
     allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
-    replyInThread: z.ZodOptional<z.ZodBoolean>;
+    replyInThread: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodEnum<{
+        disabled: "disabled";
+        enabled: "enabled";
+    >]>>;
     groupSessionScope: z.ZodOptional<z.ZodEnum<{
         group: "group";
         group_sender: "group_sender";
@@ -290,7 +299,10 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         allowFrom: z.ZodPipe<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>, z.ZodTransform<string[] | undefined, string | string[] | undefined>>;
         systemPrompt: z.ZodOptional<z.ZodString>;
         allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
-        replyInThread: z.ZodOptional<z.ZodBoolean>;
+        replyInThread: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodEnum<{
+            disabled: "disabled";
+            enabled: "enabled";
+        >]>>;
         groupSessionScope: z.ZodOptional<z.ZodEnum<{
             group: "group";
             group_sender: "group_sender";
@@ -401,7 +413,10 @@ export declare const FeishuConfigSchema: z.ZodObject<{
     }>>;
     threadSession: z.ZodOptional<z.ZodBoolean>;
     allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
-    replyInThread: z.ZodOptional<z.ZodBoolean>;
+    replyInThread: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodEnum<{
+        disabled: "disabled";
+        enabled: "enabled";
+    >]>>;
     groupSessionScope: z.ZodOptional<z.ZodEnum<{
         group: "group";
         group_sender: "group_sender";
@@ -464,7 +479,10 @@ export declare const FeishuConfigSchema: z.ZodObject<{
             allowFrom: z.ZodPipe<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>, z.ZodTransform<string[] | undefined, string | string[] | undefined>>;
             systemPrompt: z.ZodOptional<z.ZodString>;
             allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
-            replyInThread: z.ZodOptional<z.ZodBoolean>;
+            replyInThread: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodEnum<{
+                disabled: "disabled";
+                enabled: "enabled";
+            >]>>;
             groupSessionScope: z.ZodOptional<z.ZodEnum<{
                 group: "group";
                 group_sender: "group_sender";
@@ -575,7 +593,10 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         }>>;
         threadSession: z.ZodOptional<z.ZodBoolean>;
         allowBots: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"mentions">]>>;
-        replyInThread: z.ZodOptional<z.ZodBoolean>;
+        replyInThread: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodEnum<{
+            disabled: "disabled";
+            enabled: "enabled";
+        >]>>;
         groupSessionScope: z.ZodOptional<z.ZodEnum<{
             group: "group";
             group_sender: "group_sender";

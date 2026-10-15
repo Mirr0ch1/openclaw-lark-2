@@ -121,5 +121,11 @@ export interface FeishuReplyRouting {
  *     shape, preventing the topic-view trap.
  */
 export declare function resolveFeishuReplyRouting(dc: DispatchContext, opts?: {
-    replyInThreadConfig?: boolean;
+    replyInThreadConfig?: boolean | 'disabled' | 'enabled';
 }): Promise<FeishuReplyRouting>;
+/**
+ * Whether `channels.feishu.replyInThread` (or a per-group override) enables
+ * thread replies. Accepts the official string enum ("disabled"/"enabled") and
+ * the legacy boolean form.
+ */
+export declare function isReplyInThreadEnabled(value: unknown): boolean;

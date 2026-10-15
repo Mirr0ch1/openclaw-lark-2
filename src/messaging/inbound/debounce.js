@@ -29,6 +29,7 @@ exports.dedupeFeishuDebounceEntriesByDedupeKey = dedupeFeishuDebounceEntriesByDe
 exports.createFeishuInboundDebouncer = createFeishuInboundDebouncer;
 const channel_inbound_debounce_1 = require("openclaw/plugin-sdk/channel-inbound-debounce");
 const dedupe_key_1 = require("./dedupe-key.js");
+const mention_1 = require("./mention.js");
 const ingress_lifecycle_1 = require("../../channel/ingress-lifecycle.js");
 // ---------------------------------------------------------------------------
 // Text extraction (synchronous — the debouncer needs it before async parsing)
@@ -74,14 +75,6 @@ function extractDebounceText(event, botOpenId) {
 // ---------------------------------------------------------------------------
 // Mention merging
 // ---------------------------------------------------------------------------
-/** Whether a raw mention entry represents @all / @所有人 (a broadcast). */
-function isBroadcastMention(mention) {
-    const key = mention?.key?.trim().toLowerCase();
-    if (key === '@all' || key === '@_all')
-        return true;
-    const ids = [mention?.id?.open_id, mention?.id?.user_id, mention?.id?.union_id];
-    return ids.some((id) => typeof id === 'string' && id.trim().toLowerCase() === 'all');
-}
 function isGroupChatType(chatType) {
     return chatType === 'group' || chatType === 'topic_group';
 }
@@ -97,7 +90,7 @@ function isMentionForwardRequest(event, botOpenId) {
     const normalizedBot = typeof botOpenId === 'string' ? botOpenId.trim() : '';
     if (!normalizedBot)
         return false;
-    const userMentions = mentions.filter((m) => !isBroadcastMention(m));
+    const userMentions = mentions.filter((m) => !mention_1.isMentionAll(m));
     const hasOther = userMentions.some((m) => m?.id?.open_id !== normalizedBot);
     if (!isGroupChatType(event?.message?.chat_type)) {
         return hasOther;

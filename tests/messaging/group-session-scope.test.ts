@@ -68,6 +68,17 @@ describe("resolveFeishuGroupSession", () => {
     expect(s.parentPeer).toEqual({ kind: "group", id: "oc_group" });
   });
 
+  it("accepts the legacy boolean replyInThread=true", () => {
+    const s = run({ feishuCfg: { groupSessionScope: "group_topic", replyInThread: true } });
+    expect(s.replyInThread).toBe(true);
+    expect(s.peerId).toBe("oc_group:topic:om_1");
+  });
+
+  it("treats replyInThread=false/disabled as not enabled", () => {
+    expect(run({ feishuCfg: { replyInThread: false } }).replyInThread).toBe(false);
+    expect(run({ feishuCfg: { replyInThread: "disabled" } }).replyInThread).toBe(false);
+  });
+
   it("treats a root/thread reply as threadReply (and therefore replyInThread)", () => {
     const s = run({ threadId: "omt_t1" });
     expect(s.threadReply).toBe(true);
