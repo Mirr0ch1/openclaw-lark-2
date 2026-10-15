@@ -6,9 +6,11 @@
 
 `@larksuite/openclaw-lark` 的独立分支，面向 OpenClaw 2.0 SDK 全面适配。
 
+**最大优势**：在字节全家桶最完整的飞书工具面之上，引入 OpenClaw 官方插件的 2.0 原生架构与安全工程 —— **飞书能力覆盖面超过两家，安全与健壮性对齐、多数超过 OpenClaw 官方插件**（详见[三方对比](#三方对比)）。
+
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#安装)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-448%20passing-22c55e?style=flat-square)](#开发)
+[![Tests](https://img.shields.io/badge/tests-450%20passing-22c55e?style=flat-square)](#开发)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
 
 [English](./README.en.md) · **中文**
@@ -39,6 +41,8 @@ OpenClaw 2.0（2026.8.1）重构了插件 SDK：
 - 渠道能力（如持久化最终投递 `durableFinal`）成为显式契约。
 
 官方 `@larksuite/openclaw-lark` 未跟进，在 2.0 下**无法加载**，卡片 footer 指标也随之消失。本分支针对 2.0 SDK 全面适配，开箱即用。
+
+不仅如此：本分支以 OpenClaw 官方 `@openclaw/feishu` 为参照，对自身代码做了一轮系统性重构加固 —— 既保留字节全家桶最完整的飞书能力（**38 个工具 / 22 种入站消息转换器 / 多图合并 post / CardKit 流式卡片**），又补齐官方级的健壮性与安全：**全量出站 SSRF 防护**（DNS pinning + 私网阻断 + 重定向校验）、**SQLite 持久化去重**（重启不再重复处理）、**耐久入站队列**（`durableIngress`，崩溃不丢消息）、**入站 debounce 合并**（连续短消息合成一条，减少刷屏），并逐项对齐官方的可靠性原语（发送限流重试、撤回回复回退、读权限策略、工具结果围栏）。**结果是：飞书能力覆盖面超过两家，安全与健壮性对齐、多数超过 OpenClaw 官方插件。**
 
 ---
 

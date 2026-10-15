@@ -6,9 +6,11 @@
 
 An independent fork of `@larksuite/openclaw-lark`, fully adapted to the OpenClaw 2.0 SDK.
 
+**Biggest advantage**: on top of the most complete Feishu tool surface (ByteDance's full suite), it brings the official OpenClaw plugin's 2.0-native architecture and security engineering — **broader Feishu coverage than either project, with security and robustness on par with (and often beyond) the official OpenClaw plugin** (see [Three-Way Comparison](#three-way-comparison)).
+
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#installation)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-448%20passing-22c55e?style=flat-square)](#development)
+[![Tests](https://img.shields.io/badge/tests-450%20passing-22c55e?style=flat-square)](#development)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
 
 **English** · [中文](./README.md)
@@ -39,6 +41,8 @@ OpenClaw 2.0 (2026.8.1) reworked the plugin SDK:
 - channel capabilities (e.g. durable-final delivery `durableFinal`) became explicit contracts.
 
 `@larksuite/openclaw-lark` did not follow up, so it **fails to load** on 2.0 and loses card footer metrics. This fork is fully adapted to the 2.0 SDK — plug and play.
+
+More than that: benchmarked against the official `@openclaw/feishu`, this fork went through a systematic refactor-and-harden pass — it keeps the most complete Feishu capability of the ByteDance suite (**38 tools / 22 inbound message converters / merged multi-image post / CardKit streaming cards**) while adding official-grade robustness and security: **SSRF protection on every outbound request** (DNS pinning + private-network blocking + redirect re-validation), **SQLite-backed persistent dedupe** (no reprocessing across restarts), a **durable inbound queue** (`durableIngress`, no message loss on crash), and **inbound debounce merging** (a burst of short messages coalesces into one turn), plus item-by-item parity with the official reliability primitives (send rate-limit retry, withdrawn-reply fallback, read-policy, tool-result fencing). **The result: broader Feishu coverage than either project, with security and robustness on par with — and often beyond — the official OpenClaw plugin.**
 
 ---
 
