@@ -8,7 +8,7 @@ An independent fork of `@larksuite/openclaw-lark`, fully adapted to the OpenClaw
 
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#installation)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-226%20passing-22c55e?style=flat-square)](#development)
+[![Tests](https://img.shields.io/badge/tests-428%20passing-22c55e?style=flat-square)](#development)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
 
 **English** · [中文](./README.md)
@@ -104,7 +104,7 @@ openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.10.6.tgz
+openclaw plugins install openclaw-lark-2-2026.10.8.tgz
 ```
 
 ---
@@ -172,7 +172,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 
 | Dimension | **openclaw-lark-2 (ours)** | **@openclaw/feishu (official 2.0)** | **@larksuite/openclaw-lark 7.16 (ByteDance)** |
 |---|:---:|:---:|:---:|
-| Version | **2026.10.6** | 2026.8.1 | 2026.7.16 |
+| Version | **2026.10.8** | 2026.8.1 | 2026.7.16 |
 | OpenClaw compat | **≥2026.8.1 (native 2.0)** | ≥2026.8.1 (native 2.0) | ≥2026.5.4 (1.x, cannot load on 2.0) |
 | Plugin API | 2.0 SDK (`runtime.config.current()`) | 2.0 SDK (`createChatChannelPlugin`) | 1.x API (`loadConfig`, deprecated) |
 | Contract tools | **38** | 14 | 39 |
@@ -193,7 +193,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 | Durable inbound queue | ✅ **optional (`durableIngress`)** | ✅ on by default | ❌ |
 | Read policy | ✅ matches official | ✅ | ❌ |
 | Per-call account targeting | ✅ `accountId` on every tool | ✅ | ❌ |
-| Test suite | ✅ **vitest base (30 files / 226 tests)** | ✅ 99 files / 1202 tests | ❌ none |
+| Test suite | ✅ **vitest base (56 files / 428 tests)** | ✅ 99 files / 1202 tests | ❌ none |
 | Security audit | ✅ plugin-inspector report | ✅ security-audit + SSRF | ⚠️ none |
 
 ### Design Rationale
@@ -212,7 +212,7 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 | Durable inbound queue | Supported but **off by default** (`durableIngress: true` to enable); the official enables it by default. When enabled, behavior matches the original direct WS dispatch, plus per-conversation ordering and restart survival. |
 | Read policy | Semantics match the official; because our tools get no host context, the read context is reconstructed from the **current message ticket** — so with no message context (cron/heartbeat) cross-DM reads are denied by policy. |
 | PIN actions | Supported here; missing in ByteDance 7.16. |
-| Test scale | Minimal base (30 files / 226 tests), far smaller than the official (1202), but covers core security & routing paths. |
+| Test scale | Minimal base (56 files / 428 tests), far smaller than the official (1202), but covers core security & routing paths. |
 | Tool-display toggle | Toggle via `toolUseDisplay.enabled:false`; on by default. |
 
 ---
@@ -220,6 +220,43 @@ This plugin takes the best of both worlds: the complete tool surface of ByteDanc
 ## Changelog
 
 <details open>
+<summary><b>2026.10.8</b> · 2026-10-15 · Robustness hardening (parity pass vs. official) + inbound debounce merge</summary>
+
+A systematic robustness pass over the plugin's own code (batches A / B / C plus follow-up fixes), benchmarked against the official `@openclaw/feishu`, plus the inbound debounce merge.
+
+**Reliability fixes (batch A / S1)**
+
+- **Webhook crash**: fixed a `ReferenceError` on the webhook path.
+- **Outbound code assertion**: no longer misclassifies outbound error codes.
+- **Streaming config**: `streaming` schema and runtime aligned.
+- **Accounts / targets**: parsing fixes (incl. `lark:` / `group:` / `channel:` / `dm:` prefixes and tag awareness).
+- **Pending-history key**: the group pending-history key is aligned to the official `groupHistoryKey` (no `:thread:` suffix) — fixes the read/write bucket mismatch for `root_id`-inferred threads under `threadSession`, which silently dropped context.
+
+**Reliability fixes (batch B)**
+
+- **Reaction access gate**: reaction events now pass the access gate before dispatch (security).
+- **Withdrawn-reply fallback**: a withdrawn reply target falls back to a new message (official `sendReplyOrFallbackDirect`).
+- **groupSessionScope inbound**: `group` / `group_sender` / `group_topic` / `group_topic_sender` scopes now take effect inbound.
+- **Interactive dedupe key**: card interactions dedupe by `event_id` / `token` (retry-stable).
+- **Abort fast-path key**: the abort fast-path queue key matches the dispatch key.
+
+**Reliability fixes (batch C)**
+
+- **`onDeliveryResult` forwarding**: the outbound adapter reports every physical send back to core (partial-delivery / subagent completion tracking); a callback failure is logged only and never affects an already-delivered send.
+- **Persistent dedupe**: inbound dedupe now uses the host `openclaw/plugin-sdk/persistent-dedupe` (SQLite) with **claim / commit / release** semantics — no more reprocessing across restarts, and the commit happens *after* the message is enqueued/adopted so a crash cannot permanently swallow a redelivery. TTL aligned to the official 24 h.
+- **Bounded mention registry**: the name→openId registry is capped on both dimensions (500 names/chat, 500 chats, LRU refresh) — no longer unbounded.
+- **Outbound media cap + failure propagation**: outbound media is capped at `min(mediaMaxMb, 30MB)` (remote bodies are stream-read with a hard abort, bounding memory); `mediaMaxMb` must be positive; the direct `send` action now surfaces an attachment upload failure (#112244) while the channel-level reply keeps its text-link fallback.
+
+**Inbound debounce merge (P3-A6, opt-in)**
+
+- Core config `messages.inbound.debounceMs` (default 0 = off). When enabled, consecutive **text** messages from one `(account / chat / thread / sender)` within a quiet window are merged into one and trigger a single agent turn (control commands are excluded), reducing reply spam and giving the model fuller context.
+- Integrates with `durableIngress`: the durable row's lifecycle is handed to the handler keyed by `event_id`, so the row is not tombstoned until the flush completes — **a crash inside the debounce window does not lose messages** (official `buildFeishuFlushIngressLifecycle`).
+
+**Tests**: 30 files / 226 tests → **56 files / 428 tests**.
+
+</details>
+
+<details>
 <summary><b>2026.10.6</b> · 2026-10-14 · Diagnostic hooks hardened: never fail-close the tool pipeline</summary>
 
 `before_tool_call` is **fail-closed** in OpenClaw: if a plugin hook throws, the **entire tool call** is blocked — and it does **not** discriminate by tool. These two hooks only do call tracing and logging, so they must not have that power.

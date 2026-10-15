@@ -8,7 +8,7 @@
 
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#安装)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-226%20passing-22c55e?style=flat-square)](#开发)
+[![Tests](https://img.shields.io/badge/tests-428%20passing-22c55e?style=flat-square)](#开发)
 [![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
 
 [English](./README.en.md) · **中文**
@@ -104,7 +104,7 @@ openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.10.6.tgz
+openclaw plugins install openclaw-lark-2-2026.10.8.tgz
 ```
 
 ---
@@ -171,7 +171,7 @@ openclaw plugins install openclaw-lark-2-2026.10.6.tgz
 
 | 维度 | **openclaw-lark-2（本插件）** | **@openclaw/feishu（官方 2.0）** | **@larksuite/openclaw-lark 7.16（字节）** |
 |---|:---:|:---:|:---:|
-| 版本 | **2026.10.6** | 2026.8.1 | 2026.7.16 |
+| 版本 | **2026.10.8** | 2026.8.1 | 2026.7.16 |
 | OpenClaw 兼容 | **≥2026.8.1（2.0 原生）** | ≥2026.8.1（2.0 原生） | ≥2026.5.4（1.x，2.0 下无法加载） |
 | Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃） |
 | 契约工具数 | **38** | 14 | 39 |
@@ -192,7 +192,7 @@ openclaw plugins install openclaw-lark-2-2026.10.6.tgz
 | 持久化入站队列 | ✅ **可选（`durableIngress`）** | ✅ 默认启用 | ❌ |
 | 读权限策略 | ✅ 对齐官方 | ✅ | ❌ |
 | 按调用指定账号 | ✅ 全工具 `accountId` | ✅ | ❌ |
-| 测试套件 | ✅ **vitest 基座（30 文件 / 226 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
+| 测试套件 | ✅ **vitest 基座（56 文件 / 428 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
 | 安全审计 | ✅ plugin-inspector 报告 | ✅ security-audit + SSRF | ⚠️ 无 |
 
 ### 取长补短的思路
@@ -211,7 +211,7 @@ openclaw plugins install openclaw-lark-2-2026.10.6.tgz
 | 持久化入站队列 | 已支持但**默认关闭**（`durableIngress: true` 开启）；官方默认启用。开启后行为与原 WS 直派发一致，但获得按会话保序与重启存活。 |
 | 读权限策略 | 已对齐官方语义；由于本插件工具无宿主上下文，读上下文从**当前消息 ticket** 还原，因此在 cron/heartbeat 等无消息上下文时，跨私聊读取按策略被拒。 |
 | PIN 消息 | 本插件已支持；字节 7.16 无。 |
-| 测试规模 | 本插件为最小基座（30 文件 / 226 用例），远小于官方（1202），但覆盖核心安全与路由路径。 |
+| 测试规模 | 本插件为最小基座（56 文件 / 428 用例），远小于官方（1202），但覆盖核心安全与路由路径。 |
 | 工具展示开关 | `toolUseDisplay.enabled:false` 可关，默认开。 |
 
 ---
@@ -219,6 +219,43 @@ openclaw plugins install openclaw-lark-2-2026.10.6.tgz
 ## 更新日志
 
 <details open>
+<summary><b>2026.10.8</b> · 2026-10-15 · 可靠性加固（对比官方逐项对齐）+ 入站 debounce 合并</summary>
+
+以官方 `@openclaw/feishu` 为参照，对插件自身代码做了一轮系统的健壮性加固（A / B / C 三批 + 若干修复），并移植入站 debounce 合并。
+
+**可靠性修复（A 批 / S1）**
+
+- **webhook 崩溃**：修复 webhook 路径上的 `ReferenceError`。
+- **出站 code 断言**：出站错误码断言不再误判。
+- **流式配置**：`streaming` 配置 schema 与运行时对齐。
+- **多账号 / 目标解析**：accounts 与 targets 解析修复（含 `lark:` / `group:` / `channel:` / `dm:` 前缀与 tag 感知）。
+- **pending-history key**：群聊待处理历史键对齐官方 `groupHistoryKey`（去掉 `:thread:` 后缀）——修复 `threadSession` 下「root_id 推断线程」导致历史桶读写不一致、上下文被静默丢弃的问题。
+
+**可靠性修复（B 批）**
+
+- **reaction 访问门禁**：reaction 事件在派发前补上访问门禁校验（安全）。
+- **撤回回复回退**：回复目标已撤回时自动回退为新建消息（对齐官方 `sendReplyOrFallbackDirect`）。
+- **groupSessionScope 入站落地**：`group` / `group_sender` / `group_topic` / `group_topic_sender` 会话作用域在入站生效。
+- **交互去重键**：卡片交互按 `event_id` / `token` 去重（重试稳定）。
+- **abort 快路径键**：中断快路径的队列键与派发键对齐。
+
+**可靠性修复（C 批）**
+
+- **`onDeliveryResult` 透传**：出站适配器把每次物理发送的结果回传给核心（部分投递 / 子代理完成追踪）；回调异常只记日志，不影响已发送结果。
+- **去重持久化**：入站去重改用宿主 `openclaw/plugin-sdk/persistent-dedupe`（SQLite）并采用 **claim / commit / release** 语义 —— 重启不再重复处理；commit 在「消息入队 / 采纳之后」，崩溃不会永久吞掉重投递。TTL 对齐官方 24h。
+- **mention 注册表上限**：name→openId 注册表按「每群 500 / 全局 500」双向封顶（LRU 刷新），不再无界增长。
+- **出站媒体上限 + 失败传播**：出站媒体强制 `min(mediaMaxMb, 30MB)`（远端流式读取超限即中止，内存有界）；`mediaMaxMb` schema 要求正数；直接 `send` 附件上传失败改为显式报错（#112244），渠道级回复仍保留文本链接降级。
+
+**入站 debounce 合并（P3-A6，可选）**
+
+- 核心配置 `messages.inbound.debounceMs`（默认 0 = 关）。开启后，同一 `(账号 / 会话 / 话题 / 发送者)` 在安静窗口内的连续**文本**消息合并为**一条**再触发一次 agent 回合（控制命令不合并），减少刷屏并让上下文更完整。
+- 与 `durableIngress` 联动：按 `event_id` 把耐久入站行的生命周期传给处理器，flush 完成前不墓碑化 —— **debounce 窗口内崩溃也不丢消息**（对齐官方 `buildFeishuFlushIngressLifecycle`）。
+
+**测试**：30 文件 / 226 用例 → **56 文件 / 428 用例**。
+
+</details>
+
+<details>
 <summary><b>2026.10.6</b> · 2026-10-14 · 诊断 hook 加固：绝不 fail-close 工具链路</summary>
 
 `before_tool_call` 在 OpenClaw 中是 **fail-closed**：插件 hook 一旦抛异常，**整个工具调用**会被阻断 —— 而且**不区分工具**。本插件的这两个 hook 只做调用追踪与日志，不该具备这种破坏力。
