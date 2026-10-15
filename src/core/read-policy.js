@@ -28,7 +28,6 @@ exports.isCurrentFeishuChat = isCurrentFeishuChat;
 exports.isFeishuGroupReadAllowed = isFeishuGroupReadAllowed;
 exports.isFeishuGroupReadEnabled = isFeishuGroupReadEnabled;
 exports.canEnumerateAllFeishuPeers = canEnumerateAllFeishuPeers;
-exports.canEnumerateAllFeishuGroups = canEnumerateAllFeishuGroups;
 exports.resolveFeishuChatReadPreliminaryAuthorization = resolveFeishuChatReadPreliminaryAuthorization;
 exports.assertFeishuChatReadAllowed = assertFeishuChatReadAllowed;
 exports.readFeishuChatInfoWithAuthorization = readFeishuChatInfoWithAuthorization;
@@ -150,12 +149,6 @@ function isFeishuGroupReadEnabled(cfg, account, chatId) {
  */
 function canEnumerateAllFeishuPeers(account) {
     return (0, allow_from_1.compileAllowlist)(normalizeFeishuAllowlist(account.config.allowFrom)).wildcard;
-}
-function canEnumerateAllFeishuGroups(cfg, account) {
-    const policy = resolveFeishuReadGroupPolicy(cfg, account);
-    return (policy === 'open' ||
-        (policy === 'allowlist' &&
-            (0, allow_from_1.compileAllowlist)(normalizeFeishuAllowlist(account.config.groupAllowFrom)).wildcard));
 }
 // ---------------------------------------------------------------------------
 // Chat read authorization

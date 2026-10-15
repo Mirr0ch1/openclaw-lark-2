@@ -45,7 +45,6 @@ export declare function checkMultiAccountIsolation(cfg: ClawdbotConfig): Isolati
  */
 export declare function needsDmScopeFix(cfg: ClawdbotConfig): boolean;
 /** Return the fix command string, or null if not needed. */
-export declare function getDmScopeFixCommand(cfg: ClawdbotConfig): string | null;
 /**
  * Generate a combined warning block for doctor / start.
  * Returns null when everything is fine.
@@ -54,15 +53,11 @@ export declare function formatIsolationWarning(status: IsolationStatus, cfg?: Cl
 /**
  * Generate `openclaw config set` commands for per-account isolation.
  */
-export declare function generateIsolationFixCommands(cfg: ClawdbotConfig): {
-    commands: string[];
     preview: string;
 } | null;
 /**
  * Generate commands for explicitly sharing the same agent across accounts.
  */
-export declare function generateSharedAgentCommands(cfg: ClawdbotConfig): {
-    commands: string[];
     preview: string;
 } | null;
 export declare function collectIsolationWarnings(_cfg: ClawdbotConfig): string[];

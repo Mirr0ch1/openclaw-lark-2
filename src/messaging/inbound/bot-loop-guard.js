@@ -21,8 +21,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BOT_LOOP_IDLE_RESET_MS = exports.MAX_CONSECUTIVE_BOT_TURNS = void 0;
 exports.noteBotTurnAndCheck = noteBotTurnAndCheck;
 exports.resetBotLoop = resetBotLoop;
-exports.resetAllBotLoops = resetAllBotLoops;
-exports.botLoopStateSize = botLoopStateSize;
 /** Max consecutive bot-originated turns before auto-reply is suppressed. */
 exports.MAX_CONSECUTIVE_BOT_TURNS = 10;
 /** Idle window after which a conversation's counter is considered stale. */
@@ -79,11 +77,4 @@ function resetBotLoop(chatId, threadId) {
     states.delete(loopKey(chatId, threadId));
 }
 /** Clear all loop state. Intended for tests. */
-function resetAllBotLoops() {
-    states.clear();
-    lastSweepAt = 0;
-}
 /** Number of tracked conversations. Intended for tests. */
-function botLoopStateSize() {
-    return states.size;
-}

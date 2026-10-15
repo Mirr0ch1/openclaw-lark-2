@@ -9,13 +9,10 @@
  * 提供 ISO 8601 ↔ Unix 转换工具及时间范围解析。
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.secondsToDateTime = secondsToDateTime;
-exports.secondsStringToDateTime = secondsStringToDateTime;
 exports.millisToDateTime = millisToDateTime;
 exports.millisStringToDateTime = millisStringToDateTime;
 exports.dateTimeToSeconds = dateTimeToSeconds;
 exports.dateTimeToSecondsString = dateTimeToSecondsString;
-exports.dateTimeToMillis = dateTimeToMillis;
 exports.parseTimeRange = parseTimeRange;
 exports.parseTimeRangeToSeconds = parseTimeRangeToSeconds;
 const BJ_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -37,13 +34,7 @@ function formatBeijingISO(d) {
 // Unix 秒 → ISO 8601
 // ---------------------------------------------------------------------------
 /** Unix 秒（数字）→ ISO 8601 北京时间 */
-function secondsToDateTime(seconds) {
-    return formatBeijingISO(new Date(seconds * 1000));
-}
 /** Unix 秒（字符串）→ ISO 8601 北京时间 */
-function secondsStringToDateTime(seconds) {
-    return secondsToDateTime(parseInt(seconds, 10));
-}
 // ---------------------------------------------------------------------------
 // Unix 毫秒 → ISO 8601
 // ---------------------------------------------------------------------------
@@ -71,13 +62,6 @@ function dateTimeToSecondsString(datetime) {
     return dateTimeToSeconds(datetime).toString();
 }
 /** ISO 8601 → Unix 毫秒（数字） */
-function dateTimeToMillis(datetime) {
-    const d = new Date(datetime);
-    if (isNaN(d.getTime())) {
-        throw new Error(`无法解析 ISO 8601 时间: "${datetime}"。格式示例: 2026-02-27T14:30:00+08:00`);
-    }
-    return d.getTime();
-}
 /**
  * 解析时间范围标识，返回 ISO 8601 字符串对。
  *

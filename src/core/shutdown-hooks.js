@@ -1,7 +1,6 @@
 "use strict";
 // SPDX-License-Identifier: MIT
 Object.defineProperty(exports, "__esModule", { value: true });
-exports._resetShutdownHooks = _resetShutdownHooks;
 exports.registerShutdownHook = registerShutdownHook;
 exports.drainShutdownHooks = drainShutdownHooks;
 /**
@@ -12,9 +11,6 @@ exports.drainShutdownHooks = drainShutdownHooks;
  */
 const hooks = new Map();
 /** @internal — test-only reset. */
-function _resetShutdownHooks() {
-    hooks.clear();
-}
 /**
  * Register a cleanup callback to run during graceful shutdown.
  *

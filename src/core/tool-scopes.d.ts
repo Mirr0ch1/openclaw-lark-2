@@ -108,7 +108,6 @@ export type RequiredAppScope = (typeof REQUIRED_APP_SCOPES)[number];
  *
  * 描述每个必需权限的具体用途，帮助管理员理解为什么需要开通该权限。
  */
-export declare const REQUIRED_SCOPE_DESCRIPTIONS: Record<RequiredAppScope, string>;
 /**
  * 高敏感权限清单
  *

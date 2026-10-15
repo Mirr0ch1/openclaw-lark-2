@@ -12,10 +12,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkMultiAccountIsolation = checkMultiAccountIsolation;
 exports.needsDmScopeFix = needsDmScopeFix;
-exports.getDmScopeFixCommand = getDmScopeFixCommand;
 exports.formatIsolationWarning = formatIsolationWarning;
-exports.generateIsolationFixCommands = generateIsolationFixCommands;
-exports.generateSharedAgentCommands = generateSharedAgentCommands;
 exports.collectIsolationWarnings = collectIsolationWarnings;
 exports.emitSecurityWarnings = emitSecurityWarnings;
 const accounts_1 = require("./accounts.js");
@@ -82,11 +79,6 @@ function needsDmScopeFix(cfg) {
     return cfg.session?.dmScope !== RECOMMENDED_DM_SCOPE;
 }
 /** Return the fix command string, or null if not needed. */
-function getDmScopeFixCommand(cfg) {
-    if (!needsDmScopeFix(cfg))
-        return null;
-    return `openclaw config set session.dmScope "${RECOMMENDED_DM_SCOPE}"`;
-}
 /** User-facing dmScope warning block (markdown). */
 function formatDmScopeWarning() {
     return ('⚠️ **私聊消息串混**\n\n' +
@@ -125,50 +117,9 @@ function formatIsolationWarning(status, cfg) {
 /**
  * Generate `openclaw config set` commands for per-account isolation.
  */
-function generateIsolationFixCommands(cfg) {
-    const status = checkMultiAccountIsolation(cfg);
-    if (status.mode !== 'shared-implicit')
-        return null;
-    const accounts = status.accounts;
-    const commands = [];
-    const agentsList = accounts.map((a) => ({
-        id: `feishu-${a.accountId}`,
-        name: `飞书 ${a.name ?? a.accountId}`,
-    }));
-    commands.push(`openclaw config set agents.list '${JSON.stringify(agentsList)}' --json`);
-    const bindings = accounts.map((a) => ({
-        match: { channel: 'feishu', accountId: a.accountId },
-        agentId: `feishu-${a.accountId}`,
-    }));
-    commands.push(`openclaw config set bindings '${JSON.stringify(bindings)}' --json`);
-    const dmScopeCmd = getDmScopeFixCommand(cfg);
-    if (dmScopeCmd)
-        commands.push(dmScopeCmd);
-    commands.push('openclaw gateway restart');
-    const previewLines = accounts.map((a) => `  ${a.name ?? a.accountId}  →  独立记忆（feishu-${a.accountId}）`);
-    return { commands, preview: previewLines.join('\n') };
-}
 /**
  * Generate commands for explicitly sharing the same agent across accounts.
  */
-function generateSharedAgentCommands(cfg) {
-    const status = checkMultiAccountIsolation(cfg);
-    if (status.mode !== 'shared-implicit')
-        return null;
-    const accounts = status.accounts;
-    const commands = [];
-    const bindings = accounts.map((a) => ({
-        match: { channel: 'feishu', accountId: a.accountId },
-        agentId: 'default',
-    }));
-    commands.push(`openclaw config set bindings '${JSON.stringify(bindings)}' --json`);
-    const dmScopeCmd = getDmScopeFixCommand(cfg);
-    if (dmScopeCmd)
-        commands.push(dmScopeCmd);
-    commands.push('openclaw gateway restart');
-    const previewLines = accounts.map((a) => `  ${a.name ?? a.accountId}  →  共用记忆（default）`);
-    return { commands, preview: previewLines.join('\n') };
-}
 // ---------------------------------------------------------------------------
 // collectWarnings adapter (for SDK security.collectWarnings)
 // ---------------------------------------------------------------------------

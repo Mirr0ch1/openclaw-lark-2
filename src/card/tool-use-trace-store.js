@@ -12,12 +12,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startToolUseTraceRun = startToolUseTraceRun;
 exports.clearToolUseTraceRun = clearToolUseTraceRun;
-exports.hasToolUseTraceRun = hasToolUseTraceRun;
 exports.recordToolUseStart = recordToolUseStart;
 exports.recordToolUseEnd = recordToolUseEnd;
 exports.getToolUseTraceSteps = getToolUseTraceSteps;
 exports.sanitizeTraceValue = sanitizeTraceValue;
-exports._resetForTesting = _resetForTesting;
 const reasoning_utils_1 = require("./reasoning-utils.js");
 const TRACE_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSION_TRACES = 128;
@@ -43,11 +41,6 @@ function clearToolUseTraceRun(sessionKey) {
     if (!sessionKey)
         return;
     sessionTraces.delete(sessionKey);
-}
-function hasToolUseTraceRun(sessionKey) {
-    if (!sessionKey)
-        return false;
-    return sessionTraces.has(sessionKey);
 }
 function recordToolUseStart(params) {
     const { sessionKey, toolName, toolParams, toolCallId, runId } = params;
@@ -266,6 +259,3 @@ function sortTraceValue(value) {
     return value;
 }
 /** @internal — test-only helper to reset module-level state between test cases. */
-function _resetForTesting() {
-    sessionTraces.clear();
-}

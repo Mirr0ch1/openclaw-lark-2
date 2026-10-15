@@ -44,7 +44,7 @@
  * 最后更新: 2026-03-03
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SENSITIVE_SCOPES = exports.REQUIRED_SCOPE_DESCRIPTIONS = exports.REQUIRED_APP_SCOPES = exports.TOOL_SCOPES = void 0;
+exports.SENSITIVE_SCOPES = exports.REQUIRED_APP_SCOPES = exports.TOOL_SCOPES = void 0;
 exports.filterSensitiveScopes = filterSensitiveScopes;
 // ===== 数据 =====
 /**
@@ -269,28 +269,6 @@ exports.REQUIRED_APP_SCOPES = [
  *
  * 描述每个必需权限的具体用途，帮助管理员理解为什么需要开通该权限。
  */
-exports.REQUIRED_SCOPE_DESCRIPTIONS = {
-    'contact:contact.base:readonly': '获取用户基本信息（姓名、头像）',
-    'docx:document:readonly': '读取文档内容、预览文档链接',
-    'im:chat:read': '读取群聊信息、获取群成员列表',
-    'im:chat:update': '修改群聊设置（群名称、群公告等）',
-    'im:message.group_at_msg:readonly': '接收群聊中 @ 机器人的消息',
-    'im:message.p2p_msg:readonly': '接收私聊消息',
-    'im:message.pins:read': '读取消息置顶状态',
-    'im:message.pins:write_only': '置顶/取消置顶消息',
-    'im:message.reactions:read': '读取消息表情回复',
-    'im:message.reactions:write_only': '添加/删除消息表情回复',
-    'im:message:readonly': '读取消息内容、历史消息',
-    'im:message:recall': '↩撤回机器人发送的消息',
-    'im:message:send_as_bot': '以机器人身份发送消息',
-    'im:message:send_multi_users': '批量发送私聊消息',
-    'im:message:send_sys_msg': '发送系统通知消息',
-    'im:message:update': '更新/编辑已发送的消息',
-    'im:resource': '上传/下载消息资源（图片、文件等）',
-    'application:application:self_manage': '查询应用自身权限状态（诊断基础）',
-    'cardkit:card:write': '创建和更新消息卡片',
-    'cardkit:card:read': '读取消息卡片状态',
-};
 // ===== 高敏感权限 =====
 /**
  * 高敏感权限清单

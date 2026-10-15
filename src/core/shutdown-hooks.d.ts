@@ -1,5 +1,4 @@
 /** @internal — test-only reset. */
-export declare function _resetShutdownHooks(): void;
 /**
  * Register a cleanup callback to run during graceful shutdown.
  *

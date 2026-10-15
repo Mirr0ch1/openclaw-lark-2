@@ -33,5 +33,3 @@ export declare class SentinelStore {
     private evict;
 }
 export declare function getSentinelStore(accountId: string, maxThreads?: number, ttlMs?: number): SentinelStore;
-export declare function clearSentinelStore(accountId?: string): void;
-export declare function clearAllSentinelStores(): void;

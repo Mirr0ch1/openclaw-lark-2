@@ -8,9 +8,7 @@
  * 提供 ISO 8601 ↔ Unix 转换工具及时间范围解析。
  */
 /** Unix 秒（数字）→ ISO 8601 北京时间 */
-export declare function secondsToDateTime(seconds: number): string;
 /** Unix 秒（字符串）→ ISO 8601 北京时间 */
-export declare function secondsStringToDateTime(seconds: string): string;
 /** Unix 毫秒（数字）→ ISO 8601 北京时间 */
 export declare function millisToDateTime(millis: number): string;
 /** Unix 毫秒（字符串）→ ISO 8601 北京时间 */
@@ -20,7 +18,6 @@ export declare function dateTimeToSeconds(datetime: string): number;
 /** ISO 8601 → Unix 秒（字符串） */
 export declare function dateTimeToSecondsString(datetime: string): string;
 /** ISO 8601 → Unix 毫秒（数字） */
-export declare function dateTimeToMillis(datetime: string): number;
 /** ISO 8601 时间范围 */
 export interface TimeRange {
     start: string;

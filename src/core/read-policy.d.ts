@@ -34,7 +34,6 @@ export declare function isCurrentFeishuChat(params: {
 export declare function isFeishuGroupReadAllowed(cfg: ClawdbotConfig, account: LarkAccount, chatId: string, current: boolean): boolean;
 export declare function isFeishuGroupReadEnabled(cfg: ClawdbotConfig, account: LarkAccount, chatId: string): boolean;
 export declare function canEnumerateAllFeishuPeers(account: LarkAccount): boolean;
-export declare function canEnumerateAllFeishuGroups(cfg: ClawdbotConfig, account: LarkAccount): boolean;
 export interface FeishuChatReadParams {
     cfg: ClawdbotConfig;
     account: LarkAccount;

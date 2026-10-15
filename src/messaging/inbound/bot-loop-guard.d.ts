@@ -43,6 +43,4 @@ export declare function noteBotTurnAndCheck(chatId: string, threadId?: string, n
  */
 export declare function resetBotLoop(chatId: string, threadId?: string): void;
 /** Clear all loop state. Intended for tests. */
-export declare function resetAllBotLoops(): void;
 /** Number of tracked conversations. Intended for tests. */
-export declare function botLoopStateSize(): number;

@@ -24,7 +24,6 @@ export interface ToolUseTraceStep {
 }
 export declare function startToolUseTraceRun(sessionKey: string): void;
 export declare function clearToolUseTraceRun(sessionKey: string): void;
-export declare function hasToolUseTraceRun(sessionKey?: string): boolean;
 export declare function recordToolUseStart(params: {
     sessionKey?: string;
     toolName: string;
@@ -48,4 +47,3 @@ export declare function sanitizeTraceValue(value: unknown, depth?: number, conte
     key?: string;
 }): unknown;
 /** @internal — test-only helper to reset module-level state between test cases. */
-export declare function _resetForTesting(): void;

@@ -15,8 +15,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SentinelStore = void 0;
 exports.getSentinelStore = getSentinelStore;
-exports.clearSentinelStore = clearSentinelStore;
-exports.clearAllSentinelStores = clearAllSentinelStores;
 const DEFAULT_TTL_MS = 10 * 60 * 1000; // 10 min — short, avoid stale feedback
 const DEFAULT_MAX_THREADS = 200; // per-account
 function dedup(entries) {
@@ -81,18 +79,4 @@ function getSentinelStore(accountId, maxThreads, ttlMs) {
         registry.set(accountId, store);
     }
     return store;
-}
-function clearSentinelStore(accountId) {
-    if (accountId !== undefined) {
-        registry.get(accountId)?.clear();
-        registry.delete(accountId);
-    }
-    else {
-        clearAllSentinelStores();
-    }
-}
-function clearAllSentinelStores() {
-    for (const s of registry.values())
-        s.clear();
-    registry.clear();
 }
