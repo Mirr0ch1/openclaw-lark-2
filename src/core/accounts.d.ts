@@ -38,7 +38,6 @@ export declare function getLarkAccount(cfg: ClawdbotConfig, accountId?: string |
  * @param accountId - Optional target account ID
  * @returns Config with `channels.feishu` replaced by the merged account config
  */
-export declare function createAccountScopedConfig(cfg: ClawdbotConfig, accountId?: string | null): ClawdbotConfig;
 /** Return all accounts that are both configured and enabled. */
 export declare function getEnabledLarkAccounts(cfg: ClawdbotConfig): LarkAccount[];
 /**
@@ -46,6 +45,5 @@ export declare function getEnabledLarkAccounts(cfg: ClawdbotConfig): LarkAccount
  *
  * Returns `null` when `appId` or `appSecret` is missing.
  */
-export declare function getLarkCredentials(feishuCfg?: FeishuConfig): LarkCredentials | null;
 /** Type guard: narrow `LarkAccount` to `ConfiguredLarkAccount`. */
 export declare function isConfigured(account: LarkAccount): account is ConfiguredLarkAccount;

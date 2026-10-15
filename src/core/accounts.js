@@ -13,9 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getLarkAccountIds = getLarkAccountIds;
 exports.getDefaultLarkAccountId = getDefaultLarkAccountId;
 exports.getLarkAccount = getLarkAccount;
-exports.createAccountScopedConfig = createAccountScopedConfig;
 exports.getEnabledLarkAccounts = getEnabledLarkAccounts;
-exports.getLarkCredentials = getLarkCredentials;
 exports.isConfigured = isConfigured;
 const account_id_1 = require("openclaw/plugin-sdk/account-id");
 const normalizeAccountId = typeof account_id_1.normalizeAccountId === 'function'
@@ -209,16 +207,6 @@ function getLarkAccount(cfg, accountId) {
  * @param accountId - Optional target account ID
  * @returns Config with `channels.feishu` replaced by the merged account config
  */
-function createAccountScopedConfig(cfg, accountId) {
-    const account = getLarkAccount(cfg, accountId);
-    return {
-        ...cfg,
-        channels: {
-            ...cfg.channels,
-            feishu: account.config,
-        },
-    };
-}
 /** Return all accounts that are both configured and enabled. */
 function getEnabledLarkAccounts(cfg) {
     const ids = getLarkAccountIds(cfg);
@@ -236,21 +224,6 @@ function getEnabledLarkAccounts(cfg) {
  *
  * Returns `null` when `appId` or `appSecret` is missing.
  */
-function getLarkCredentials(feishuCfg) {
-    if (!feishuCfg)
-        return null;
-    const appId = feishuCfg.appId;
-    const appSecret = feishuCfg.appSecret;
-    if (!appId || !appSecret)
-        return null;
-    return {
-        appId,
-        appSecret,
-        encryptKey: feishuCfg.encryptKey ?? undefined,
-        verificationToken: feishuCfg.verificationToken ?? undefined,
-        brand: toBrand(feishuCfg.domain),
-    };
-}
 /** Type guard: narrow `LarkAccount` to `ConfiguredLarkAccount`. */
 function isConfigured(account) {
     return account.configured;

@@ -68,6 +68,12 @@ const FeishuToolsFlagSchema = zod_1.z
     drive: zod_1.z.boolean().optional(),
     perm: zod_1.z.boolean().optional(),
     scopes: zod_1.z.boolean().optional(),
+    // Read by tools-config.js / the oapi tool families. Without declaring them
+    // the host strips the keys, so `tools.sheets: false` could never disable
+    // the Sheets tools and `tools.mail` / `tools.okr` were dead config.
+    mail: zod_1.z.boolean().optional(),
+    sheets: zod_1.z.boolean().optional(),
+    okr: zod_1.z.boolean().optional(),
 })
     .optional();
 const FeishuFooterSchema = zod_1.z
@@ -194,6 +200,11 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
     connectionMode: ConnectionModeEnum.optional(),
     webhookPath: zod_1.z.string().optional(),
     webhookPort: zod_1.z.number().optional(),
+    // MCP doc-tool endpoint override (read by tools/mcp/shared.js). `mcp_url`
+    // is the legacy alias. Without declaring these the host strips them and the
+    // documented `channels.feishu.mcpEndpoint` path is unreachable.
+    mcpEndpoint: zod_1.z.string().optional(),
+    mcp_url: zod_1.z.string().optional(),
     // Opt-in durable inbound admission (host ingress queue). Default off.
     durableIngress: zod_1.z.boolean().optional(),
     dmPolicy: DmPolicyEnum.optional(),

@@ -15,7 +15,6 @@ import { type ToolUseDisplayStep } from './tool-use-display';
  * streaming updates.
  */
 export declare const STREAMING_ELEMENT_ID = "streaming_content";
-export declare const REASONING_ELEMENT_ID = "reasoning_content";
 /**
  * Feishu card JSON 2.0 hard limit: a card may contain at most 200
  * elements/components (error 300305 when exceeded).

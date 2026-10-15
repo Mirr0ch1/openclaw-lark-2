@@ -3,6 +3,26 @@ import { describe, it, expect } from "vitest";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { FeishuConfigSchema } = require("../../src/core/config-schema.js");
 
+describe("tools flags / mcpEndpoint survive schema validation", () => {
+  it("preserves tools.mail / sheets / okr (previously stripped)", () => {
+    const out = FeishuConfigSchema.parse({
+      tools: { doc: true, sheets: false, mail: false, okr: true },
+    });
+    expect(out.tools.sheets).toBe(false);
+    expect(out.tools.mail).toBe(false);
+    expect(out.tools.okr).toBe(true);
+  });
+
+  it("preserves mcpEndpoint and the legacy mcp_url", () => {
+    const out = FeishuConfigSchema.parse({
+      mcpEndpoint: "https://x/mcp",
+      mcp_url: "https://legacy/mcp",
+    });
+    expect(out.mcpEndpoint).toBe("https://x/mcp");
+    expect(out.mcp_url).toBe("https://legacy/mcp");
+  });
+});
+
 describe("group session scope config keys", () => {
   it("accepts groupSessionScope / topicSessionMode at the top level", () => {
     const out = FeishuConfigSchema.parse({ groupSessionScope: "group_topic", topicSessionMode: "enabled" });

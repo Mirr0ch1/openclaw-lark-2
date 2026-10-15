@@ -45,7 +45,6 @@ export declare function encodeFeishuRouteTarget(params: {
  *
  * When `type` is omitted, the prefix is inferred via `detectIdType`.
  */
-export declare function formatFeishuTarget(id: string, type?: FeishuIdType): string;
 /**
  * Determine the `receive_id_type` query parameter for the Feishu send-message
  * API based on the target identifier.

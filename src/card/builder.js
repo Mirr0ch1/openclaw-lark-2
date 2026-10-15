@@ -9,7 +9,7 @@
  * different agent response states (thinking, streaming, complete, confirm).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.REASONING_ELEMENT_ID = exports.STREAMING_ELEMENT_ID = void 0;
+exports.STREAMING_ELEMENT_ID = void 0;
 exports.CARD_SIZE_LIMIT_BYTES = exports.CARD_ELEMENT_LIMIT = void 0;
 exports.splitReasoningText = splitReasoningText;
 exports.stripReasoningTags = stripReasoningTags;
@@ -36,7 +36,6 @@ const tool_use_display_1 = require("./tool-use-display.js");
  * streaming updates.
  */
 exports.STREAMING_ELEMENT_ID = 'streaming_content';
-exports.REASONING_ELEMENT_ID = 'reasoning_content';
 const TOOL_USE_STEP_CONTENT_INDENT = '0px 0px 0px 22px';
 /**
  * Feishu card JSON 2.0 hard limit: a card may contain at most 200

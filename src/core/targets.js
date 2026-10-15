@@ -19,7 +19,6 @@ exports.stripFeishuProviderPrefix = stripFeishuProviderPrefix;
 exports.normalizeFeishuTarget = normalizeFeishuTarget;
 exports.parseFeishuRouteTarget = parseFeishuRouteTarget;
 exports.encodeFeishuRouteTarget = encodeFeishuRouteTarget;
-exports.formatFeishuTarget = formatFeishuTarget;
 exports.resolveReceiveIdType = resolveReceiveIdType;
 exports.normalizeMessageId = normalizeMessageId;
 exports.looksLikeFeishuId = looksLikeFeishuId;
@@ -130,12 +129,6 @@ function encodeFeishuRouteTarget(params) {
  *
  * When `type` is omitted, the prefix is inferred via `detectIdType`.
  */
-function formatFeishuTarget(id, type) {
-    const resolved = type ?? detectIdType(id);
-    if (resolved === 'chat_id')
-        return `${TAG_CHAT}${id}`;
-    return `${TAG_USER}${id}`;
-}
 // ---------------------------------------------------------------------------
 // API receive-ID resolution
 // ---------------------------------------------------------------------------

@@ -85,6 +85,8 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
     }>>;
     webhookPath: z.ZodOptional<z.ZodString>;
     webhookPort: z.ZodOptional<z.ZodNumber>;
+    mcpEndpoint: z.ZodOptional<z.ZodString>;
+    mcp_url: z.ZodOptional<z.ZodString>;
     durableIngress: z.ZodOptional<z.ZodBoolean>;
     dmPolicy: z.ZodOptional<z.ZodEnum<{
         open: "open";
@@ -199,6 +201,9 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
         drive: z.ZodOptional<z.ZodBoolean>;
         perm: z.ZodOptional<z.ZodBoolean>;
         scopes: z.ZodOptional<z.ZodBoolean>;
+        mail: z.ZodOptional<z.ZodBoolean>;
+        sheets: z.ZodOptional<z.ZodBoolean>;
+        okr: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>>;
     footer: z.ZodOptional<z.ZodObject<{
         status: z.ZodOptional<z.ZodBoolean>;
@@ -266,6 +271,8 @@ export declare const FeishuConfigSchema: z.ZodObject<{
     }>>;
     webhookPath: z.ZodOptional<z.ZodString>;
     webhookPort: z.ZodOptional<z.ZodNumber>;
+    mcpEndpoint: z.ZodOptional<z.ZodString>;
+    mcp_url: z.ZodOptional<z.ZodString>;
     durableIngress: z.ZodOptional<z.ZodBoolean>;
     dmPolicy: z.ZodOptional<z.ZodEnum<{
         open: "open";
@@ -380,6 +387,9 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         drive: z.ZodOptional<z.ZodBoolean>;
         perm: z.ZodOptional<z.ZodBoolean>;
         scopes: z.ZodOptional<z.ZodBoolean>;
+        mail: z.ZodOptional<z.ZodBoolean>;
+        sheets: z.ZodOptional<z.ZodBoolean>;
+        okr: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>>;
     footer: z.ZodOptional<z.ZodObject<{
         status: z.ZodOptional<z.ZodBoolean>;
@@ -446,6 +456,8 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         }>>;
         webhookPath: z.ZodOptional<z.ZodString>;
         webhookPort: z.ZodOptional<z.ZodNumber>;
+        mcpEndpoint: z.ZodOptional<z.ZodString>;
+        mcp_url: z.ZodOptional<z.ZodString>;
         durableIngress: z.ZodOptional<z.ZodBoolean>;
         dmPolicy: z.ZodOptional<z.ZodEnum<{
             open: "open";
@@ -560,6 +572,9 @@ export declare const FeishuConfigSchema: z.ZodObject<{
             drive: z.ZodOptional<z.ZodBoolean>;
             perm: z.ZodOptional<z.ZodBoolean>;
             scopes: z.ZodOptional<z.ZodBoolean>;
+            mail: z.ZodOptional<z.ZodBoolean>;
+            sheets: z.ZodOptional<z.ZodBoolean>;
+            okr: z.ZodOptional<z.ZodBoolean>;
         }, z.core.$strip>>;
         footer: z.ZodOptional<z.ZodObject<{
             status: z.ZodOptional<z.ZodBoolean>;
