@@ -23,6 +23,12 @@ export interface FeishuDurableIngress {
         kind: 'durable' | 'non-durable';
         value: unknown;
     }>;
+    /**
+     * Resolve the turn lifecycle for an in-flight durable delivery from its
+     * parsed event `data` (keyed by `data.event_id`). Returns `undefined` when
+     * the event is not a durable delivery (e.g. card actions).
+     */
+    resolveLifecycle: (data: unknown) => import('./ingress-lifecycle').ChannelIngressLifecycle | undefined;
     start: () => void;
     stop: () => Promise<void>;
 }

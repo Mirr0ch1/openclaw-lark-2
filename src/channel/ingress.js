@@ -113,6 +113,11 @@ function createFeishuDurableIngress(params) {
     }
     const { accountId, dispatcher, log: paramLog } = params;
     const emitWarn = paramLog ?? ((message) => log.warn(message));
+    // Lifecycles for in-flight deliveries, keyed by Feishu `event_id`. The
+    // receive handler resolves its turn lifecycle from here (the SDK merges the
+    // envelope `header` — incl. `event_id` — into the parsed event `data`), so a
+    // deferred (debounced) delivery can adopt/abandon its durable row later.
+    const activeLifecycles = new Map();
     const monitor = (0, channel_outbound_1.createChannelIngressMonitor)({
         queue: () => openQueue.call(state, { accountId }),
         inspect: (rawEnvelope, context) => inspectFeishuIngressEnvelope(rawEnvelope, {
@@ -132,23 +137,52 @@ function createFeishuDurableIngress(params) {
             }),
             createClaimError: (kind, claim) => new FeishuIngressPermanentError('invalid-event', `Feishu ingress row ${claim.id} has invalid delivery identity (${kind}).`),
         },
-        deliver: async (rawEnvelope) => {
-            const result = await dispatcher.invoke(JSON.parse(rawEnvelope), { needCheck: false });
-            // This plugin's handlers enqueue to the per-chat queue and return
-            // `undefined`, so the durable row is complete once admission +
-            // enqueue succeeded. Honour an explicit `deferred` result rather
-            // than marking a deferred turn complete.
-            if (isRecord(result)) {
-                if (result.kind === 'deferred')
-                    return { kind: 'deferred' };
-                if (result.kind === 'failed-retryable') {
-                    return { kind: 'failed-retryable', error: result.error };
+        deliver: async (rawEnvelope, lifecycle, claim) => {
+            // Per-delivery abandon-handler registry. Handlers can defer transport
+            // settlement (e.g. debounce) and register a cleanup that must run if
+            // the delivery is abandoned. Kept local; the monitor owns the claim.
+            const abandonHandlers = new Set();
+            const wrappedLifecycle = {
+                ...lifecycle,
+                onAdopted: lifecycle.onAdopted,
+                onAbandoned: async () => {
+                    await Promise.allSettled([...abandonHandlers].map(async (handler) => await handler()));
+                    await lifecycle.onAbandoned();
+                },
+                registerAbandonHandler: (handler) => {
+                    abandonHandlers.add(handler);
+                    return () => abandonHandlers.delete(handler);
+                },
+            };
+            const eventId = inspectFeishuIngressEnvelope(rawEnvelope, { encryptKey: params.encryptKey })?.eventId;
+            if (eventId)
+                activeLifecycles.set(eventId, wrappedLifecycle);
+            try {
+                const result = await dispatcher.invoke(JSON.parse(rawEnvelope), { needCheck: false });
+                // This plugin's handlers enqueue to the per-chat queue and return
+                // `undefined`, so the durable row is complete once admission +
+                // enqueue succeeded. Honour explicit `deferred` / `completed` /
+                // `failed-retryable` results rather than marking a deferred turn
+                // complete.
+                if (isRecord(result)) {
+                    if (result.kind === 'deferred')
+                        return { kind: 'deferred' };
+                    if (result.kind === 'failed-retryable') {
+                        return { kind: 'failed-retryable', error: result.error };
+                    }
+                    if (result.kind === 'completed')
+                        return { kind: 'completed' };
                 }
-                if (result.kind === 'completed')
-                    return { kind: 'completed' };
+                return { kind: 'completed' };
             }
-            return { kind: 'completed' };
+            finally {
+                if (eventId && activeLifecycles.get(eventId) === wrappedLifecycle) {
+                    activeLifecycles.delete(eventId);
+                }
+            }
         },
+        // Deferred (debounced) deliveries must settle before the monitor stops.
+        deferredClaims: 'wait-on-stop',
         pollIntervalMs: FEISHU_INGRESS_POLL_INTERVAL_MS,
         retention: 'standard',
         drain: {
@@ -185,7 +219,14 @@ function createFeishuDurableIngress(params) {
     return {
         invoke: async (data, invokeParams) => (await invokeWebhook(data, invokeParams)).value,
         invokeWebhook,
+        resolveLifecycle: (data) => {
+            const eventId = isRecord(data) ? readString(data.event_id) : undefined;
+            return eventId ? activeLifecycles.get(eventId) : undefined;
+        },
         start: () => monitor.start(),
-        stop: () => monitor.stop(),
+        stop: async () => {
+            await monitor.stop();
+            activeLifecycles.clear();
+        },
     };
 }

@@ -74,16 +74,24 @@ export declare class MessageDedup {
     readonly persistent: boolean;
     constructor(opts?: MessageDedupOpts);
     /**
-     * Take ownership of a key without recording it. Callers must `commit` (on
-     * success) or `release` (on failure) a claimed key.
+     * Take ownership of a key without recording it. `handle.commit()` records
+     * it; `handle.release()` drops the claim.
      */
     claim(id: string, scope?: string): Promise<{
         claimed: boolean;
+        handle?: {
+            commit: () => Promise<boolean>;
+            release: (options?: {
+                error?: unknown;
+            }) => void;
+        };
     }>;
     /** Record a claimed key as handled. */
     commit(id: string, scope?: string): Promise<boolean>;
     /** Drop a claimed key without recording it, so a retry can proceed. */
-    release(id: string, scope?: string): void;
+    release(id: string, scope?: string, options?: {
+        error?: unknown;
+    }): void;
     /**
      * Claim and immediately commit a key. Returns `true` if the message is new,
      * `false` if it is a duplicate.

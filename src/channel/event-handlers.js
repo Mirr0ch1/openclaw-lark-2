@@ -44,6 +44,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleMessageEvent = handleMessageEvent;
+exports.dispatchFeishuMessage = dispatchFeishuMessage;
 exports.handleReactionEvent = handleReactionEvent;
 exports.handleBotMembershipEvent = handleBotMembershipEvent;
 exports.handleVcMeetingInvitedEvent = handleVcMeetingInvitedEvent;
@@ -101,6 +102,78 @@ function isEventOwnershipValid(ctx, data) {
 // ---------------------------------------------------------------------------
 // Message handler
 // ---------------------------------------------------------------------------
+/**
+ * Enqueue a (possibly merged) message into the per-chat serial queue and run
+ * the handler. Owns the logical claim settlement: on the direct path it
+ * commits after enqueue; on the debounced-flush path adoption (which commits
+ * the fan-in's replay claims *after* transport adoption) drives the commit.
+ * Releases the claim if anything fails first.
+ */
+async function dispatchFeishuMessage(ctx, event, processingClaim, admissionLifecycle) {
+    const { accountId, log, error } = ctx;
+    const msgId = event.message?.message_id ?? 'unknown';
+    const chatId = event.message?.chat_id ?? '';
+    const threadId = event.message?.thread_id || event.message?.root_id || undefined;
+    if (admissionLifecycle?.abortSignal?.aborted) {
+        await admissionLifecycle.onAbandoned?.();
+        return;
+    }
+    let settled = false;
+    try {
+        const { status } = (0, chat_queue_1.enqueueFeishuChatTask)({
+            accountId,
+            chatId,
+            threadId,
+            onTaskTimeout: (key, timeoutMs) => {
+                log(`feishu[${accountId}]: per-chat task exceeded ${timeoutMs}ms cap (key=${key}); evicting from queue so later same-key messages can proceed (#70133)`);
+            },
+            task: async () => {
+                try {
+                    await (0, lark_ticket_1.withTicket)({
+                        messageId: msgId,
+                        chatId,
+                        accountId,
+                        startTime: Date.now(),
+                        senderOpenId: event.sender?.sender_id?.open_id || '',
+                        chatType: event.message?.chat_type || undefined,
+                        threadId,
+                    }, () => (0, handler_1.handleFeishuMessage)({
+                        cfg: ctx.cfg,
+                        event,
+                        botOpenId: ctx.lark.botOpenId,
+                        runtime: ctx.runtime,
+                        chatHistories: ctx.chatHistories,
+                        accountId,
+                    }));
+                }
+                catch (err) {
+                    error(`feishu[${accountId}]: error handling message: ${String(err)}`);
+                }
+            },
+        });
+        log(`feishu[${accountId}]: message ${msgId} in chat ${chatId}${threadId ? ` thread ${threadId}` : ''} — ${status}`);
+        if (admissionLifecycle) {
+            // Debounced flush: the fan-in's `adoptAll` commits the replay claims
+            // (including this entry's) only AFTER transport adoption. Committing
+            // here first would break that commit-after-adoption invariant: if
+            // adoption fails, the logical key would stay recorded while the
+            // durable row is retried — permanently suppressing the redelivery.
+            await admissionLifecycle.onAdopted?.();
+        }
+        else {
+            // Direct path: no durable adoption to gate on — record the key now.
+            await processingClaim?.commit?.();
+        }
+        settled = true;
+    }
+    finally {
+        // Any failure before adoption/commit (e.g. enqueue threw) must release
+        // the claim so a durable-ingress retry is not suppressed.
+        if (!settled) {
+            processingClaim?.release?.({ error: new Error('feishu-dispatch-not-adopted') });
+        }
+    }
+}
 async function handleMessageEvent(ctx, data) {
     if (!isEventOwnershipValid(ctx, data))
         return;
@@ -133,6 +206,10 @@ async function handleMessageEvent(ctx, data) {
         // create_time+content) so a redelivery with a fresh message_id is
         // still caught (#46778); everything else falls back to message_id.
         const dedupeKey = (0, dedupe_key_1.resolveFeishuMessageDedupeKey)(event) ?? msgId;
+        // Durable-ingress turn lifecycle for this delivery (undefined when
+        // durableIngress is off). Needed only when a debounced flush must defer
+        // settlement of the durable row.
+        const lifecycle = ctx.resolveIngressLifecycle?.(data);
         // Claim (do NOT record) the key: recording at admission would suppress a
         // durable-ingress redelivery if we crash before the message is enqueued.
         // Commit once enqueued; release on failure so a retry can proceed.
@@ -169,47 +246,51 @@ async function handleMessageEvent(ctx, data) {
                     }
                 }
             }
-            const { status } = (0, chat_queue_1.enqueueFeishuChatTask)({
-                accountId,
-                chatId,
-                threadId,
-                onTaskTimeout: (key, timeoutMs) => {
-                    log(`feishu[${accountId}]: per-chat task exceeded ${timeoutMs}ms cap (key=${key}); evicting from queue so later same-key messages can proceed (#70133)`);
-                },
-                task: async () => {
+            // ---- Inbound debounce (opt-in, `messages.inbound.debounceMs`) ----
+            // When enabled and this message qualifies (text, non-control), buffer
+            // it so a rapid burst merges into one turn. The claim is handed to
+            // the debouncer, which settles it (commit/release) at flush time.
+            const debouncer = ctx.inboundDebouncer;
+            if (debouncer) {
+                const entry = {
+                    event,
+                    processingClaim: dedupeClaim.handle,
+                    ...(lifecycle ? { turnAdoptionLifecycle: lifecycle } : {}),
+                };
+                if (debouncer.shouldBuffer(entry)) {
+                    if (lifecycle) {
+                        // If the durable drain abandons before the flush, drop the
+                        // buffered entry and release the claim.
+                        lifecycle.registerAbandonHandler?.(() => {
+                            entry.abandoned = true;
+                            dedupeClaim.handle?.release({ error: new Error('feishu-ingress-abandoned-before-flush') });
+                        });
+                    }
                     try {
-                        await (0, lark_ticket_1.withTicket)({
-                            messageId: msgId,
-                            chatId,
-                            accountId,
-                            startTime: Date.now(),
-                            senderOpenId: event.sender?.sender_id?.open_id || '',
-                            chatType: event.message?.chat_type || undefined,
-                            threadId,
-                        }, () => (0, handler_1.handleFeishuMessage)({
-                            cfg: ctx.cfg,
-                            event,
-                            botOpenId: ctx.lark.botOpenId,
-                            runtime: ctx.runtime,
-                            chatHistories: ctx.chatHistories,
-                            accountId,
-                        }));
+                        await debouncer.enqueue(entry);
                     }
                     catch (err) {
-                        error(`feishu[${accountId}]: error handling message: ${String(err)}`);
+                        dedupeClaim.handle?.release({ error: err });
+                        if (lifecycle) {
+                            return { kind: 'failed-retryable', error: err };
+                        }
+                        throw err;
                     }
-                },
-            });
-            log(`feishu[${accountId}]: message ${msgId} in chat ${chatId}${threadId ? ` thread ${threadId}` : ''} — ${status}`);
-            // Message is safely enqueued — record it so a redelivery is a no-op.
-            await ctx.messageDedup.commit(dedupeKey, accountId);
+                    // The debouncer now owns claim settlement.
+                    dedupeSettled = true;
+                    return lifecycle ? { kind: 'deferred' } : undefined;
+                }
+            }
+            // ---- Direct dispatch (no debounce, or message did not qualify) ----
+            // `dispatchFeishuMessage` takes ownership of the claim settlement.
             dedupeSettled = true;
+            await dispatchFeishuMessage(ctx, event, dedupeClaim.handle, undefined);
         }
         finally {
-            // Any failure before commit (e.g. enqueue threw) must release the
-            // claim so a durable-ingress retry is not suppressed.
+            // Any failure before the claim is handed off or settled must release
+            // it so a durable-ingress retry is not suppressed.
             if (!dedupeSettled) {
-                ctx.messageDedup.release(dedupeKey, accountId);
+                dedupeClaim.handle?.release({ error: new Error('feishu-admission-not-settled') });
             }
         }
     }

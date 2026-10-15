@@ -181,22 +181,31 @@ class MessageDedup {
     /**
      * Take ownership of a key without recording it.
      *
-     * @returns `{ claimed: true }` when this caller owns the key; `{ claimed: false }`
-     *          when it was already handled (duplicate) or is owned elsewhere
-     *          (in-flight). Callers must `commit` (on success) or `release`
-     *          (on failure) a claimed key.
+     * @returns `{ claimed: true, handle }` when this caller owns the key, where
+     *          `handle.commit()` records it and `handle.release()` drops the
+     *          claim; `{ claimed: false }` when it was already handled
+     *          (duplicate) or is owned elsewhere (in-flight).
      */
     async claim(id, scope) {
         const result = await this.guard.claim(id, { namespace: scope || 'global' });
-        return { claimed: result.kind === 'claimed' };
+        if (result.kind !== 'claimed') {
+            return { claimed: false };
+        }
+        return {
+            claimed: true,
+            handle: {
+                commit: () => this.commit(id, scope),
+                release: (options) => this.release(id, scope, options),
+            },
+        };
     }
     /** Record a claimed key as handled. */
     async commit(id, scope) {
         return this.guard.commit(id, { namespace: scope || 'global' });
     }
     /** Drop a claimed key without recording it, so a retry can proceed. */
-    release(id, scope) {
-        this.guard.release(id, { namespace: scope || 'global' });
+    release(id, scope, options) {
+        this.guard.release(id, { namespace: scope || 'global', ...(options ?? {}) });
     }
     /**
      * Claim and immediately commit a key.

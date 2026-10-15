@@ -16,7 +16,9 @@ const lark_client_1 = require("../core/lark-client.js");
 const lark_logger_1 = require("../core/lark-logger.js");
 const shutdown_hooks_1 = require("../core/shutdown-hooks.js");
 const thread_bindings_1 = require("../core/thread-bindings.js");
+const channel_inbound_debounce_1 = require("openclaw/plugin-sdk/channel-inbound-debounce");
 const dedup_1 = require("../messaging/inbound/dedup.js");
+const debounce_1 = require("../messaging/inbound/debounce.js");
 const event_handlers_1 = require("./event-handlers.js");
 const webhook_1 = require("./webhook.js");
 const ingress_1 = require("./ingress.js");
@@ -85,6 +87,43 @@ async function monitorSingleAccount(params) {
         log,
         error,
     };
+    // Inbound debounce (opt-in via core `messages.inbound.debounceMs`). When
+    // enabled, rapid text messages from one sender/chat are merged into a single
+    // turn. `resolveInboundDebounceMs` returns 0 when unset, so the debouncer is
+    // not created and the direct path is used unchanged.
+    let inboundDebounceMs = 0;
+    try {
+        inboundDebounceMs = (0, channel_inbound_debounce_1.resolveInboundDebounceMs)({
+            cfg: params.cfg,
+            channel: 'feishu',
+        });
+    }
+    catch (err) {
+        log(`feishu[${accountId}]: could not resolve inbound debounce config, disabling: ${String(err)}`);
+    }
+    if (inboundDebounceMs > 0) {
+        ctx.inboundDebouncer = (0, debounce_1.createFeishuInboundDebouncer)({
+            accountId,
+            debounceMs: inboundDebounceMs,
+            dispatch: (event, _dedupeKey, processingClaim, admissionLifecycle) => (0, event_handlers_1.dispatchFeishuMessage)(ctx, event, processingClaim, admissionLifecycle),
+            getBotOpenId: () => lark.botOpenId,
+            hasProcessed: (dedupeKey, namespace) => messageDedup.hasRecent(dedupeKey, namespace),
+            isControlCommand: (text) => {
+                try {
+                    const commands = lark_client_1.LarkClient.runtime?.channel?.commands;
+                    return typeof commands?.isControlCommandMessage === 'function'
+                        ? Boolean(commands.isControlCommandMessage(text, params.cfg))
+                        : false;
+                }
+                catch {
+                    return false;
+                }
+            },
+            log,
+            error,
+        });
+        log(`feishu[${accountId}]: inbound debounce enabled (${inboundDebounceMs}ms)`);
+    }
     const handlers = buildFeishuEventHandlers(ctx);
     if (connectionMode === 'webhook') {
         try {
@@ -117,6 +156,9 @@ async function monitorSingleAccount(params) {
             }
             ingress.start();
             wsIngress = ingress;
+            // Let the message handler resolve the turn lifecycle for a durable
+            // delivery (needed to defer settlement across a debounce flush).
+            ctx.resolveIngressLifecycle = (data) => ingress.resolveLifecycle(data);
             return (data, params) => ingress.invoke(data, params);
         }
         : undefined;
