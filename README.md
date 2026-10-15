@@ -104,7 +104,7 @@ openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.10.8.tgz
+openclaw plugins install openclaw-lark-2-2026.10.9.tgz
 ```
 
 ---
@@ -171,7 +171,7 @@ openclaw plugins install openclaw-lark-2-2026.10.8.tgz
 
 | 维度 | **openclaw-lark-2（本插件）** | **@openclaw/feishu（官方 2.0）** | **@larksuite/openclaw-lark 7.16（字节）** |
 |---|:---:|:---:|:---:|
-| 版本 | **2026.10.8** | 2026.8.1 | 2026.7.16 |
+| 版本 | **2026.10.9** | 2026.8.1 | 2026.7.16 |
 | OpenClaw 兼容 | **≥2026.8.1（2.0 原生）** | ≥2026.8.1（2.0 原生） | ≥2026.5.4（1.x，2.0 下无法加载） |
 | Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃） |
 | 契约工具数 | **38** | 14 | 39 |
@@ -219,6 +219,17 @@ openclaw plugins install openclaw-lark-2-2026.10.8.tgz
 ## 更新日志
 
 <details open>
+<summary><b>2026.10.9</b> · 2026-10-15 · 死代码清理</summary>
+
+移除 15 个在 `src/`、`tests/`、`index.js` 中零引用的导出（-151 行）：卡片 trace 的 `hasToolUseTraceRun` / `_resetForTesting`，`read-policy` 的 `canEnumerateAllFeishuGroups`，`shutdown-hooks` 的 `_resetShutdownHooks`，`tool-scopes` 的 `REQUIRED_SCOPE_DESCRIPTIONS`，`bot-loop-guard` 的 `resetAllBotLoops` / `botLoopStateSize`，`sentinel-store` 的 `clearSentinelStore`（及其连带的 `clearAllSentinelStores`），`time-utils` 的 `secondsStringToDateTime` / `dateTimeToMillis`（及连带的 `secondsToDateTime`），以及 `security-check` 中**已停用的多账号隔离特性**的辅助函数 `generateIsolationFixCommands` / `generateSharedAgentCommands`（及连带的 `getDmScopeFixCommand`）—— 已接线的空实现 `collectIsolationWarnings` / `emitSecurityWarnings` 保留。
+
+保留 `CARD_PHASES`：它并非死代码，导出的 `CardPhase` 类型由 `typeof CARD_PHASES` 派生。同步删除对应 `.d.ts` 声明。
+
+**测试**：**59 文件 / 450 用例**。
+
+</details>
+
+<details>
 <summary><b>2026.10.8</b> · 2026-10-15 · 可靠性加固（对比官方逐项对齐）+ 入站 debounce 合并</summary>
 
 以官方 `@openclaw/feishu` 为参照，对插件自身代码做了一轮系统的健壮性加固（A / B / C 三批 + 若干修复），并移植入站 debounce 合并。
