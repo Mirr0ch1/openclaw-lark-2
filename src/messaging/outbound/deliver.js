@@ -6,6 +6,7 @@ exports.sendCardLark = sendCardLark;
 exports.sendImageGroupPostLark = sendImageGroupPostLark;
 exports.sendMediaLark = sendMediaLark;
 exports.sendCommentReplyLark = sendCommentReplyLark;
+exports.resolvePublicMediaReference = resolvePublicMediaReference;
 const accounts_1 = require("../../core/accounts.js");
 const lark_client_1 = require("../../core/lark-client.js");
 const chat_queue_1 = require("../../channel/chat-queue.js");
@@ -20,7 +21,44 @@ const lark_logger_1 = require("../../core/lark-logger.js");
 const sentinel_store_1 = require("../inbound/sentinel-store.js");
 const media_1 = require("./media.js");
 const normalize_mentions_1 = require("./normalize-mentions.js");
+const ssrf_1 = require("openclaw/plugin-sdk/ssrf-runtime");
 const log = (0, lark_logger_1.larkLogger)('outbound/deliver');
+/** Text used when a media upload fails and no public link can be echoed. */
+const MEDIA_UPLOAD_FAILED_TEXT = 'Media upload failed. Please try again.';
+/**
+ * Resolve a media URL that is safe to echo as a clickable fallback link.
+ *
+ * Ported from the official `resolvePublicFeishuMediaReference`: only http(s)
+ * URLs whose host is not blocked/private (and whose DNS resolves to a public
+ * address) are returned. A local file path, a control-character-injected
+ * string, or an internal URL resolves to `undefined` — the caller then sends a
+ * generic failure message instead of leaking the reference into the chat.
+ */
+async function resolvePublicMediaReference(value) {
+    const raw = typeof value === 'string' ? value.trim() : '';
+    if (!raw)
+        return undefined;
+    // Reject ASCII control characters (log/header injection).
+    for (const ch of raw) {
+        const code = ch.charCodeAt(0);
+        if (code <= 0x1f || code === 0x7f)
+            return undefined;
+    }
+    try {
+        const parsed = new URL(raw);
+        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:')
+            return undefined;
+        if (parsed.username || parsed.password || (0, ssrf_1.isBlockedHostnameOrIp)(parsed.hostname))
+            return undefined;
+        // A proxy route cannot prove its destination is public — fail closed
+        // unless the pinned DNS lookup validates a public address.
+        await (0, ssrf_1.resolvePinnedHostnameWithPolicy)(parsed.hostname);
+        return parsed.href;
+    }
+    catch {
+        return undefined;
+    }
+}
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -351,12 +389,15 @@ async function sendMediaLark(params) {
     catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         log.error(`sendMediaLark failed for "${mediaUrl}": ${errMsg}`);
-        // Fallback: send the URL as a clickable text link.
-        log.info(`falling back to text link for "${mediaUrl}"`);
+        // Fallback: send the URL as a clickable text link — but only when it is
+        // provably a public http(s) reference. A private/local path would leak
+        // an internal URL into the chat, so a generic message is sent instead.
+        const publicUrl = await resolvePublicMediaReference(mediaUrl);
+        log.info(publicUrl ? `falling back to text link for "${publicUrl}"` : 'media fallback: no public link, sending failure notice');
         const fallbackResult = await sendTextLark({
             cfg,
             to,
-            text: `\u{1F4CE} ${mediaUrl}`,
+            text: publicUrl ? `\u{1F4CE} ${publicUrl}` : MEDIA_UPLOAD_FAILED_TEXT,
             replyToMessageId,
             replyInThread,
             accountId,
@@ -364,7 +405,9 @@ async function sendMediaLark(params) {
         return {
             ...fallbackResult,
             warning: `Media upload failed for "${mediaUrl}" (${errMsg}). ` +
-                `A text link was sent instead. The user may need to open the link manually.`,
+                (publicUrl
+                    ? 'A text link was sent instead. The user may need to open the link manually.'
+                    : 'A failure notice was sent instead.'),
         };
     }
 }

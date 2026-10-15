@@ -217,4 +217,10 @@ export interface SendCommentReplyLarkParams {
  *
  * @throws {Error} When the target is not a valid comment target or API fails.
  */
+/**
+ * Resolve a media URL that is safe to echo as a clickable fallback link
+ * (public http(s) only). Returns `undefined` for local paths, private hosts,
+ * credential-bearing URLs, or control-character-injected input.
+ */
+export declare function resolvePublicMediaReference(value: unknown): Promise<string | undefined>;
 export declare function sendCommentReplyLark(params: SendCommentReplyLarkParams): Promise<FeishuSendResult>;
