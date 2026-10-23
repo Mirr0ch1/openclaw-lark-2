@@ -7,6 +7,7 @@ const profiles = require("../../src/larkcli/profiles.js");
 
 const FAKE = [
   "#!/bin/sh",
+  'echo "env:OPENCLAW_HOME=$OPENCLAW_HOME" >> "$FAKE_LOG"',
   'echo "$@" >> "$FAKE_LOG"',
   'case "$1" in',
   "  profile)",
@@ -60,6 +61,7 @@ beforeEach(() => {
   process.env.FAKE_LOG = join(dir, "log");
   process.env.FAKE_PROFILES = join(dir, "profiles.json");
   process.env.FAKE_WHOAMI = join(dir, "whoami.json");
+  process.env.OPENCLAW_HOME = join(dir, ".openclaw");
 });
 
 afterEach(() => {
@@ -68,6 +70,7 @@ afterEach(() => {
   delete process.env.FAKE_LOG;
   delete process.env.FAKE_PROFILES;
   delete process.env.FAKE_WHOAMI;
+  delete process.env.OPENCLAW_HOME;
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -187,5 +190,57 @@ describe("healthCheck", () => {
     const plaud = rows.find((r: any) => r.accountId === "plaud");
     expect(plaud.ok).toBe(false);
     expect(plaud.error).toContain("!=");
+  });
+});
+
+describe("store pinning and name resolution", () => {
+  it("pins OPENCLAW_HOME so plugin-side calls read the bound store", () => {
+    // The fake CLI records the env it saw.
+    setProfiles([]);
+    profiles.provisionProfiles(baseCfg());
+    const home = join(dir, ".openclaw");
+    expect(profiles.openclawHome()).toBe(home);
+    // The CLI itself must have seen the pinned value, not just our helper.
+    expect(readFileSync(process.env.FAKE_LOG as string, "utf8")).toContain("env:OPENCLAW_HOME=" + home);
+  });
+
+  it("adopts an existing profile bound under its appId instead of duplicating it", () => {
+    // lark-cli rejects two profiles for one appId, so the plugin must adopt.
+    setProfiles([{ name: "cli_top", appId: "cli_top" }]);
+    const res = profiles.provisionProfiles(baseCfg());
+    expect(res.ok).toBe(true);
+    expect(res.adopted.join()).toContain("default -> cli_top");
+    expect(readFileSync(process.env.FAKE_LOG as string, "utf8")).not.toContain("--name default");
+    // ...and the resolved name is what the prompt advertises.
+    expect(profiles.resolveProfileName(baseCfg(), "default")).toBe("cli_top");
+  });
+
+  it("mirrors the wrapper into $OPENCLAW_HOME/bin", () => {
+    const target = profiles.ensureStableWrapper();
+    expect(target).toBe(join(dir, ".openclaw", "bin", "feishu-lark"));
+    expect(existsSync(target)).toBe(true);
+    expect(profiles.wrapperPath()).toBe(target);
+  });
+});
+
+describe("credential repair", () => {
+  it("re-adds credentials when a surviving profile lost its secret", () => {
+    // A profile row can outlive its credentials (removing the same appId from
+    // the other store clears the shared secret). whoami is the only probe, and
+    // repair is safe because not_configured implies no user token to lose.
+    setProfiles([{ name: "plaud", appId: "cli_plaud" }]);
+    writeFileSync(process.env.FAKE_WHOAMI as string, JSON.stringify({ available: false, tokenStatus: "not_configured", identity: "bot" }));
+    const res = profiles.provisionProfiles(baseCfg());
+    expect(res.repaired).toContain("plaud");
+    const log = readFileSync(process.env.FAKE_LOG as string, "utf8");
+    expect(log).toContain("profile remove plaud");
+    expect(log).toContain("profile add --name plaud --app-id cli_plaud");
+  });
+
+  it("never touches a healthy profile (no remove, no re-add)", () => {
+    setProfiles([{ name: "plaud", appId: "cli_plaud" }, { name: "hdwriting", appId: "cli_hdw" }, { name: "default", appId: "cli_top" }]);
+    const res = profiles.provisionProfiles(baseCfg());
+    expect(res.skipped.sort()).toEqual(["default", "hdwriting", "plaud"]);
+    expect(readFileSync(process.env.FAKE_LOG as string, "utf8")).not.toContain("profile remove");
   });
 });

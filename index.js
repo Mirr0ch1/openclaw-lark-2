@@ -19,6 +19,7 @@ const oauth_1 = require("./src/tools/oauth.js");
 const oauth_batch_auth_1 = require("./src/tools/oauth-batch-auth.js");
 const diagnose_1 = require("./src/commands/diagnose.js");
 const index_3 = require("./src/commands/index.js");
+const profiles_1 = require("./src/larkcli/profiles.js");
 const lark_logger_1 = require("./src/core/lark-logger.js");
 const security_check_1 = require("./src/core/security-check.js");
 const tool_use_trace_store_1 = require("./src/card/tool-use-trace-store.js");
@@ -95,6 +96,15 @@ const plugin = {
     register(api) {
         lark_client_1.LarkClient.setRuntime(api.runtime);
         api.registerChannel({ plugin: plugin_1.feishuPlugin });
+        // Mirror bin/feishu-lark into $OPENCLAW_HOME/bin: the plugin may be
+        // loaded from a temp capture/npm dir that gets collected later, so the
+        // per-turn instructions must not point into that tree.
+        try {
+            (0, profiles_1.ensureStableWrapper)();
+        }
+        catch (err) {
+            log.warn('ensureStableWrapper failed (ignored): ' + (err instanceof Error ? err.message : String(err)));
+        }
         // ========================================
         // Register OAPI tools (calendar, task - using Feishu Open API directly)
         (0, index_1.registerOapiTools)(api);
