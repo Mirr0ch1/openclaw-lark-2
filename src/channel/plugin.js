@@ -62,6 +62,7 @@ const lark_logger_1 = require("../core/lark-logger.js");
 const config_schema_1 = require("../core/config-schema.js");
 const config_adapter_1 = require("./config-adapter.js");
 const directory_1 = require("./directory.js");
+const profiles_1 = require("../larkcli/profiles.js");
 const pluginLog = (0, lark_logger_1.larkLogger)('channel/plugin');
 /** 状态轮询的探针结果缓存时长（5 分钟）。 */
 const PROBE_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -150,7 +151,11 @@ exports.feishuPlugin = {
         // so the channel's output format rules are always available. This replaces
         // the old feishu-channel-rules skill `alwaysActive` flag, which OpenClaw
         // does not recognize as a skill frontmatter field.
-        inboundFormattingHints: () => ({
+        // Also carries the per-turn Lark CLI identity (account -> lark-cli
+        // profile). lark-cli cannot know which Feishu app the *current
+        // conversation* belongs to, so the channel states it once per turn
+        // instead of trusting the model to pass --profile on every command.
+        inboundFormattingHints: ({ cfg, accountId }) => ({
             text_markup: 'markdown',
             rules: [
                 'Feishu replies render as interactive cards using Lark card Markdown (a variant of standard Markdown), not plain text.',
@@ -159,6 +164,7 @@ exports.feishuPlugin = {
                 'Images: write `![alt](https://...)` — OpenClaw downloads the URL and replaces it with a Feishu `img_...` key automatically. Bare image keys must start with `img_`.',
                 'Keep replies short and conversational; prefer plain sentences over bullet lists when a brief answer suffices.',
                 'Full Lark Markdown syntax reference: see the `feishu-channel-rules` skill.',
+                ...(0, profiles_1.buildIdentityRules)(cfg, accountId),
             ],
         }),
     },

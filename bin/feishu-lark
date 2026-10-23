@@ -1,0 +1,198 @@
+#!/usr/bin/env node
+/**
+ * feishu-lark — identity-enforcing wrapper around lark-cli.
+ *
+ * Why this exists
+ * ---------------
+ * A single OpenClaw gateway can serve several Feishu apps (accounts). lark-cli
+ * selects the app per invocation with its root flag --profile <name>, but it
+ * has no idea which Feishu conversation the agent is currently serving. If the
+ * flag is omitted, lark-cli silently falls back to whatever profile was last
+ * active — and in a multi-account gateway that is the most expensive failure
+ * mode there is: a write landing under the wrong app, invisible until a user
+ * notices.
+ *
+ * So this wrapper makes the identity explicit and impossible to forget:
+ *
+ *   1. refuses to run without --profile <account>
+ *   2. refuses process-global state changes (profile use/add/remove,
+ *      config bind/init/remove/..., update) — those affect every concurrent
+ *      session, not just this call
+ *   3. wraps stdout in the core EXTERNAL_UNTRUSTED_CONTENT fence, so Lark
+ *      document/message content read over the CLI keeps the same
+ *      prompt-injection boundary the plugin's own tools had
+ *      (wrapExternalContent({source:"api"})). Core does NOT fence exec stdout,
+ *      so this is the only place that boundary can be restored.
+ *
+ * Usage (the plugin injects the absolute path of this file each turn):
+ *   feishu-lark --profile plaud docs +fetch --token doxcnxxx
+ *   feishu-lark --profile hdwriting im +messages-send --chat-id oc_xxx --text hi
+ *
+ * Env:
+ *   LARK_CLI_BIN             override the lark-cli binary path
+ *   FEISHU_LARK_NO_FENCE=1   disable the untrusted-content fence (human debug)
+ */
+"use strict";
+
+const { spawnSync } = require("node:child_process");
+const { randomBytes } = require("node:crypto");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const START = "EXTERNAL_UNTRUSTED_CONTENT";
+const END = "END_EXTERNAL_UNTRUSTED_CONTENT";
+
+const USAGE = [
+  "feishu-lark — identity-enforcing wrapper around lark-cli.",
+  "",
+  "Usage:",
+  "  feishu-lark --profile <account> <lark-cli command...>",
+  "",
+  "Every call must name the profile (= OpenClaw account id) so a write can never",
+  "land under the wrong Feishu app. stdout is fenced as EXTERNAL_UNTRUSTED_CONTENT.",
+  "",
+  "Refused subcommands (process-global state):",
+  "  profile use|add|remove|rename, config bind|init|remove|strict-mode|",
+  "  risk-control|default-as|tenant-access-token|keychain-downgrade, update",
+  "",
+].join("\n");
+
+/**
+ * Drop our own --profile flag (and its value) so the remaining argv starts at
+ * the real lark-cli command. Without this, "--profile plaud profile use x"
+ * would look like its command is "plaud".
+ */
+function stripProfileFlag(argv) {
+  const out = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === "--profile") {
+      i += 1;
+      continue;
+    }
+    if (a.startsWith("--profile=")) continue;
+    out.push(a);
+  }
+  return out;
+}
+
+/** Process-global mutations an agent must never perform. */
+function isForbidden(rawArgv) {
+  const argv = stripProfileFlag(rawArgv);
+  const cmds = argv.filter((a) => !a.startsWith("-"));
+  const cmd = cmds[0];
+  const sub = cmds[1];
+  if (!cmd) return null;
+  if (cmd === "update") return "update upgrades the shared CLI binary for every session";
+  if (cmd === "profile" && sub && sub !== "list") {
+    return "profile " + sub + " changes global credentials / active profile";
+  }
+  if (cmd === "config" && sub && sub !== "show") {
+    return "config " + sub + " changes global CLI configuration";
+  }
+  return null;
+}
+
+function profileOf(argv) {
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === "--profile") return argv[i + 1];
+    if (a.startsWith("--profile=")) return a.slice("--profile=".length);
+  }
+  return undefined;
+}
+
+function resolveBinary() {
+  if (process.env.LARK_CLI_BIN) return process.env.LARK_CLI_BIN;
+  const exts = process.platform === "win32" ? [".cmd", ".exe", ""] : [""];
+  const dirs = [
+    ...(process.env.PATH || "").split(path.delimiter),
+    path.join(process.env.HOME || "", ".npm-global", "bin"),
+    path.join(process.env.HOME || "", ".local", "bin"),
+    "/usr/local/bin",
+  ].filter(Boolean);
+  for (const dir of dirs) {
+    for (const ext of exts) {
+      const candidate = path.join(dir, "lark-cli" + ext);
+      try {
+        fs.accessSync(candidate, fs.constants.X_OK);
+        return candidate;
+      } catch {
+        /* keep looking */
+      }
+    }
+  }
+  return null;
+}
+
+/** Break marker-like sequences so untrusted text cannot forge the fence. */
+function sanitize(text) {
+  return text.replace(new RegExp("<<<(\\/?)(" + START + "|" + END + ")", "gi"), "<<<\u200b$1$2");
+}
+
+function fence(text) {
+  if (process.env.FEISHU_LARK_NO_FENCE === "1") return text;
+  const id = randomBytes(8).toString("hex");
+  return [
+    '<<<' + START + ' id="' + id + '">>>',
+    "Source: API",
+    "---",
+    sanitize(text),
+    '<<<' + END + ' id="' + id + '">>>',
+  ].join("\n");
+}
+
+function main() {
+  const argv = process.argv.slice(2);
+
+  if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
+    process.stdout.write(USAGE);
+    return 0;
+  }
+
+  const forbidden = isForbidden(argv); // takes raw argv; strips --profile itself
+  if (forbidden) {
+    process.stderr.write("feishu-lark: refused — " + forbidden + ".\n" + USAGE);
+    return 2;
+  }
+
+  const profile = profileOf(argv);
+  if (!profile || !String(profile).trim()) {
+    process.stderr.write(
+      "feishu-lark: --profile <account> is required.\n" +
+        "This gateway serves several Feishu apps; omitting the profile would\n" +
+        "silently fall back to another account's credentials.\n\n" +
+        USAGE,
+    );
+    return 2;
+  }
+
+  const bin = resolveBinary();
+  if (!bin) {
+    process.stderr.write(
+      "feishu-lark: lark-cli not found on PATH. Install it with:\n" +
+        "  npm i -g @larksuite/cli\n" +
+        "or set LARK_CLI_BIN=/path/to/lark-cli.\n",
+    );
+    return 127;
+  }
+
+  const result = spawnSync(bin, argv, {
+    stdio: ["inherit", "pipe", "inherit"],
+    maxBuffer: 64 * 1024 * 1024,
+    env: process.env,
+  });
+
+  if (result.error) {
+    process.stderr.write("feishu-lark: failed to run lark-cli: " + result.error.message + "\n");
+    return 1;
+  }
+
+  const out = result.stdout ? result.stdout.toString("utf8") : "";
+  if (out.trim().length > 0) process.stdout.write(fence(out));
+
+  if (typeof result.status === "number") return result.status;
+  return result.signal ? 1 : 0;
+}
+
+process.exitCode = main();

@@ -9,6 +9,11 @@
  */
 import { z } from 'zod';
 export { z };
+/** CLI delegation config (src/larkcli/profiles.js). */
+export declare const LarkCliConfigSchema: z.ZodOptional<z.ZodObject<{
+    enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
+    binaryPath: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>>;
 export declare const UATConfigSchema: z.ZodOptional<z.ZodObject<{
     enabled: z.ZodOptional<z.ZodBoolean>;
     allowedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -251,8 +256,11 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
         disabled: "disabled";
         enabled: "enabled";
     }>>;
-    uat: z.ZodOptional<z.ZodObject<{
-        enabled: z.ZodOptional<z.ZodBoolean>;
+    larkCli: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
+        binaryPath: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>;
+    uat: z.ZodOptional<z.ZodObject<{        enabled: z.ZodOptional<z.ZodBoolean>;
         allowedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
         blockedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;
@@ -437,8 +445,11 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         disabled: "disabled";
         enabled: "enabled";
     }>>;
-    uat: z.ZodOptional<z.ZodObject<{
-        enabled: z.ZodOptional<z.ZodBoolean>;
+    larkCli: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
+        binaryPath: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>;
+    uat: z.ZodOptional<z.ZodObject<{        enabled: z.ZodOptional<z.ZodBoolean>;
         allowedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
         blockedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;
@@ -622,8 +633,11 @@ export declare const FeishuConfigSchema: z.ZodObject<{
             disabled: "disabled";
             enabled: "enabled";
         }>>;
-        uat: z.ZodOptional<z.ZodObject<{
-            enabled: z.ZodOptional<z.ZodBoolean>;
+        larkCli: z.ZodOptional<z.ZodObject<{
+            enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
+            binaryPath: z.ZodOptional<z.ZodString>;
+        }, z.core.$strip>>;
+        uat: z.ZodOptional<z.ZodObject<{            enabled: z.ZodOptional<z.ZodBoolean>;
             allowedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
             blockedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
         }, z.core.$strip>>;

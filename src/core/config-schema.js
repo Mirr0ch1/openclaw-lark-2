@@ -154,6 +154,18 @@ const DedupSchema = zod_1.z
     .optional();
 const AllowBotsSchema = zod_1.z.union([zod_1.z.boolean(), zod_1.z.literal('mentions')]).optional();
 const ReactionNotificationModeSchema = zod_1.z.enum(['off', 'own', 'all']).optional();
+/**
+ * CLI delegation config (src/larkcli/profiles.js).
+ *
+ * enabled: 'auto' (default) activates only when the lark-cli binary is found,
+ * so hosts without the CLI never receive the per-turn identity rules.
+ */
+exports.LarkCliConfigSchema = zod_1.z
+    .object({
+    enabled: zod_1.z.union([zod_1.z.boolean(), zod_1.z.literal('auto')]).optional(),
+    binaryPath: zod_1.z.string().optional(),
+})
+    .optional();
 exports.UATConfigSchema = zod_1.z
     .object({
     enabled: zod_1.z.boolean().optional(),
@@ -252,6 +264,10 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
     groupSessionScope: GroupSessionScopeSchema,
     topicSessionMode: TopicSessionModeSchema,
     uat: exports.UATConfigSchema,
+    // CLI delegation (see src/larkcli/profiles.js). Undeclared fields are
+    // stripped by the host, so this block must live in the schema or
+    // `channels.feishu.larkCli` silently never reaches the plugin.
+    larkCli: exports.LarkCliConfigSchema,
 });
 // ---------------------------------------------------------------------------
 // Top-level Feishu config schema

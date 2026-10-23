@@ -15,6 +15,7 @@ const version_1 = require("../core/version.js");
 const diagnose_1 = require("./diagnose.js");
 const doctor_1 = require("./doctor.js");
 const auth_1 = require("./auth.js");
+const larkcli_1 = require("./larkcli.js");
 // ---------------------------------------------------------------------------
 // I18n text map for /feishu start, help, and error messages
 // ---------------------------------------------------------------------------
@@ -35,6 +36,7 @@ const T = {
         helpStart: '/feishu start - 校验插件配置',
         helpAuth: '/feishu auth - 批量授权用户权限',
         helpDoctor: '/feishu doctor - 运行诊断',
+        helpLarkcli: '/feishu larkcli [status|sync] - 查看/同步 lark-cli 身份映射（多账号）',
         helpHelp: '/feishu help - 显示此帮助',
         diagFailed: (msg) => `诊断执行失败: ${msg}`,
         authFailed: (msg) => `授权执行失败: ${msg}`,
@@ -56,6 +58,7 @@ const T = {
         helpStart: '/feishu start - Validate plugin configuration',
         helpAuth: '/feishu auth - Batch authorize user permissions',
         helpDoctor: '/feishu doctor - Run diagnostics',
+        helpLarkcli: '/feishu larkcli [status|sync] - Inspect/sync lark-cli profile mapping (multi-account)',
         helpHelp: '/feishu help - Show this help',
         diagFailed: (msg) => `Diagnostics failed: ${msg}`,
         authFailed: (msg) => `Authorization failed: ${msg}`,
@@ -113,6 +116,7 @@ function getFeishuHelp(locale = 'zh_cn') {
         `  ${t.helpStart}\n` +
         `  ${t.helpAuth}\n` +
         `  ${t.helpDoctor}\n` +
+        `  ${t.helpLarkcli}\n` +
         `  ${t.helpHelp}`);
 }
 /**
@@ -185,7 +189,7 @@ function registerCommands(api) {
     // /feishu (统一入口，支持子命令)
     api.registerCommand({
         name: 'feishu',
-        description: 'Feishu plugin commands (subcommands: auth, doctor, start)',
+        description: 'Feishu plugin commands (subcommands: auth, doctor, larkcli, start)',
         acceptsArgs: true,
         requireAuth: true,
         async handler(ctx) {
@@ -201,6 +205,15 @@ function registerCommands(api) {
                 if (subcommand === 'doctor') {
                     const markdown = await (0, doctor_1.runFeishuDoctor)(ctx.config, ctx.accountId);
                     return { text: markdown };
+                }
+                // /feishu larkcli [status|sync] [--force]
+                if (subcommand === 'larkcli' || subcommand === 'cli') {
+                    const action = (args[1] || '').toLowerCase() === 'sync' ? 'sync' : 'status';
+                    const text = await (0, larkcli_1.runFeishuLarkcli)(ctx.config, {
+                        action,
+                        force: args.includes('--force'),
+                    });
+                    return { text };
                 }
                 // /feishu start
                 if (subcommand === 'start') {
