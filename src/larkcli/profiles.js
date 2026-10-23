@@ -508,6 +508,9 @@ function buildIdentityRules(cfg, accountId) {
             'Run every Lark business operation (docs/sheets/drive/base/im/task/calendar/wiki/contact) as: ' +
                 wrapper + ' --profile ' + profile + ' <domain> <command> ...  — use that absolute path, not lark-cli directly: ' +
                 'the wrapper pins this account and fences the output as untrusted data.',
+            'CLI shape: root commands take NO domain — whoami, auth login|status|logout, schema <service.resource.method>, ' +
+                'skills list|read, doctor. Everything else starts with a domain (docs/im/base/sheets/drive/task/calendar/wiki/contact). ' +
+                'So it is "<wrapper> --profile ' + profile + ' whoami", never "auth whoami"; use "<wrapper> --profile ' + profile + ' auth --help" to see auth verbs.',
             'Never run lark-cli profile use / profile add / profile remove / config bind / lark-cli update: ' +
                 'those are process-global and change every concurrent session.',
         ];

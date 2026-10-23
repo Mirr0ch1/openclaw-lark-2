@@ -55,6 +55,10 @@ const USAGE = [
   "  profile use|add|remove|rename, config bind|init|remove|strict-mode|",
   "  risk-control|default-as|tenant-access-token|keychain-downgrade, update",
   "",
+  "Note: --help/-h are forwarded to lark-cli unchanged, so 'feishu-lark",
+  "  --profile p auth --help' shows the CLI's auth help. Use --wrapper-help",
+  "  to print this text.",
+  "",
 ].join("\n");
 
 /**
@@ -145,7 +149,9 @@ function fence(text) {
 function main() {
   const argv = process.argv.slice(2);
 
-  if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
+  // Never shadow lark-cli's own help: "auth --help" must reach the CLI, or the
+  // agent cannot discover that whoami/auth/schema/skills are ROOT commands.
+  if (argv.length === 0 || argv.includes("--wrapper-help")) {
     process.stdout.write(USAGE);
     return 0;
   }

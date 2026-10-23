@@ -122,6 +122,9 @@ describe("buildIdentityRules", () => {
     expect(text).toContain("--profile plaud");
     expect(text).toContain("hdwriting");
     expect(text).toContain("auth login --no-wait");
+    // Root commands take no domain — the observed failure was "auth whoami".
+    expect(text).toContain("root commands take NO domain");
+    expect(text).toContain("never \"auth whoami\"");
   });
 });
 

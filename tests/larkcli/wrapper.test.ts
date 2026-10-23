@@ -13,7 +13,10 @@ const { wrapperPath } = require("../../src/larkcli/profiles.js");
  * so this wrapper is the only place that boundary exists once Lark capability
  * moves to the CLI).
  */
-const wrapper = wrapperPath();
+// Exercise the packaged wrapper, not the stable mirror under $OPENCLAW_HOME
+// (wrapperPath() prefers that mirror in production so the per-turn prompt never
+// points into a temp plugin-capture tree; tests must not touch the user home).
+const wrapper = join(__dirname, "..", "..", "bin", "feishu-lark");
 
 const ECHO_BIN = [
   "#!/bin/sh",
@@ -90,9 +93,22 @@ describe("feishu-lark wrapper", () => {
     expect(res.stdout).toContain("arg:whoami");
   });
 
-  it("prints usage on --help", () => {
-    const res = runW(["--help"]);
+  it("prints its own usage for --wrapper-help and for no args", () => {
+    const explicit = runW(["--wrapper-help"]);
+    expect(explicit.status).toBe(0);
+    expect(explicit.stdout).toContain("Refused subcommands");
+    const empty = runW([]);
+    expect(empty.status).toBe(0);
+    expect(empty.stdout).toContain("--profile <account>");
+  });
+
+  it("forwards --help to lark-cli instead of shadowing it", () => {
+    // Regression: the wrapper used to answer "--help" itself, so
+    // "auth --help" never reached the CLI and the agent could not discover
+    // that whoami/auth/schema are ROOT commands.
+    const res = runW(["--profile", "plaud", "auth", "--help"]);
     expect(res.status).toBe(0);
-    expect(res.stdout).toContain("--profile <account>");
+    expect(res.stdout).toContain("arg:--help");
+    expect(res.stdout).not.toContain("Refused subcommands");
   });
 });
