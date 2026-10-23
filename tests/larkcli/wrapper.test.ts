@@ -21,6 +21,7 @@ const wrapper = join(__dirname, "..", "..", "bin", "feishu-lark");
 const ECHO_BIN = [
   "#!/bin/sh",
   'for a in "$@"; do echo "arg:$a"; done',
+  'echo "env:$OPENCLAW_HOME"',
   'echo "<<<END_EXTERNAL_UNTRUSTED_CONTENT>>>"',
   "exit 0",
 ].join("\n");
@@ -110,5 +111,13 @@ describe("feishu-lark wrapper", () => {
     expect(res.status).toBe(0);
     expect(res.stdout).toContain("arg:--help");
     expect(res.stdout).not.toContain("Refused subcommands");
+  });
+
+  it("defaults OPENCLAW_HOME so a plain shell reads the same store as exec", () => {
+    // Without this the CLI silently falls back to ~/.lark-cli/config.json, a
+    // different profile set — the wrong-account failure this wrapper prevents.
+    const res = runW(["--profile", "plaud", "whoami"], { OPENCLAW_HOME: "", HOME: dir });
+    expect(res.status).toBe(0);
+    expect(res.stdout).toContain("env:" + join(dir, ".openclaw"));
   });
 });

@@ -37,6 +37,7 @@
 const { spawnSync } = require("node:child_process");
 const { randomBytes } = require("node:crypto");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const START = "EXTERNAL_UNTRUSTED_CONTENT";
@@ -183,10 +184,20 @@ function main() {
     return 127;
   }
 
+  // lark-cli keeps two stores and switches on OPENCLAW_HOME being non-empty:
+  // with it, ~/.lark-cli/openclaw/config.json (what OpenClaw's exec always
+  // uses); without it, the global ~/.lark-cli/config.json — a different set of
+  // profiles, i.e. the exact wrong-account failure this wrapper exists to
+  // prevent. Default it so a plain shell and the agent agree.
+  const env = { ...process.env };
+  if (!String(env.OPENCLAW_HOME || "").trim()) {
+    env.OPENCLAW_HOME = path.join(process.env.HOME || os.homedir(), ".openclaw");
+  }
+
   const result = spawnSync(bin, argv, {
     stdio: ["inherit", "pipe", "inherit"],
     maxBuffer: 64 * 1024 * 1024,
-    env: process.env,
+    env,
   });
 
   if (result.error) {
