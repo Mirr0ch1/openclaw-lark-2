@@ -13,6 +13,11 @@ export { z };
 export declare const LarkCliConfigSchema: z.ZodOptional<z.ZodObject<{
     enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
     binaryPath: z.ZodOptional<z.ZodString>;
+    prompt: z.ZodOptional<z.ZodEnum<{
+        compact: "compact";
+        full: "full";
+        off: "off";
+    }>>;
 }, z.core.$strip>>;
 export declare const UATConfigSchema: z.ZodOptional<z.ZodObject<{
     enabled: z.ZodOptional<z.ZodBoolean>;
@@ -259,8 +264,14 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
     larkCli: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
         binaryPath: z.ZodOptional<z.ZodString>;
+        prompt: z.ZodOptional<z.ZodEnum<{
+            compact: "compact";
+            full: "full";
+            off: "off";
+        }>>;
     }, z.core.$strip>>;
-    uat: z.ZodOptional<z.ZodObject<{        enabled: z.ZodOptional<z.ZodBoolean>;
+    uat: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodOptional<z.ZodBoolean>;
         allowedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
         blockedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;
@@ -448,8 +459,14 @@ export declare const FeishuConfigSchema: z.ZodObject<{
     larkCli: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
         binaryPath: z.ZodOptional<z.ZodString>;
+        prompt: z.ZodOptional<z.ZodEnum<{
+            compact: "compact";
+            full: "full";
+            off: "off";
+        }>>;
     }, z.core.$strip>>;
-    uat: z.ZodOptional<z.ZodObject<{        enabled: z.ZodOptional<z.ZodBoolean>;
+    uat: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodOptional<z.ZodBoolean>;
         allowedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
         blockedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;
@@ -636,8 +653,13 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         larkCli: z.ZodOptional<z.ZodObject<{
             enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
             binaryPath: z.ZodOptional<z.ZodString>;
-        }, z.core.$strip>>;
-        uat: z.ZodOptional<z.ZodObject<{            enabled: z.ZodOptional<z.ZodBoolean>;
+            prompt: z.ZodOptional<z.ZodEnum<{
+                compact: "compact";
+                full: "full";
+                off: "off";
+            }>>;        }, z.core.$strip>>;
+        uat: z.ZodOptional<z.ZodObject<{
+            enabled: z.ZodOptional<z.ZodBoolean>;
             allowedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
             blockedScopes: z.ZodOptional<z.ZodArray<z.ZodString>>;
         }, z.core.$strip>>;

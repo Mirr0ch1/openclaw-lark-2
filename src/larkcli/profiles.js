@@ -493,6 +493,9 @@ function buildIdentityRules(cfg, accountId) {
     try {
         if (!isLarkCliEnabled(cfg, accountId))
             return [];
+        const mode = larkCliConfig(cfg, accountId).prompt || 'compact';
+        if (mode === 'off')
+            return [];
         const account = (0, accounts_1.getLarkAccount)(cfg, accountId);
         if (!account || !account.accountId)
             return [];
@@ -503,6 +506,20 @@ function buildIdentityRules(cfg, accountId) {
         const wrapper = wrapperPath();
         const allAccounts = (0, accounts_1.getEnabledLarkAccounts)(cfg).map((a) => a.accountId + '=' + resolveProfileName(cfg, a.accountId));
         const others = allAccounts.filter((pair) => !pair.startsWith(account.accountId + '='));
+        // Compact (default): only what prevents a wrong-account write or a
+        // wasted discovery turn. Everything else (auth device flow, syntax) is
+        // left to the CLI's own error hints and the feishu-cli skill — this
+        // block rides along on EVERY turn, including pure chat.
+        if (mode !== 'full') {
+            const compact = [
+                'Lark CLI: account=' + account.accountId + ' profile=' + profile + '. Run Lark work as ' +
+                    wrapper + ' --profile ' + profile + ' <domain> <cmd> … ; root cmds (whoami/auth/schema/skills/doctor) take no domain.',
+            ];
+            compact.push((others.length > 0
+                ? 'Other accounts: ' + others.join(', ') + ' (explicit request only). '
+                : '') + 'Never profile use/add/remove, config bind, or lark-cli update.');
+            return compact;
+        }
         const rules = [
             'Lark CLI identity for this turn: account=' + account.accountId + ' profile=' + profile + ' brand=' + (account.brand || 'feishu') + '.',
             'Run every Lark business operation (docs/sheets/drive/base/im/task/calendar/wiki/contact) as: ' +

@@ -114,8 +114,22 @@ describe("buildIdentityRules", () => {
     expect(profiles.buildIdentityRules({}, undefined)).toEqual([]);
   });
 
-  it("names the current profile, the wrapper, and the other accounts", () => {
-    const rules = profiles.buildIdentityRules(baseCfg(), "plaud");
+  it("defaults to a compact block so every turn stays cheap", () => {
+    const text = profiles.buildIdentityRules(baseCfg(), "plaud").join("\n");
+    expect(text.length).toBeLessThan(450);
+    expect(text).toContain("account=plaud profile=plaud");
+    expect(text).toContain(profiles.wrapperPath());
+    expect(text).toContain("Never profile use");
+    // Rare flows (device auth, syntax detail) must not ride along every turn.
+    expect(text).not.toContain("auth login --no-wait");
+  });
+
+  it("can be switched off entirely", () => {
+    expect(profiles.buildIdentityRules(baseCfg({ larkCli: { prompt: "off" } }), "plaud")).toEqual([]);
+  });
+
+  it("full mode names the profile, the wrapper, the other accounts and the CLI shape", () => {
+    const rules = profiles.buildIdentityRules(baseCfg({ larkCli: { prompt: "full" } }), "plaud");
     const text = rules.join("\n");
     expect(text).toContain("account=plaud profile=plaud");
     expect(text).toContain(profiles.wrapperPath());
