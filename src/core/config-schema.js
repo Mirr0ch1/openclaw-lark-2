@@ -165,9 +165,11 @@ exports.LarkCliConfigSchema = zod_1.z
     enabled: zod_1.z.union([zod_1.z.boolean(), zod_1.z.literal('auto')]).optional(),
     binaryPath: zod_1.z.string().optional(),
     // How much identity text rides along on every inbound turn:
-    // compact (default, ~340 chars) | full (~1.3k, adds auth flow + CLI shape
-    // detail) | off.
-    prompt: zod_1.z.enum(['compact', 'full', 'off']).optional(),
+    // minimal (default, ~120 chars: just the profile) | compact (~340: adds the
+    // other accounts + never-run list) | full (~1.3k: adds auth flow + CLI
+    // shape) | off (only sane for single-account installs — the wrapper then
+    // adopts the only profile).
+    prompt: zod_1.z.enum(['minimal', 'compact', 'full', 'off']).optional(),
 })
     .optional();
 exports.UATConfigSchema = zod_1.z

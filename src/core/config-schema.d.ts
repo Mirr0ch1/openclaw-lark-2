@@ -14,6 +14,7 @@ export declare const LarkCliConfigSchema: z.ZodOptional<z.ZodObject<{
     enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
     binaryPath: z.ZodOptional<z.ZodString>;
     prompt: z.ZodOptional<z.ZodEnum<{
+        minimal: "minimal";
         compact: "compact";
         full: "full";
         off: "off";
@@ -263,6 +264,7 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
         enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
         binaryPath: z.ZodOptional<z.ZodString>;
         prompt: z.ZodOptional<z.ZodEnum<{
+            minimal: "minimal";
             compact: "compact";
             full: "full";
             off: "off";
@@ -456,6 +458,7 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
         binaryPath: z.ZodOptional<z.ZodString>;
         prompt: z.ZodOptional<z.ZodEnum<{
+            minimal: "minimal";
             compact: "compact";
             full: "full";
             off: "off";
@@ -648,6 +651,7 @@ export declare const FeishuConfigSchema: z.ZodObject<{
             enabled: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
             binaryPath: z.ZodOptional<z.ZodString>;
             prompt: z.ZodOptional<z.ZodEnum<{
+                minimal: "minimal";
                 compact: "compact";
                 full: "full";
                 off: "off";

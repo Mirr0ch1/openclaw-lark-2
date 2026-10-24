@@ -114,14 +114,23 @@ describe("buildIdentityRules", () => {
     expect(profiles.buildIdentityRules({}, undefined)).toEqual([]);
   });
 
-  it("defaults to a compact block so every turn stays cheap", () => {
-    const text = profiles.buildIdentityRules(baseCfg(), "plaud").join("\n");
-    expect(text.length).toBeLessThan(450);
-    expect(text).toContain("account=plaud profile=plaud");
+  it("defaults to a one-line minimal block", () => {
+    const rules = profiles.buildIdentityRules(baseCfg(), "plaud");
+    const text = rules.join("\n");
+    expect(rules).toHaveLength(1);
+    expect(text.length).toBeLessThan(160);
+    expect(text).toContain("profile for this chat: plaud");
     expect(text).toContain(profiles.wrapperPath());
-    expect(text).toContain("Never profile use");
-    // Rare flows (device auth, syntax detail) must not ride along every turn.
+    // Nothing that the wrapper already enforces, and nothing for rare flows.
+    expect(text).not.toContain("Never profile use");
     expect(text).not.toContain("auth login --no-wait");
+  });
+
+  it("compact adds the other accounts and the never-run list", () => {
+    const text = profiles.buildIdentityRules(baseCfg({ larkCli: { prompt: "compact" } }), "plaud").join("\n");
+    expect(text).toContain("Other accounts");
+    expect(text).toContain("Never profile use");
+    expect(text.length).toBeLessThan(450);
   });
 
   it("can be switched off entirely", () => {

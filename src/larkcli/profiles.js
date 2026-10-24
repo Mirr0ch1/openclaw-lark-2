@@ -493,7 +493,7 @@ function buildIdentityRules(cfg, accountId) {
     try {
         if (!isLarkCliEnabled(cfg, accountId))
             return [];
-        const mode = larkCliConfig(cfg, accountId).prompt || 'compact';
+        const mode = larkCliConfig(cfg, accountId).prompt || 'minimal';
         if (mode === 'off')
             return [];
         const account = (0, accounts_1.getLarkAccount)(cfg, accountId);
@@ -506,11 +506,17 @@ function buildIdentityRules(cfg, accountId) {
         const wrapper = wrapperPath();
         const allAccounts = (0, accounts_1.getEnabledLarkAccounts)(cfg).map((a) => a.accountId + '=' + resolveProfileName(cfg, a.accountId));
         const others = allAccounts.filter((pair) => !pair.startsWith(account.accountId + '='));
-        // Compact (default): only what prevents a wrong-account write or a
-        // wasted discovery turn. Everything else (auth device flow, syntax) is
-        // left to the CLI's own error hints and the feishu-cli skill — this
-        // block rides along on EVERY turn, including pure chat.
-        if (mode !== 'full') {
+        // minimal (default): ONE line — just the profile this chat must use.
+        // Everything else is either enforced by bin/feishu-lark (profile
+        // required, global commands refused, output fenced) or discoverable via
+        // 'lark-cli --help' / 'profile list' / the feishu-cli skill. This text
+        // rides along on EVERY turn, including pure chat, so it stays tiny.
+        if (mode === 'minimal') {
+            return ['Lark CLI profile for this chat: ' + profile +
+                ' (run Lark work as ' + wrapper + ' --profile ' + profile + ' <domain> …).'];
+        }
+        // compact: adds the other accounts and the never-run list.
+        if (mode === 'compact') {
             const compact = [
                 'Lark CLI: account=' + account.accountId + ' profile=' + profile + '. Run Lark work as ' +
                     wrapper + ' --profile ' + profile + ' <domain> <cmd> … ; root cmds (whoami/auth/schema/skills/doctor) take no domain.',
