@@ -23,7 +23,7 @@
 
 In July 2026 Feishu open-sourced `@larksuite/openclaw-lark` — 39 tools, the most complete Feishu surface at the time.
 
-It has one hard problem: **its plugin API is stuck on OpenClaw 1.x** (`loadConfig`). OpenClaw 2.0 replaced the plugin model (`runtime.config.current()`, `registerTool`, `agentPrompt`, channel actions) and **upstream never followed**, so that code cannot load on 2.0.
+It has one hard problem: **its plugin API is stuck on OpenClaw 1.x** (`loadConfig`). OpenClaw 2.0 replaced the plugin model (`runtime.config.current()`, `registerTool`, `agentPrompt`, channel actions), and **upstream has not followed since 2026.7.16** — on 2.0 that line is simply broken: it does not install, and nobody is picking it up.
 
 This fork continues that surface while adding everything 2.0 expects.
 

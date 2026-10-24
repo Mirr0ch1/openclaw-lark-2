@@ -31,7 +31,7 @@
 
 2026 年 7 月，飞书官方开源了 `@larksuite/openclaw-lark` —— 39 个工具，是当时最完整的飞书能力面。
 
-但它有一个硬伤：**插件 API 停在 OpenClaw 1.x**（`loadConfig` 那一代）。OpenClaw 2.0 换了插件模型（`runtime.config.current()`、`registerTool`、`agentPrompt`、channel actions），**上游至今没有跟进**，这份代码在 2.0 环境下无法直接加载。
+但它有一个硬伤：**插件 API 停在 OpenClaw 1.x**（`loadConfig` 那一代）。OpenClaw 2.0 换了插件模型（`runtime.config.current()`、`registerTool`、`agentPrompt`、channel actions），而**上游自 2026.7.16 之后没有再跟进 2.0 适配** —— 这条产品线在 2.0 上是断的：既装不上，也没人接。
 
 于是有了这个分支：**接着它的能力面往下走，同时把 OpenClaw 2.0 该有的东西补上。**
 
