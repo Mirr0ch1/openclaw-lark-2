@@ -25,13 +25,12 @@ function resolveGlobalConfig(config) {
     return lark_client_1.LarkClient.globalConfig ?? config;
 }
 const app_scope_checker_1 = require("../core/app-scope-checker.js");
-const app_owner_fallback_1 = require("../core/app-owner-fallback.js");
-const token_store_1 = require("../core/token-store.js");
 const tool_scopes_1 = require("../core/tool-scopes.js");
 const probe_1 = require("../channel/probe.js");
 const tool_client_1 = require("../core/tool-client.js");
 const version_1 = require("../core/version.js");
 const domains_1 = require("../core/domains.js");
+const profiles_1 = require("../larkcli/profiles.js");
 // ---------------------------------------------------------------------------
 // I18n text map
 // ---------------------------------------------------------------------------
@@ -64,6 +63,9 @@ const T = {
         apply: '申请',
         permTableHeader: '| 权限名称 | 应用已开通 | 用户已授权 |',
         authStatusLabel: '**授权状态**',
+        profileLabel: '**lark-cli profile**',
+        userAuthReady: '✅ 用户身份可用（user token ready）',
+        userAuthMissing: '⚠️ 用户身份未授权。需要用户身份时，agent 会用 feishu_auth 发授权卡片；也可 /feishu auth 查看流程。',
         userTotal: '共 1 个用户',
         valid: '有效',
         needRefresh: '需刷新',
@@ -98,6 +100,7 @@ const T = {
         appPermFail: '#### ❌ 应用身份权限检查未通过',
         userPermPass: '#### ✅ 用户身份权限检查通过',
         userPermFail: '#### ❌ 用户身份权限检查未通过',
+        userPermWarn: '#### ⚠️ 用户身份（尚未授权）',
     },
     en_us: {
         notSet: '(not set)',
@@ -127,6 +130,9 @@ const T = {
         apply: 'Apply',
         permTableHeader: '| Permission | App Granted | User Authorized |',
         authStatusLabel: '**Auth Status**',
+        profileLabel: '**lark-cli profile**',
+        userAuthReady: '✅ User identity ready',
+        userAuthMissing: '⚠️ User identity missing. The agent will use feishu_auth to send an authorization card; /feishu auth explains the flow.',
         userTotal: '1 user total',
         valid: 'Valid',
         needRefresh: 'Needs refresh',
@@ -161,6 +167,7 @@ const T = {
         appPermFail: '#### ❌ App Permission Check Failed',
         userPermPass: '#### ✅ User Permission Check Passed',
         userPermFail: '#### ❌ User Permission Check Failed',
+        userPermWarn: '#### ⚠️ User identity (not authorized yet)',
     },
 };
 // ---------------------------------------------------------------------------
@@ -353,134 +360,30 @@ function generatePermissionTable(appGrantedScopes, userGrantedScopes, hasValidUs
     return lines.join('\n');
 }
 /**
- * 检查用户权限状态
+ * 检查用户授权状态（lark-cli profile）。
+ *
+ * 插件不再保存用户 token：用户授权归 lark-cli 管（feishu_auth 工具发起 device flow），
+ * 所以这里只报告当前账号对应的 profile 是否就绪、user 身份是否可用。
  */
-async function checkUserPermissions(account, sdk, locale) {
+async function checkUserPermissions(account, sdk, locale, cfg) {
     const t = T[locale];
-    const { appId } = account;
-    const openDomain = (0, domains_1.openPlatformDomain)(account.brand);
+    const profile = (0, profiles_1.resolveProfileName)(cfg || {}, account.accountId);
+    const rows = (0, profiles_1.healthCheck)(cfg || {});
+    const row = rows.find((r) => r.accountId === account.accountId) || { ok: false, error: "not checked" };
     const lines = [];
-    try {
-        // 1. 获取应用所有者
-        const ownerId = await (0, app_owner_fallback_1.getAppOwnerFallback)(account, sdk);
-        // 2. 读取 token
-        const token = ownerId ? await (0, token_store_1.getStoredToken)(appId, ownerId) : null;
-        // 判断是否有有效的用户授权
-        const hasUserAuth = !!token;
-        // 变量初始化
-        let authStatus = 'warn';
-        let refreshStatus = 'warn';
-        let validCount = 0;
-        let scopes = [];
-        let userTokenStatus = 'expired';
-        let userMissing = [];
-        // 获取应用开通的支持 user token 的权限
-        const appUserScopes = await (0, app_scope_checker_1.getAppGrantedScopes)(sdk, appId, 'user');
-        let allScopes = getAllToolScopes();
-        allScopes = (0, tool_scopes_1.filterSensitiveScopes)(allScopes);
-        const appGrantedCount = appUserScopes.filter((s) => allScopes.includes(s)).length;
-        if (hasUserAuth) {
-            // 有用户授权 - 检查授权状态
-            const status = (0, token_store_1.tokenStatus)(token);
-            userTokenStatus = status;
-            scopes = token.scope.split(' ').filter(Boolean);
-            validCount = status === 'valid' ? 1 : 0;
-            const needsRefreshCount = status === 'needs_refresh' ? 1 : 0;
-            const expiredCount = status === 'expired' ? 1 : 0;
-            authStatus = expiredCount > 0 ? 'warn' : validCount === 1 ? 'pass' : 'warn';
-            const authEmoji = authStatus === 'pass' ? '✅' : '⚠️';
-            lines.push(`${authEmoji} ${t.authStatusLabel}: ${t.userTotal} | ✓ ${t.valid}: ${validCount}, ⟳ ${t.needRefresh}: ${needsRefreshCount}, ✗ ${t.expired}: ${expiredCount}`);
-            // Token 自动刷新检查
-            const hasOfflineAccess = scopes.includes('offline_access');
-            refreshStatus = hasOfflineAccess ? 'pass' : 'warn';
-            const refreshEmoji = refreshStatus === 'pass' ? '✅' : '⚠️';
-            lines.push(`${refreshEmoji} ${t.tokenRefreshLabel}: ${hasOfflineAccess ? t.tokenRefreshOn : t.tokenRefreshOff}`);
-        }
-        else {
-            // 没有用户授权
-            lines.push(t.noUserAuth);
-            lines.push('');
-            lines.push(t.noUserAuthDesc);
-            lines.push('');
-        }
-        // 计算用户已授权权限数
-        const userGrantedCount = validCount === 1 ? scopes.filter((s) => allScopes.includes(s)).length : 0;
-        // 计算用户缺失的权限
-        if (hasUserAuth && validCount === 1) {
-            const scopeSet = new Set(scopes);
-            userMissing = allScopes.filter((s) => !scopeSet.has(s));
-        }
-        // 权限对照统计
-        const tableStatus = appGrantedCount < allScopes.length || userGrantedCount < allScopes.length
-            ? appGrantedCount < allScopes.length
-                ? 'fail'
-                : 'warn'
-            : 'pass';
-        const tableEmoji = tableStatus === 'pass' ? '✅' : tableStatus === 'warn' ? '⚠️' : '❌';
-        if (validCount === 0) {
-            lines.push(`${t.permCompareLabel}: ${t.permCompareSummary(appGrantedCount, allScopes.length, t.noAuthLabel)}`);
-        }
-        else if (userGrantedCount < allScopes.length) {
-            lines.push(`${tableEmoji} ${t.permInsufficient}: ${t.permCompareSummary(appGrantedCount, allScopes.length, `${userGrantedCount}/${allScopes.length} ${t.userCountLabel}`)}`);
-        }
-        else {
-            lines.push(`${tableEmoji} ${t.permCompareLabel}: ${t.permCompareSummary(appGrantedCount, allScopes.length, `${userGrantedCount}/${allScopes.length} ${t.userCountLabel}`)}`);
-        }
-        lines.push('');
-        // 添加指引信息
-        if (appGrantedCount < allScopes.length) {
-            // 计算缺失的应用权限
-            const appMissingScopes = allScopes.filter((s) => !appUserScopes.includes(s));
-            let appApplyUrl = `${openDomain}/app/${appId}/auth?op_from=feishu-openclaw&token_type=user`;
-            if (appMissingScopes.length < 20) {
-                appApplyUrl = `${openDomain}/app/${appId}/auth?q=${encodeURIComponent(appMissingScopes.join(','))}&op_from=feishu-openclaw&token_type=user`;
-            }
-            lines.push(`${t.appMissingUserPerms(appMissingScopes.length)} [${t.apply}](${appApplyUrl})`);
-        }
-        if (userGrantedCount < allScopes.length && validCount > 0) {
-            lines.push(t.userReauth);
-            lines.push('');
-        }
-        else if (!hasUserAuth) {
-            lines.push(t.userNeedsOAuth);
-            lines.push('');
-        }
-        // 生成详细权限对照表
-        const table = generatePermissionTable(appUserScopes, validCount === 1 ? scopes : [], validCount === 1, locale);
-        lines.push(table);
-        // 计算总体状态
-        const overallStatus = tableStatus === 'fail'
-            ? 'fail'
-            : authStatus === 'warn' || refreshStatus === 'warn' || tableStatus === 'warn'
-                ? 'warn'
-                : 'pass';
-        return {
-            status: overallStatus,
-            markdown: lines.join('\n'),
-            hasAuth: hasUserAuth,
-            tokenExpired: userTokenStatus === 'expired',
-            missingUserScopes: userMissing,
-        };
+    lines.push(t.profileLabel + ": " + profile);
+    if (!row.ok) {
+        lines.push("");
+        lines.push(t.userPermFail + ": " + (row.error || "unknown"));
+        return { status: "fail", markdown: lines.join("\n") };
     }
-    catch (err) {
-        const applyUrl = `${openDomain}/app/${appId}/auth?q=application:application:self_manage&op_from=feishu-openclaw&token_type=tenant`;
-        if (err instanceof tool_client_1.AppScopeCheckFailedError) {
-            return {
-                status: 'warn',
-                markdown: `${t.userPermFailedNoSelfManage}\n\n${t.adminApply} [${t.apply}](${applyUrl})`,
-                hasAuth: false,
-                tokenExpired: false,
-                missingUserScopes: [],
-            };
-        }
-        return {
-            status: 'warn',
-            markdown: `${t.userPermFailed}: ${err instanceof Error ? err.message : String(err)}`,
-            hasAuth: false,
-            tokenExpired: false,
-            missingUserScopes: [],
-        };
+    lines.push("");
+    if (row.identity === "user" && row.tokenStatus === "ready") {
+        lines.push(t.userAuthReady);
+        return { status: "pass", markdown: lines.join("\n") };
     }
+    lines.push(t.userAuthMissing);
+    return { status: "warn", markdown: lines.join("\n") };
 }
 // ---------------------------------------------------------------------------
 // 主函数
@@ -562,8 +465,8 @@ async function runFeishuDoctor(config, currentAccountId, locale = 'zh_cn') {
         lines.push('---');
         lines.push('');
         // 4c. 用户权限
-        const userResult = await checkUserPermissions(account, sdk, locale);
-        const userTitle = userResult.status === 'pass' ? t.userPermPass : t.userPermFail;
+        const userResult = await checkUserPermissions(account, sdk, locale, globalCfg);
+        const userTitle = userResult.status === 'pass' ? t.userPermPass : userResult.status === 'warn' ? t.userPermWarn : t.userPermFail;
         lines.push(userTitle);
         lines.push('');
         lines.push(userResult.markdown);

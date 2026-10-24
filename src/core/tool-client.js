@@ -68,8 +68,6 @@ const Lark = __importStar(require("@larksuiteoapi/node-sdk"));
 const lark_client_1 = require("./lark-client.js");
 const lark_ticket_1 = require("./lark-ticket.js");
 const tool_account_1 = require("./tool-account.js");
-const uat_client_1 = require("./uat-client.js");
-const token_store_1 = require("./token-store.js");
 const app_scope_checker_1 = require("./app-scope-checker.js");
 const app_owner_fallback_1 = require("./app-owner-fallback.js");
 const lark_logger_1 = require("./lark-logger.js");
@@ -262,66 +260,12 @@ class ToolClient {
     // Private: UAT path
     // -------------------------------------------------------------------------
     async invokeAsUser(toolAction, fn, requiredScopes, userOpenId, appScopeVerified) {
-        if (!userOpenId) {
-            throw new auth_errors_1.UserAuthRequiredError('unknown', {
-                apiName: toolAction,
-                scopes: requiredScopes,
-                appScopeVerified,
-                appId: this.account.appId,
-            });
-        }
-        // Owner 检查：非 owner 用户直接拒绝（从 uat-client.ts 迁移至此）
-        await (0, owner_policy_1.assertOwnerAccessStrict)(this.account, this.sdk, userOpenId);
-        // 预检：是否有已存储的 token
-        const stored = await (0, token_store_1.getStoredToken)(this.account.appId, userOpenId);
-        if (!stored) {
-            throw new auth_errors_1.UserAuthRequiredError(userOpenId, {
-                apiName: toolAction,
-                scopes: requiredScopes,
-                appScopeVerified,
-                appId: this.account.appId,
-            });
-        }
-        // 预检：token 的 scope 是否满足 API 要求
-        // ---- User Granted Scopes 检查（用户授权的权限）----
-        // 仅在 App Granted Scopes 检查成功时进行本地预检。
-        // 当 App Scope 检查失败时（appScopeVerified=false），跳过预检，
-        // 让请求走到服务端 — 服务端会返回准确的错误码：
-        //   LARK_ERROR.APP_SCOPE_MISSING (99991672) → App Granted Scopes 缺失（管理员需在开放平台开通）
-        //   LARK_ERROR.USER_SCOPE_INSUFFICIENT (99991679) → User Granted Scopes 缺失（需引导用户 OAuth 授权）
-        if (appScopeVerified && stored.scope && requiredScopes.length > 0) {
-            // 检查用户是否授权了所有 Required Scopes
-            const userGrantedScopes = new Set(stored.scope.split(/\s+/).filter(Boolean));
-            const missingUserScopes = requiredScopes.filter((s) => !userGrantedScopes.has(s));
-            if (missingUserScopes.length > 0) {
-                throw new auth_errors_1.UserAuthRequiredError(userOpenId, {
-                    apiName: toolAction,
-                    scopes: missingUserScopes,
-                    appScopeVerified,
-                    appId: this.account.appId,
-                });
-            }
-        }
-        // 通过 callWithUAT 执行（自动 refresh + retry）
-        try {
-            return await (0, uat_client_1.callWithUAT)({
-                userOpenId,
-                appId: this.account.appId,
-                appSecret: this.account.appSecret,
-                domain: this.account.brand,
-            }, (accessToken) => fn(this.sdk, Lark.withUserAccessToken(accessToken), accessToken));
-        }
-        catch (err) {
-            if (err instanceof auth_errors_1.NeedAuthorizationError) {
-                throw new auth_errors_1.UserAuthRequiredError(userOpenId, {
-                    apiName: toolAction,
-                    scopes: requiredScopes,
-                    appScopeVerified,
-                });
-            }
-            this.rethrowStructuredError(err, toolAction, requiredScopes, userOpenId, 'user');
-            throw err;
-        }
+        // Retired in 2026.10.10: the plugin no longer owns a user-token store.
+        // Every user-identity call now goes through lark-cli (see
+        // skills/feishu-cli + the feishu_auth tool). Fail loudly rather than
+        // silently falling back to tenant identity, which would change what
+        // the caller can see.
+        throw new Error("invokeAsUser is retired: user-identity calls belong to lark-cli");
     }
     // -------------------------------------------------------------------------
     // Private: raw HTTP request

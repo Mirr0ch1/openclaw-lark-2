@@ -57,7 +57,6 @@ const conversation_id_1 = require("../core/conversation-id.js");
 const session_conversation_1 = require("../core/session-conversation.js");
 const session_route_1 = require("../core/session-route.js");
 const thread_bindings_1 = require("../core/thread-bindings.js");
-const onboarding_auth_1 = require("../tools/onboarding-auth.js");
 const lark_logger_1 = require("../core/lark-logger.js");
 const config_schema_1 = require("../core/config-schema.js");
 const config_adapter_1 = require("./config-adapter.js");
@@ -115,14 +114,9 @@ exports.feishuPlugin = {
                 text: channel_status_1.PAIRING_APPROVED_MESSAGE,
                 accountId,
             });
-            // 2. 触发 onboarding
-            try {
-                await (0, onboarding_auth_1.triggerOnboarding)({ cfg, userOpenId: id, accountId });
-                pluginLog.info('onboarding completed', { id });
-            }
-            catch (err) {
-                pluginLog.warn('onboarding failed', { id, error: String(err) });
-            }
+            // 2. No onboarding card any more: the plugin no longer owns user
+            // authorization (lark-cli does, via the feishu_auth tool), so
+            // pairing approval is just the welcome message.
         },
     },
     // -------------------------------------------------------------------------

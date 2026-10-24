@@ -26,7 +26,7 @@ const profiles_1 = require("../larkcli/profiles.js");
 const accounts_1 = require("../core/accounts.js");
 const lark_ticket_1 = require("../core/lark-ticket.js");
 const send_1 = require("../messaging/outbound/send.js");
-const oauth_cards_1 = require("./oauth-cards.js");
+const domains_1 = require("../core/domains.js");
 const helpers_1 = require("./helpers.js");
 const lark_logger_1 = require("../core/lark-logger.js");
 const log = (0, lark_logger_1.larkLogger)('tools/auth');
@@ -82,8 +82,14 @@ function userCodeFrom(url) {
     const m = url.match(/[?&]user_code=([^&]+)/);
     return m ? decodeURIComponent(m[1]) : undefined;
 }
+/** Wrap a URL so it opens inside the Feishu client (same as the old auth cards). */
+function toInAppWebUrl(targetUrl, brand) {
+    const encoded = encodeURIComponent(targetUrl);
+    return (0, domains_1.applinkDomain)(brand) + '/client/web_url/open' +
+        '?mode=sidebar-semi&max_width=800&reload=false&url=' + encoded;
+}
 function buildCard(params) {
-    const inAppUrl = (0, oauth_cards_1.toInAppWebUrl)(params.url, params.brand);
+    const inAppUrl = toInAppWebUrl(params.url, params.brand);
     const multiUrl = { url: inAppUrl, pc_url: inAppUrl, android_url: inAppUrl, ios_url: inAppUrl };
     return {
         schema: '2.0',

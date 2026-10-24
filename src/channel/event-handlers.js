@@ -61,7 +61,6 @@ const dedup_1 = require("../messaging/inbound/dedup.js");
 const dedupe_key_1 = require("../messaging/inbound/dedupe-key.js");
 const lark_ticket_1 = require("../core/lark-ticket.js");
 const lark_logger_1 = require("../core/lark-logger.js");
-const auto_auth_1 = require("../tools/auto-auth.js");
 const ask_user_gateway_card_1 = require("../card/ask-user-gateway-card.js");
 const synthetic_message_1 = require("../messaging/inbound/synthetic-message.js");
 const chat_info_cache_1 = require("../core/chat-info-cache.js");
@@ -611,10 +610,10 @@ async function handleCardActionEvent(ctx, data) {
         const askGatewayResult = await (0, ask_user_gateway_card_1.handleAskUserQuestionAction)(data, ctx.cfg, ctx.accountId);
         if (askGatewayResult !== undefined)
             return askGatewayResult;
-        // auto-auth：授权/权限引导相关卡片交互（宿主内建能力优先）
-        const authResult = await (0, auto_auth_1.handleCardAction)(data, ctx.cfg, ctx.accountId);
-        if (authResult !== undefined)
-            return authResult;
+        // NOTE: the plugin-owned UAT stack (auto-auth / oauth cards) was removed
+        // in 2026.10.10. User authorization now goes through lark-cli's device
+        // flow via the feishu_auth tool, so there are no plugin auth cards left
+        // to handle here; anything unknown falls through to the dispatch below.
         // 业务自定义卡片交互：使用 SDK 标准 interactive dispatch 管道转发给业务插件。
         return await (0, interactive_dispatch_1.dispatchFeishuPluginInteractiveHandler)({ cfg: ctx.cfg, accountId: ctx.accountId, data });
     }

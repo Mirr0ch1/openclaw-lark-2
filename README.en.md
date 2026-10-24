@@ -1,223 +1,156 @@
-<div align="center">
-
 # openclaw-lark-2
 
-**An OpenClaw 2.0-native Feishu / Lark channel plugin**
-
-An independent fork of `@larksuite/openclaw-lark`, fully adapted to the OpenClaw 2.0 SDK.
-
-**Biggest advantage**: on top of the most complete Feishu tool surface (ByteDance's full suite), it brings the official OpenClaw plugin's 2.0-native architecture and security engineering — **broader Feishu coverage than either project, with security and robustness on par with (and often beyond) the official OpenClaw plugin** (see [Three-Way Comparison](#three-way-comparison)).
-
-[![OpenClaw](https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-3b82f6?style=flat-square)](#installation)
-[![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-450%20passing-22c55e?style=flat-square)](#development)
-[![ClawHub](https://img.shields.io/badge/ClawHub-%40mirr0ch1%2Fopenclaw--lark--2-8b5cf6?style=flat-square)](https://clawhub.ai)
-
-**English** · [中文](./README.md)
-
-</div>
-
----
+> Feishu / Lark channel plugin · native OpenClaw 2.0 · **2026.10 refactor**
+>
+> **One line**: business capability goes to `lark-cli`; identity and context stay in the plugin — 38 tools collapsed into 1.
 
 ## Table of Contents
 
-- [Why this fork](#why-this-fork)
-- [Features](#features)
-- [Installation](#installation)
+- [What changed](#what-changed)
+- [Why choose it](#why-choose-it)
+- [Architecture](#architecture)
+- [Quick start](#quick-start)
 - [Configuration](#configuration)
-- [Three-Way Comparison](#three-way-comparison)
+- [Migrating from 38 tools](#migrating-from-38-tools)
 - [Changelog](#changelog)
-- [Development](#development)
-- [Credits & License](#credits--license)
 
 ---
 
-## Why this fork
+## What changed
 
-OpenClaw 2.0 (2026.8.1) reworked the plugin SDK:
+**Motivation in one sentence**: the plugin's own skills already said "these `feishu_*` tools are deprecated", yet every turn still injected ~20k tokens of their schema — the model was told "you have this capability" and "don't use it" at the same time. Removing tools is not cutting capability; it is putting capability where it belongs.
 
-- the bare `openclaw/plugin-sdk` export was removed and several subpaths renamed;
-- session storage moved from JSON to SQLite;
-- channel capabilities (e.g. durable-final delivery `durableFinal`) became explicit contracts.
+| | Before (2026.10.9) | After |
+|---|---|---|
+| Registered tools | **38** | **1** (`feishu_auth`) |
+| Per-turn tool schema | 67,206 chars ≈ 18–21k tokens | **479 chars** (−99.3%) |
+| Per-turn identity hint | — | **122 chars** (`minimal`, can be disabled) |
+| Bundled skills | 8 / 538 lines | **3 / 218 lines** |
+| Domain coverage | 10 (self-implemented) | **23 domains / 28 domain skills** (via `lark-cli`, loaded on demand) |
+| Tool-layer code | `src/tools` 12,098 lines | **662 lines** (−94%) |
+| Multi-account | one `accountId` param per tool | **`--profile` per call** + per-turn injection |
+| User authorization | plugin-owned UAT store | **lark-cli device flow** + in-chat card |
+| Result fencing | plugin tools only | **wrapper-level** (covers exec too) |
 
-`@larksuite/openclaw-lark` did not follow up, so it **fails to load** on 2.0 and loses card footer metrics. This fork is fully adapted to the 2.0 SDK — plug and play.
+### Three things worth calling out
 
-More than that: benchmarked against the official `@openclaw/feishu`, this fork went through a systematic refactor-and-harden pass — it keeps the most complete Feishu capability of the ByteDance suite (**38 tools / 22 inbound message converters / merged multi-image post / CardKit streaming cards**) while adding official-grade robustness and security: **SSRF protection on every outbound request** (DNS pinning + private-network blocking + redirect re-validation), **SQLite-backed persistent dedupe** (no reprocessing across restarts), a **durable inbound queue** (`durableIngress`, no message loss on crash), and **inbound debounce merging** (a burst of short messages coalesces into one turn), plus item-by-item parity with the official reliability primitives (send rate-limit retry, withdrawn-reply fallback, read-policy, tool-result fencing). **The result: broader Feishu coverage than either project, with security and robustness on par with — and often beyond — the official OpenClaw plugin.**
-
----
-
-## Features
-
-### Architecture & Compatibility
-
-- **Native OpenClaw 2.0 adaptation**: SDK import paths, types, and runtime APIs aligned with 2026.8.1.
-- **Multi-account**: run multiple Feishu apps on a single OpenClaw instance.
-
-### Messaging & Interaction
-
-- **Streaming cards (CardKit)**: the same experience in groups and DMs via `channels.feishu.replyMode.group: "streaming"`.
-- **Live tool-activity display**: shows the tools the agent is calling in real time, on by default.
-- **Built-in `ask_user` button cards**: questions render as interactive cards with option buttons plus an “Other answer” input form; every group member can interact.
-- **Multi-image merged post**: ≥2 images emitted at once merge into a **single** rich-text post by default (Feishu has no album API; one image per paragraph); `multiImageMode: "sequential"` restores per-image sends, with auto-fallback on any upload failure — nothing is lost.
-- **Full 7-item footer metrics**: status · elapsed · model · **provider** · tokens · cache · context (`provider` is new in this fork).
-- **PIN message actions**: `pin` / `unpin` / `list-pins` on the built-in message tool.
-
-### Transport & Reliability
-
-- **Dual-channel webhook**: `connectionMode: "webhook"` uses Feishu callbacks (signature check `sha256(timestamp+nonce+encryptKey+body)`, timestamp-skew bound, `url_verification` challenge, pre-auth guards for body size / timeout / concurrency). WebSocket remains the default.
-- **Optional durable inbound queue**: `durableIngress: true` admits `im.message.receive_v1` / doc-comment events into the host's persistent queue with per-conversation lane ordering and retryable/permanent error classification. Off by default — behavior is byte-for-byte unchanged.
-- **Send rate-limit retry**: unifies HTTP 429 and business codes `230020` / `11232` (including “HTTP 200 but the body carries a rate-limit code”) across every IM send path.
-- **Per-conversation queue task timeout**: each dispatch is capped at 5 minutes by default; a timed-out task keeps running but stops blocking later messages in the same conversation (upstream #70133).
-- **Retry-stable dedupe**: text/post messages dedupe on `sender + chat + create_time + content hash`, so a redelivery with a fresh `message_id` is still caught (upstream #46778).
-- **Envelope-aware pagination**: over-30KB rich posts are split by **serialized byte size**, not character count (15000 CJK chars ≈ 45KB).
-
-### Security & Engineering
-
-- **Read policy (matching official read-policy)**: tool reads are policy-gated — **the current conversation is always readable**; cross-group reads follow `groupPolicy` (`disabled` denies even the current group); **cross-DM reads require `allowFrom` to contain `*`**. Applies to `feishu_chat.get` and `feishu_chat_members` (a DM returns only the current sender).
-- **Full SSRF coverage**: all outbound HTTP goes through the SDK `fetchWithSsrFGuard` — DNS pinning (anti-rebinding), IPv4+IPv6 private/reserved-address blocking, per-hop redirect validation, hostname allowlist.
-- **Tool-result fencing**: model-visible tool output is wrapped in an `EXTERNAL_UNTRUSTED_CONTENT` marker to resist prompt injection from documents/messages; failures also carry `http_status` / `feishu_code` / `feishu_msg` / `feishu_log_id`.
-- **Native-card sanitization**: model-authored cards get an element allowlist, http(s)-only button URLs, a callback-value gate, and text escaping before send.
-- **Fail-safe diagnostic hooks**: `before_tool_call` / `after_tool_call` are **fail-closed** in OpenClaw — one thrown exception blocks the **entire** tool call (regardless of tool). Both hooks here run fully guarded (`try/catch` + defensive field reads), so they log only and **never block** the tool pipeline.
-- **Test base**: a vitest suite (`npm test`) covering core security and routing paths.
-- **Plugin Inspector report**: `clawhub package validate` with 0 warnings.
-
-### Multi-account & Tools
-
-- **Per-call account targeting**: every tool accepts an optional `accountId`; an explicit account that is unconfigured or disabled **fails loudly** instead of silently falling back to the first account.
-- **Config signals**: the manifest declares `toolMetadata.configSignals`, so the host hides tools when `appId`/`appSecret` is missing.
-
-### Built-in Skills
-
-The plugin ships a set of Feishu skills, all routed through **`lark-cli`** as the single operation entry point (ByteDance replaced the plugin's built-in `feishu_*` tools with `lark-cli`):
-
-- `feishu-doc` / `feishu-bitable` / `feishu-calendar` / `feishu-im-read` / `feishu-task` — point to the matching `lark-cli <domain>` and the official `lark-*` skills; they check lark-cli availability first and, when missing, tell the user to install `@larksuite/cli` instead of falling back to the disabled built-in tools.
-- `feishu-channel-rules` — Lark card Markdown syntax reference; common formatting rules are **injected every turn** by the plugin, so it need not be always-on.
-- `feishu-troubleshoot` — plugin / channel self-troubleshooting (card-callback permission FAQ, `/feishu doctor`).
+1. **Identity became an envelope, not a parameter.** Multi-account is not "pass one more argument"; it is "which Feishu app does this call belong to". The plugin injects the conversation's account → profile once per turn, and `bin/feishu-lark` enforces it at the command line: **no `--profile`, no call**. Writing into the wrong app stops being possible rather than unlikely.
+2. **The fencing gap over exec is closed.** Core fences web_fetch / directory / tool-error output, but **not exec stdout**. Once Lark work moves to a CLI, that boundary would vanish — so the wrapper fences by default and `--no-fence` exists for jq/python.
+3. **Authorization is one tap again.** lark-cli's device flow was designed for harnesses that can only send a final message (`--no-wait` + `--device-code`). The plugin turns it into a Feishu card with a button and a copyable code. That is the one thing a CLI cannot do inside a chat — and the only tool left.
 
 ---
 
-## Installation
+## Why choose it
 
-### via ClawHub
+### Three different things
 
-```bash
-openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2
-```
+| | Positioning | Your cost |
+|---|---|---|
+| **openclaw-lark-2** | **Channel engineering + identity layer**; capability delegated to `lark-cli` | needs `lark-cli` + exec permission |
+| **@openclaw/feishu** (OpenClaw official) | 14 bundled tools, zero external deps | narrower coverage, fixed per-turn schema cost |
+| **@larksuite/openclaw-lark** (Feishu official) | 39 bundled tools, widest surface | 39 tools always resident, 1.x plugin API (does not load on 2.0), no per-call account |
 
-### via tarball (local dev)
+Pick **@openclaw/feishu** if you want zero extra installs. Pick **this plugin** if you want the best Feishu channel behaviour, multi-account safety, and stable long tasks.
 
-```bash
-npm pack
-openclaw plugins install openclaw-lark-2-2026.10.9.tgz
-```
+### Side by side
+
+| Dimension | **openclaw-lark-2** | **@openclaw/feishu** (2026.8.1) | **@larksuite/openclaw-lark** (7.16) |
+|---|:---:|:---:|:---:|
+| OpenClaw compatibility | **≥2026.8.1 (2.0 SDK)** | ≥2026.8.1 | ≥2026.5.4 (1.x API) |
+| Contract tools | **1** | 14 | 39 |
+| Domain coverage | **23 (via lark-cli)** | ~6 | 10 |
+| Per-turn schema cost | **≈0.5k chars** | 14 tools' worth | 39 tools' worth |
+| Per-call account selection | **✅ `--profile` (enforced)** | ✅ `accountId` | ❌ |
+| Wrong-account protection | **✅ fails without a profile** | ⚠️ caller's responsibility | ❌ |
+| Capability upgrade path | **`npm i -g @larksuite/cli`** | wait for a release | wait for a release |
+| User authorization (device flow) | **✅ in-chat card + `feishu_auth`** | ❌ | ✅ |
+| exec output fencing | **✅ wrapper** | — | — |
+| Streaming replies (CardKit) | **✅ DM + group** | ✅ | ✅ (needs `streaming:true`) |
+| Group streaming card | **✅ `replyMode.group:"streaming"`** | ✅ | ❌ static by default |
+| Multi-image merged post | **✅ default** | ❌ one by one | ❌ one by one |
+| Built-in `ask_user` button card | **✅ button + free-form answer + all group members** | ❌ text fallback | ❌ own tool |
+| Tool-step display | **✅ on by default** | ⚠️ verbose/preview only | ⚠️ verbose only |
+| Durable ingress queue | **✅ opt-in** | ✅ on by default | ❌ |
+| SSRF protection | **✅ full egress** | ✅ CardKit/registration only | ⚠️ hand-rolled IPv4 |
+| Diagnostics | **✅ `/feishu doctor`, `/feishu larkcli status`** | ✅ | ⚠️ |
+| Test suite | **✅ 61 files / 485 cases** | ✅ 99 files / 1202 cases | ❌ none |
+
+---
+
+## Architecture
+
+~~~text
+┌─ Channel layer (plugin) ───────────────────────────┐
+│ send/receive · cards · streaming · ask_user · media │
+│ dedupe · durable ingress · rate-limit retry · footer│
+└─────────────────────────────────────────────────────┘
+┌─ Identity envelope (plugin) ───────────────────────┐
+│ accountId → lark-cli profile (122 chars per turn)   │
+│ bin/feishu-lark: require profile · block globals ·  │
+│                   fence untrusted output            │
+└─────────────────────────────────────────────────────┘
+┌─ Capability layer (lark-cli) ──────────────────────┐
+│ 23 domains · 28 domain skills · lazy schema · risk  │
+└─────────────────────────────────────────────────────┘
+~~~
+
+---
+
+## Quick start
+
+Requirements: OpenClaw ≥ 2026.8.1, `lark-cli` (`npm i -g @larksuite/cli`), exec enabled for the agent.
+
+~~~bash
+openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2 --accept-capabilities
+openclaw config set channels.feishu.appId cli_xxx
+openclaw config set channels.feishu.appSecret xxx
+# then in Feishu: /feishu larkcli sync   (idempotent; adopts existing profiles)
+#                  /feishu larkcli status
+~~~
 
 ---
 
 ## Configuration
 
-The plugin registers the `feishu` channel and shares the `channels.feishu` config shape with the official plugin.
-
-```json5
+~~~jsonc
 {
-  channels: {
-    feishu: {
-      enabled: true,
-      appId: "cli_xxx",
-      appSecret: "xxx",
-
-      // multi-account example
-      accounts: {
-        plaud: { appId: "cli_yyy", appSecret: "yyy", dmPolicy: "pairing" },
+  "channels": {
+    "feishu": {
+      "appId": "cli_main",
+      "appSecret": "xxx",
+      "accounts": {
+        "plaud":     { "appId": "cli_a", "appSecret": "xxx" },
+        "hdwriting": { "appId": "cli_b", "appSecret": "xxx" }
       },
-
-      // all 7 footer metrics on (provider is new)
-      footer: {
-        status: true,
-        elapsed: true,
-        model: true,
-        provider: true,
-        tokens: true,
-        cache: true,
-        context: true,
-      },
-
-      // multi-image: "post" (default, merge ≥2 images) | "sequential" (per-image)
-      multiImageMode: "post",
-
-      // streaming cards in groups and DMs
-      replyMode: { group: "streaming" },
-
-      // transport: "websocket" (default) | "webhook" (Feishu callbacks)
-      connectionMode: "websocket",
-
-      // optional: admit inbound events into the host's durable queue (default false)
-      // durableIngress: true,
-
-      // optional: routing preference when no explicit accountId is given
-      // (never re-activates a disabled account)
-      // defaultAccount: "plaud",
-    },
-  },
-  plugins: {
-    allow: ["openclaw-lark-2"],
-  },
+      "larkCli": {
+        "enabled": "auto",     // auto (default) | true | false
+        "prompt": "minimal",   // minimal (default) | compact | full | off
+        "binaryPath": ""
+      }
+    }
+  }
 }
-```
+~~~
 
-> **Scope tip**: the Feishu app needs the `cardkit:card:write` scope enabled in the Open Platform for streaming cards to work.
->
-> **Read policy**: `feishu_chat.get` / `feishu_chat_members` are policy-gated. Reading a **non-current** DM requires that account's `allowFrom` to contain `"*"` (note this also widens DM **ingress** admission); cross-group reads follow `groupPolicy`, and `groupPolicy: "disabled"` denies even the current group. Message-history tools (`feishu_im_user_get_messages`, …) are unaffected.
+Account id doubles as the lark-cli profile name; if that appId is already bound under another name, the plugin adopts it (lark-cli forbids two profiles per appId).
 
 ---
 
-## Three-Way Comparison
+## Migrating from 38 tools
 
-This plugin takes the best of both worlds: the complete tool surface of ByteDance's `@larksuite/openclaw-lark`, the OpenClaw 2.0-native architecture and security engineering of the official `@openclaw/feishu`, plus features neither has.
+Nothing you used is gone — it moved:
 
-| Dimension | **openclaw-lark-2 (ours)** | **@openclaw/feishu (official 2.0)** | **@larksuite/openclaw-lark 7.16 (ByteDance)** |
-|---|:---:|:---:|:---:|
-| Version | **2026.10.9** | 2026.8.1 | 2026.7.16 |
-| OpenClaw compat | **≥2026.8.1 (native 2.0)** | ≥2026.8.1 (native 2.0) | ≥2026.5.4 (1.x, cannot load on 2.0) |
-| Plugin API | 2.0 SDK (`runtime.config.current()`) | 2.0 SDK (`createChatChannelPlugin`) | 1.x API (`loadConfig`, deprecated) |
-| Contract tools | **38** | 14 | 39 |
-| calendar / task / sheets | ✅ | ❌ | ✅ |
-| im send / read / search tools | ✅ 6 | ❌ (via channel action) | ✅ 6 |
-| Inbound converters | **22 kinds** | partial | 22 kinds |
-| Streaming reply (CardKit) | ✅ groups + DMs | ✅ | ✅ (needs `streaming:true`) |
-| Multi-image post | ✅ **single post by default** | ❌ per-image only | ❌ per-image only |
-| Group streaming cards | ✅ `replyMode.group:"streaming"` | ✅ | ❌ group defaults to static |
-| Tool-activity display | ✅ **on by default** | ⚠️ verbose/preview only | ⚠️ verbose-dependent (off by default) |
-| Built-in `ask_user` buttons | ✅ **button cards + “Other answer” + all group members can interact** | ❌ text fallback only | ❌ uses its own `feishu_ask_user_question` |
-| PIN actions | ✅ `pin`/`unpin`/`list-pins` | ✅ | ❌ |
-| SSRF protection | ✅ **all outbound** (DNS pinning + private-address blocking + redirect validation + hostname allowlist) | ✅ CardKit / registration only | ⚠️ hand-written IPv4-only check |
-| Typing indicator | ✅ reaction-based | ✅ reaction-based | ✅ reaction-based |
-| reactions / doc comments | ✅ | ✅ | ✅ |
-| OAuth device-flow | ✅ | ❌ (app-registration wizard only) | ✅ |
-| Dual-channel webhook | ✅ **WS + webhook (webhook optional)** | ✅ WS + webhook | ❌ |
-| Durable inbound queue | ✅ **optional (`durableIngress`)** | ✅ on by default | ❌ |
-| Read policy | ✅ matches official | ✅ | ❌ |
-| Per-call account targeting | ✅ `accountId` on every tool | ✅ | ❌ |
-| Test suite | ✅ **vitest base (59 files / 448 tests)** | ✅ 99 files / 1202 tests | ❌ none |
-| Security audit | ✅ plugin-inspector report | ✅ security-audit + SSRF | ⚠️ none |
-
-### Design Rationale
-
-1. **Tool surface = ByteDance 7.16 full set**: 38 tools covering im / doc / wiki / drive / bitable / calendar / task / sheets / search / oauth; the official 2.0 has only 14. The only removal is ByteDance's custom `feishu_ask_user_question`, superseded by built-in `ask_user` button rendering.
-2. **Architecture = official 2.0-native**: full OpenClaw 2.0 SDK usage; ByteDance 7.16 cannot load on 2.0 because it uses `loadConfig`.
-3. **Interaction upgrades (neither has)**: built-in `ask_user` button cards; tool-activity display on by default; PIN message actions.
-4. **Security hardening (from official)**: `fetchWithSsrFGuard` applied to **all** outbound requests; the official applies it only to CardKit / app registration, ByteDance has a hand-written IPv4-only check.
-5. **Engineering (from official)**: a vitest test base plus the plugin-inspector security report.
-
-### Known Differences
-
-| Item | Note |
+| Old tool | Now |
 |---|---|
-| Webhook transport | Supported and **optional** (`connectionMode: "webhook"`); WebSocket stays the default. |
-| Durable inbound queue | Supported but **off by default** (`durableIngress: true` to enable); the official enables it by default. When enabled, behavior matches the original direct WS dispatch, plus per-conversation ordering and restart survival. |
-| Read policy | Semantics match the official; because our tools get no host context, the read context is reconstructed from the **current message ticket** — so with no message context (cron/heartbeat) cross-DM reads are denied by policy. |
-| PIN actions | Supported here; missing in ByteDance 7.16. |
-| Test scale | Minimal base (59 files / 448 tests), far smaller than the official (1202), but covers core security & routing paths. |
-| Tool-display toggle | Toggle via `toolUseDisplay.enabled:false`; on by default. |
+| `feishu_create_doc` / `fetch_doc` / `update_doc` | `feishu-lark --profile <p> docs +create / +fetch / +update` |
+| `feishu_bitable_*`, `feishu_calendar_*`, `feishu_task_*` | `feishu-lark … base / calendar / task …` |
+| `feishu_im_user_*` | `feishu-lark … im +messages-search / +chat-messages-list` |
+| `feishu_drive_file` / `sheet` / `wiki_*` / `get_user` / `chat*` | `feishu-lark … drive / sheets / wiki / contact / im …` |
+| `feishu_oauth` / `oauth_batch_auth` | **`feishu_auth`** (the only remaining tool) |
+
+The model does not need to be taught the mapping: the `feishu-cli` skill carries the routing table, and `lark-cli <domain> --help` / `lark-cli skills read lark-<domain>` carry the details.
+
+> Upgrading from ≤2026.10.9: clear `feishu_*` entries from `agents.*.tools.alsoAllow` — those tools no longer exist.
 
 ---
 
