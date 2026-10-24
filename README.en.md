@@ -1,22 +1,26 @@
-# openclaw-lark-2
+<h1 align="center">openclaw-lark-2</h1>
 
-> Feishu / Lark channel plugin · native OpenClaw 2.0
->
-> Forked from Feishu's official `@larksuite/openclaw-lark`. Upstream stopped at OpenClaw 1.x — this project finishes that road and takes it one step further:
-> **native 2.0 · 23 Feishu domains · one gateway serving several Feishu bots.**
->
-> In one line: **capability belongs to lark-cli; identity and channel belong to the plugin.**
+<p align="center"><b>Feishu / Lark channel plugin · native OpenClaw 2.0</b></p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@mirr0ch1/openclaw-lark-2"><img alt="version" src="https://img.shields.io/badge/version-2026.10.10-blue"></a>
-  <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-green">
-  <img alt="domains" src="https://img.shields.io/badge/domains-23%20(via%20lark--cli)-orange">
-  <img alt="tests" src="https://img.shields.io/badge/tests-61%20files%20%2F%20485%20cases-brightgreen">
-  <img alt="license" src="https://img.shields.io/badge/license-MIT-black">
+  Forked from Feishu's official <code>@larksuite/openclaw-lark</code>. Upstream stopped at OpenClaw 1.x — this project finishes that road and takes it one step further:<br/>
+  <b>native 2.0 · 23 Feishu domains · one gateway serving several Feishu bots.</b>
+</p>
+
+<p align="center"><sub>In one line: capability belongs to lark-cli; identity and channel belong to the plugin.</sub></p>
+
+<p align="center">
+  <img alt="version" src="https://img.shields.io/badge/version-2026.10.10-blue?style=flat-square">
+  <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
+  <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
+  <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
+  <img alt="tests" src="https://img.shields.io/badge/tests-485%20passed-2ea44f?style=flat-square">
+  <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
 ## Important
 
+> [!IMPORTANT]
 > **2026.10.10 is a breaking refactor.** Upgrading from a version before 2026.10.10? Read [Migrating from before 2026.10.10](#migrating-from-before-20261010) first — it covers the capability-consent step triggered by the tool-list change.
 
 ## Table of Contents
@@ -51,11 +55,14 @@
 | Diagnostics | **✅ `/feishu doctor`, `/feishu larkcli status`** | ✅ | ⚠️ |
 | Tests | **✅ 61 files / 485 cases** | ✅ 99 files / 1202 cases | ❌ none |
 
+> [!NOTE]
 > Token figures are the per-turn tool-schema payload: measured for this plugin (`scripts/check-tools.js`), estimated for the two official ones from tool count and parameter-definition size (~1–1.8 KB schema per tool).
 
 ### Details
 
-**OpenClaw 2.0.** Upstream is stuck on the 1.x `loadConfig` plugin API; 2.0 replaced the plugin model, so upstream code **cannot load**. This project is a native 2.0 implementation, not just "it runs":
+#### OpenClaw 2.0
+
+Upstream is stuck on the 1.x `loadConfig` plugin API; 2.0 replaced the plugin model, so upstream code **cannot load**. This project is a native 2.0 implementation, not just "it runs":
 
 | 2.0 mechanism | How this plugin uses it |
 |---|---|
@@ -66,7 +73,9 @@
 | Card interactions | full `card.action.trigger` chain (`ask_user` buttons, inject_prompt) |
 | Host primitives | `plugin-sdk/*` (344 subpaths since 10.2): durable ingress, thread bindings, webhook, retry |
 
-**Domain coverage.** The 23 domains come from lark-cli (docs / sheets / base / drive / im / task / calendar / wiki / contact / approval / mail / minutes / vc / okr / slides / whiteboard / markdown / mindnotes / note / event / attendance / apps / application) with 28 domain skills loaded on demand. `@openclaw/feishu` ships 14 tools over doc / drive / wiki / chat / perm / bitable — **no calendar, task or sheets**.
+#### Domain coverage
+
+The 23 domains come from lark-cli (docs / sheets / base / drive / im / task / calendar / wiki / contact / approval / mail / minutes / vc / okr / slides / whiteboard / markdown / mindnotes / note / event / attendance / apps / application) with 28 domain skills loaded on demand. `@openclaw/feishu` ships 14 tools over doc / drive / wiki / chat / perm / bitable — **no calendar, task or sheets**.
 
 Channel side is a different tier too:
 
@@ -80,32 +89,29 @@ Channel side is a different tier too:
 | Durable ingress queue | **✅ opt-in** | ✅ default on |
 | Full egress SSRF guard | **✅ DNS pinning + private-net block + redirect checks** | ✅ CardKit/registration only |
 
-**Multi-bot / multi-account.** lark-cli is **single-profile**: `profile use` flips process-global state, one Feishu app at a time. So one gateway serving several Feishu bots is impossible with the CLI alone. This plugin adds three layers:
+#### Multi-bot / multi-account
+
+lark-cli is **single-profile**: `profile use` flips process-global state, one Feishu app at a time. So one gateway serving several Feishu bots is impossible with the CLI alone. This plugin adds three layers:
 
 1. account ↔ profile **per call** (`--profile <account>`, not a global switch);
 2. the conversation's account is injected into context every turn (122 chars), so the model never guesses;
 3. `bin/feishu-lark` enforces it at the command line: no profile → fail, global commands refused, stdout fenced.
 
-**Upgrade path.** Capability lives in the CLI: new domains and commands arrive with lark-cli upgrades; the plugin changes only when channel or identity logic changes. **Neither side waits for the other.**
+#### Upgrade path
+
+Capability lives in the CLI: new domains and commands arrive with lark-cli upgrades; the plugin changes only when channel or identity logic changes. **Neither side waits for the other.**
 
 ---
 
 ## Architecture
 
-~~~text
-┌─ Channel layer (plugin) ───────────────────────────┐
-│ send/receive · cards · streaming · ask_user · media │
-│ dedupe · durable ingress · rate-limit retry · footer│
-└─────────────────────────────────────────────────────┘
-┌─ Identity envelope (plugin) ───────────────────────┐
-│ accountId → lark-cli profile (122 chars per turn)   │
-│ bin/feishu-lark: require profile · block globals ·  │
-│                   fence untrusted output            │
-└─────────────────────────────────────────────────────┘
-┌─ Capability layer (lark-cli) ──────────────────────┐
-│ 23 domains · 28 domain skills · lazy schema · risk  │
-└─────────────────────────────────────────────────────┘
-~~~
+```mermaid
+flowchart LR
+  A["<b>Channel layer</b> · plugin<br/>send/receive · cards · streaming · ask_user · media<br/>dedupe · durable ingress · rate-limit retry · footer"]
+  B["<b>Identity envelope</b> · plugin<br/>accountId → lark-cli profile (122 chars per turn)<br/>bin/feishu-lark: require profile · block globals · fence output"]
+  C["<b>Capability layer</b> · lark-cli<br/>23 domains · 28 domain skills<br/>lazy schema lookup · risk levels"]
+  A --> B --> C
+```
 
 ---
 
@@ -113,19 +119,19 @@ Channel side is a different tier too:
 
 Requirements: OpenClaw ≥ 2026.8.1, `lark-cli` (`npm i -g @larksuite/cli`), exec enabled for the agent.
 
-~~~bash
+```bash
 openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2 --accept-capabilities
 openclaw config set channels.feishu.appId cli_xxx
 openclaw config set channels.feishu.appSecret xxx
 # then in Feishu: /feishu larkcli sync   (idempotent; adopts existing profiles)
 #                  /feishu larkcli status
-~~~
+```
 
 ---
 
 ## Configuration
 
-~~~jsonc
+```jsonc
 {
   "channels": {
     "feishu": {
@@ -143,9 +149,10 @@ openclaw config set channels.feishu.appSecret xxx
     }
   }
 }
-~~~
+```
 
-Account id doubles as the lark-cli profile name; if that appId is already bound under another name the plugin adopts it (lark-cli forbids two profiles per appId).
+> [!NOTE]
+> Account id doubles as the lark-cli profile name; if that appId is already bound under another name the plugin adopts it (lark-cli forbids two profiles per appId).
 
 ---
 
@@ -157,16 +164,16 @@ Account id doubles as the lark-cli profile name; if that appId is already bound 
 
 The plugin's declared surface changed (tool list 38 → 1), so OpenClaw asks for consent again. When you see:
 
-~~~text
+```text
 Plugin "openclaw-lark-2" requires capability consent; disable and re-enable it
 or run: openclaw plugins enable openclaw-lark-2 --accept-capabilities
-~~~
+```
 
 accept once:
 
-~~~bash
+```bash
 openclaw plugins enable openclaw-lark-2 --accept-capabilities
-~~~
+```
 
 In Feishu: `/plugins enable openclaw-lark-2 --accept-capabilities`.
 

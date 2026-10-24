@@ -1,22 +1,26 @@
-# openclaw-lark-2
+<h1 align="center">openclaw-lark-2</h1>
 
-> 飞书 / Lark 渠道插件 · OpenClaw 2.0 原生
->
-> 从飞书官方 `@larksuite/openclaw-lark` 分叉而来。上游停在 OpenClaw 1.x，我们把这条路走完，又往前推了一步：
-> **原生 2.0 适配 · 23 个飞书域 · 一个网关同时服务多个飞书 bot。**
->
-> 一句话：**能力交给 lark-cli，身份与渠道留给插件。**
+<p align="center"><b>飞书 / Lark 渠道插件 · OpenClaw 2.0 原生</b></p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@mirr0ch1/openclaw-lark-2"><img alt="version" src="https://img.shields.io/badge/version-2026.10.10-blue"></a>
-  <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-green">
-  <img alt="domains" src="https://img.shields.io/badge/domains-23%20(via%20lark--cli)-orange">
-  <img alt="tests" src="https://img.shields.io/badge/tests-61%20files%20%2F%20485%20cases-brightgreen">
-  <img alt="license" src="https://img.shields.io/badge/license-MIT-black">
+  从飞书官方 <code>@larksuite/openclaw-lark</code> 分叉而来。上游停在 OpenClaw 1.x，我们把这条路走完，又往前推了一步：<br/>
+  <b>原生 2.0 适配 · 23 个飞书域 · 一个网关同时服务多个飞书 bot。</b>
+</p>
+
+<p align="center"><sub>一句话：能力交给 lark-cli，身份与渠道留给插件。</sub></p>
+
+<p align="center">
+  <img alt="version" src="https://img.shields.io/badge/version-2026.10.10-blue?style=flat-square">
+  <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
+  <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
+  <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
+  <img alt="tests" src="https://img.shields.io/badge/tests-485%20passed-2ea44f?style=flat-square">
+  <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
 ## 重要通知
 
+> [!IMPORTANT]
 > **2026.10.10 是一次重大重构。** 从 2026.10.10 之前的版本升级的用户，请先读 [从 2026.10.10 之前的版本迁移](#从-20261010-之前的版本迁移) —— 含工具列表变更后的 capability consent 处理。
 
 ## 目录
@@ -51,11 +55,14 @@
 | 诊断 | **✅ `/feishu doctor`、`/feishu larkcli status`** | ✅ | ⚠️ |
 | 测试 | **✅ 61 文件 / 485 用例** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
 
+> [!NOTE]
 > token 数为每轮注入的工具 schema 体量：本插件为实测（`scripts/check-tools.js`），官方两家按工具数与参数定义体量估算（每工具 ≈1–1.8 KB schema）。能力面之外的渠道差异另见下表注释。
 
 ### 详细说明
 
-**OpenClaw 2.0 兼容。** 上游停在 1.x 的 `loadConfig` 插件 API；2.0 换了插件模型，所以上游代码在 2.0 下**无法加载**。本项目是原生 2.0 实现，不只是"能跑"：
+#### OpenClaw 2.0 兼容
+
+上游停在 1.x 的 `loadConfig` 插件 API；2.0 换了插件模型，所以上游代码在 2.0 下**无法加载**。本项目是原生 2.0 实现，不只是"能跑"：
 
 | 2.0 机制 | 本项目用法 |
 |---|---|
@@ -66,7 +73,9 @@
 | 卡片交互 | `card.action.trigger` 全链路（`ask_user` 按钮、inject_prompt） |
 | 宿主原语 | 直接使用 `plugin-sdk/*`（10.2 起 344 个子路径）：durable ingress、thread bindings、webhook、retry |
 
-**能力面。** 本项目的 23 个域来自 lark-cli：docs / sheets / base / drive / im / task / calendar / wiki / contact / approval / mail / minutes / vc / okr / slides / whiteboard / markdown / mindnotes / note / event / attendance / apps / application，并自带 28 个域 skill 按需加载。OpenClaw 官方插件 14 个工具覆盖 doc / drive / wiki / chat / perm / bitable，**没有 calendar、task、sheets**。
+#### 能力面
+
+本项目的 23 个域来自 lark-cli：docs / sheets / base / drive / im / task / calendar / wiki / contact / approval / mail / minutes / vc / okr / slides / whiteboard / markdown / mindnotes / note / event / attendance / apps / application，并自带 28 个域 skill 按需加载。OpenClaw 官方插件 14 个工具覆盖 doc / drive / wiki / chat / perm / bitable，**没有 calendar、task、sheets**。
 
 渠道侧同样不是同一档：
 
@@ -80,31 +89,29 @@
 | 持久化入站队列 | **✅ 可选（`durableIngress`）** | ✅ 默认开 |
 | 全量出站 SSRF 防护 | **✅ DNS pinning + 私网阻断 + 重定向校验** | ✅ 仅 CardKit / 注册 |
 
-**多 bot / 多账号。** lark-cli 是**单 profile** 的：`profile use` 切换的是进程级全局状态，一次只能当一个飞书应用。所以"一个网关同时服务多个飞书 bot（不同 app）"单靠 lark-cli 做不到。本项目补了三层：
+#### 多 bot / 多账号
+
+lark-cli 是**单 profile** 的：`profile use` 切换的是进程级全局状态，一次只能当一个飞书应用。所以"一个网关同时服务多个飞书 bot（不同 app）"单靠 lark-cli 做不到。本项目补了三层：
 
 1. 账号 ↔ profile **按调用选择**（`--profile <账号>`，不是全局切换）；
 2. 每轮把"这条消息属于哪个账号"注入上下文（122 字符），模型不需要猜；
 3. `bin/feishu-lark` 在命令行层强制：缺 `--profile` 直接失败、拒绝 `profile use` 等全局命令、stdout 统一围栏。
 
-**能力升级路径。** 能力在 CLI 侧：新增域和命令随 lark-cli 自身升级即可用；插件侧只在渠道与身份逻辑变化时更新。**两者解耦，谁也不用等谁发版。**
+#### 能力升级路径
+
+能力在 CLI 侧：新增域和命令随 lark-cli 自身升级即可用；插件侧只在渠道与身份逻辑变化时更新。**两者解耦，谁也不用等谁发版。**
 
 ---
 
 ## 架构
 
-~~~text
-┌─ 渠道层（插件）────────────────────────────────────┐
-│ 收发 / 卡片 / 流式 / ask_user 按钮 / 多图 post      │
-│ 去重 / 耐久入站 / 限流重试 / footer 指标            │
-└────────────────────────────────────────────────────┘
-┌─ 身份信封层（插件）────────────────────────────────┐
-│ accountId → lark-cli profile（每轮注入 122 字符）   │
-│ bin/feishu-lark：强制 profile / 拒绝全局命令 / 围栏 │
-└────────────────────────────────────────────────────┘
-┌─ 能力层（lark-cli）───────────────────────────────┐
-│ 23 域 · 28 个域 skill · schema 惰性查询 · 风险分级  │
-└────────────────────────────────────────────────────┘
-~~~
+```mermaid
+flowchart LR
+  A["<b>渠道层</b> · 插件<br/>收发 · 卡片 · 流式 · ask_user · 多图 post<br/>去重 · 耐久入站 · 限流重试 · footer 指标"]
+  B["<b>身份信封层</b> · 插件<br/>accountId → lark-cli profile（每轮注入 122 字符）<br/>bin/feishu-lark：强制 profile · 拒绝全局命令 · 围栏"]
+  C["<b>能力层</b> · lark-cli<br/>23 域 · 28 个域 skill<br/>schema 惰性查询 · 风险分级"]
+  A --> B --> C
+```
 
 ---
 
@@ -112,7 +119,7 @@
 
 **前置条件**：OpenClaw ≥ 2026.8.1；`lark-cli`（`npm i -g @larksuite/cli`）；agent 有 exec 权限。
 
-~~~bash
+```bash
 # 1. 安装插件
 openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2 --accept-capabilities
 
@@ -126,7 +133,7 @@ openclaw config set channels.feishu.appSecret xxx
 # 4. 体检
 #    /feishu larkcli status   → 每个账号的 profile / appId / token 状态
 #    /feishu doctor           → 渠道 + 权限 + 连通性
-~~~
+```
 
 装完插件后 agent 自带三个 skill：`feishu-cli`（业务入口与身份约定）、`feishu-channel-rules`（飞书输出格式）、`feishu-troubleshoot`（排障）。
 
@@ -136,7 +143,7 @@ openclaw config set channels.feishu.appSecret xxx
 
 ### 多 bot / 多账号
 
-~~~jsonc
+```jsonc
 {
   "channels": {
     "feishu": {
@@ -154,9 +161,10 @@ openclaw config set channels.feishu.appSecret xxx
     }
   }
 }
-~~~
+```
 
-账号 id 就是 lark-cli 的 profile 名。若该 appId 已被 `config bind` 绑成别的 profile 名，插件会自动沿用已有名字（lark-cli 不允许一个 appId 两个 profile）。
+> [!NOTE]
+> 账号 id 就是 lark-cli 的 profile 名。若该 appId 已被 `config bind` 绑成别的 profile 名，插件会自动沿用已有名字（lark-cli 不允许一个 appId 两个 profile）。
 
 ### `larkCli.prompt` 四档
 
@@ -177,16 +185,16 @@ openclaw config set channels.feishu.appSecret xxx
 
 插件声明的能力面变了（工具列表 38 → 1），OpenClaw 会要求重新确认。看到下面这条时：
 
-~~~text
+```text
 Plugin "openclaw-lark-2" requires capability consent; disable and re-enable it
 or run: openclaw plugins enable openclaw-lark-2 --accept-capabilities
-~~~
+```
 
 执行一次确认即可：
 
-~~~bash
+```bash
 openclaw plugins enable openclaw-lark-2 --accept-capabilities
-~~~
+```
 
 在飞书里也可以：`/plugins enable openclaw-lark-2 --accept-capabilities`。
 
