@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { FeishuConfigSchema } = require("../../src/core/config-schema.js");
 
-describe("tools flags / mcpEndpoint survive schema validation", () => {
+describe("tools flags / larkCli survive schema validation", () => {
   it("preserves tools.mail / sheets / okr (previously stripped)", () => {
     const out = FeishuConfigSchema.parse({
       tools: { doc: true, sheets: false, mail: false, okr: true },
@@ -13,13 +13,21 @@ describe("tools flags / mcpEndpoint survive schema validation", () => {
     expect(out.tools.okr).toBe(true);
   });
 
-  it("preserves mcpEndpoint and the legacy mcp_url", () => {
-    const out = FeishuConfigSchema.parse({
+  it("drops the retired MCP endpoint override", () => {
+    // The MCP doc-tool transport (and mcpEndpoint / mcp_url) was removed with
+    // feishu_create_doc/fetch_doc/update_doc; lark-cli 'docs' replaced it.
+    const out: Record<string, unknown> = FeishuConfigSchema.parse({
       mcpEndpoint: "https://x/mcp",
       mcp_url: "https://legacy/mcp",
     });
-    expect(out.mcpEndpoint).toBe("https://x/mcp");
-    expect(out.mcp_url).toBe("https://legacy/mcp");
+    expect(out.mcpEndpoint).toBeUndefined();
+    expect(out.mcp_url).toBeUndefined();
+  });
+
+  it("preserves the larkCli block (prompt mode included)", () => {
+    const out = FeishuConfigSchema.parse({ larkCli: { enabled: "auto", prompt: "compact" } });
+    expect(out.larkCli.enabled).toBe("auto");
+    expect(out.larkCli.prompt).toBe("compact");
   });
 });
 

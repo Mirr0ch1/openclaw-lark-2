@@ -216,11 +216,11 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
     connectionMode: ConnectionModeEnum.optional(),
     webhookPath: zod_1.z.string().optional(),
     webhookPort: zod_1.z.number().optional(),
-    // MCP doc-tool endpoint override (read by tools/mcp/shared.js). `mcp_url`
-    // is the legacy alias. Without declaring these the host strips them and the
-    // documented `channels.feishu.mcpEndpoint` path is unreachable.
-    mcpEndpoint: zod_1.z.string().optional(),
-    mcp_url: zod_1.z.string().optional(),
+    // The MCP doc-tool transport (and its endpoint override) was removed in
+    // 2026.10.10 together with feishu_create_doc/fetch_doc/update_doc: those
+    // went through a remote MCP gateway while every other tool used the OpenAPI
+    // client — two transports, two failure modes, two scope paths. lark-cli
+    // 'docs' covers the capability now.
     // Opt-in durable inbound admission (host ingress queue). Default off.
     durableIngress: zod_1.z.boolean().optional(),
     dmPolicy: DmPolicyEnum.optional(),

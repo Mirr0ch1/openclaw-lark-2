@@ -42,7 +42,7 @@ OpenClaw 2.0（2026.8.1）重构了插件 SDK：
 
 官方 `@larksuite/openclaw-lark` 未跟进，在 2.0 下**无法加载**，卡片 footer 指标也随之消失。本分支针对 2.0 SDK 全面适配，开箱即用。
 
-不仅如此：本分支以 OpenClaw 官方 `@openclaw/feishu` 为参照，对自身代码做了一轮系统性重构加固 —— 既保留字节全家桶最完整的飞书能力（**38 个工具 / 22 种入站消息转换器 / 多图合并 post / CardKit 流式卡片**），又补齐官方级的健壮性与安全：**全量出站 SSRF 防护**（DNS pinning + 私网阻断 + 重定向校验）、**SQLite 持久化去重**（重启不再重复处理）、**耐久入站队列**（`durableIngress`，崩溃不丢消息）、**入站 debounce 合并**（连续短消息合成一条，减少刷屏），并逐项对齐官方的可靠性原语（发送限流重试、撤回回复回退、读权限策略、工具结果围栏）。**结果是：飞书能力覆盖面超过两家，安全与健壮性对齐、多数超过 OpenClaw 官方插件。**
+不仅如此：本分支以 OpenClaw 官方 `@openclaw/feishu` 为参照，对自身代码做了一轮系统性重构加固 —— 既保留字节全家桶最完整的飞书能力（**22 种入站消息转换器 / 多图合并 post / CardKit 流式卡片 / 23 个域经 lark-cli 按需调用**），又补齐官方级的健壮性与安全：**全量出站 SSRF 防护**（DNS pinning + 私网阻断 + 重定向校验）、**SQLite 持久化去重**（重启不再重复处理）、**耐久入站队列**（`durableIngress`，崩溃不丢消息）、**入站 debounce 合并**（连续短消息合成一条，减少刷屏），并逐项对齐官方的可靠性原语（发送限流重试、撤回回复回退、读权限策略、工具结果围栏）。**结果是：飞书能力覆盖面超过两家，安全与健壮性对齐、多数超过 OpenClaw 官方插件。**
 
 ---
 
@@ -178,7 +178,7 @@ openclaw plugins install openclaw-lark-2-2026.10.9.tgz
 | 版本 | **2026.10.9** | 2026.8.1 | 2026.7.16 |
 | OpenClaw 兼容 | **≥2026.8.1（2.0 原生）** | ≥2026.8.1（2.0 原生） | ≥2026.5.4（1.x，2.0 下无法加载） |
 | Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃） |
-| 契约工具数 | **38** | 14 | 39 |
+| 契约工具数 | **15**（业务能力走 lark-cli，目标收敛到 1） | 14 | 39 |
 | calendar / task / sheets | ✅ | ❌ | ✅ |
 | im 收发 / 搜索工具 | ✅ 6 | ❌（走 channel action） | ✅ 6 |
 | 入站消息转换器 | **22 种** | 部分 | 22 种 |
@@ -201,7 +201,7 @@ openclaw plugins install openclaw-lark-2-2026.10.9.tgz
 
 ### 取长补短的思路
 
-1. **工具面 = 字节 7.16 全家桶**：38 个工具覆盖 im / doc / wiki / drive / bitable / calendar / task / sheets / search / oauth；官方 2.0 只有 14 个。唯一移除的是字节自研 `feishu_ask_user_question`（已被内置 `ask_user` 按钮渲染取代）。
+1. **工具面正在收敛到 lark-cli**：原先 38 个工具覆盖 im / doc / wiki / drive / bitable / calendar / task / sheets / search / oauth，每轮常驻约 2 万 token schema；其中 23 个已被 `lark-cli` 完全覆盖且插件自己的 skill 已标注"停用"，**2026.10.10 起下线**（doc×3 / bitable×5 / calendar×4 / task×7 / im 读取×3 / 文档搜索×1）。当前 15 个，M3 后只剩 1 个（`feishu_auth`，负责聊天内 device-flow 授权）。账号 → lark-cli profile 的映射由插件每轮注入并在 `bin/feishu-lark` 强制校验。
 2. **架构 = 官方 2.0 原生适配**：完整使用 OpenClaw 2.0 SDK；字节 7.16 因用 `loadConfig` 在 2.0 下直接无法加载。
 3. **交互增强（两家都没有）**：内置 `ask_user` 按钮卡片；工具动态展示默认开启；PIN 消息操作。
 4. **安全补强（取官方）**：`fetchWithSsrFGuard` 应用到**全部**出站请求；官方仅用于 CardKit 与 app 注册，字节只有手写 IPv4 检查。
@@ -340,7 +340,7 @@ openclaw plugins install openclaw-lark-2-2026.10.9.tgz
 <details>
 <summary><b>2026.10.3</b> · 2026-10-03 · 内置 Skills 重构为 lark-cli 薄指针 + 渠道格式规则常驻</summary>
 
-内置 skill 全面重构为以 `lark-cli` 为唯一操作入口：`feishu-create-doc` / `feishu-fetch-doc` / `feishu-update-doc` 合并为 `feishu-doc`（原三者引用的 `feishu_mcp_*` 工具名早已失效）；`feishu-bitable` / `feishu-calendar` / `feishu-im-read` / `feishu-task` 改为指向对应 `lark-cli <domain>` 与官方 `lark-*` skill，仅保留渠道特有知识。新增「lark-cli 缺失」兜底提示（引导安装 `@larksuite/cli`，而非回退已停用工具）。修复 `feishu-channel-rules` 的失效 `alwaysActive` 字段——改为通过 `agentPrompt.inboundFormattingHints` **每轮注入** Lark 卡片格式规则；更正标题自动降级、图片 URL 自动转 key 两处过时说明。skill 体积 4803 → 538 行。（15 文件 / 128 用例）
+内置 skill 收敛为 3 个（`feishu-cli` 路由 / `feishu-channel-rules` 输出格式 / `feishu-troubleshoot` 排障），业务域用法改为按需 `lark-cli skills read lark-<域>`。早期以 `lark-cli` 为唯一操作入口的重构：`feishu-create-doc` / `feishu-fetch-doc` / `feishu-update-doc` 合并为 `feishu-doc`（原三者引用的 `feishu_mcp_*` 工具名早已失效）；`feishu-bitable` / `feishu-calendar` / `feishu-im-read` / `feishu-task` 改为指向对应 `lark-cli <domain>` 与官方 `lark-*` skill，仅保留渠道特有知识。新增「lark-cli 缺失」兜底提示（引导安装 `@larksuite/cli`，而非回退已停用工具）。修复 `feishu-channel-rules` 的失效 `alwaysActive` 字段——改为通过 `agentPrompt.inboundFormattingHints` **每轮注入** Lark 卡片格式规则；更正标题自动降级、图片 URL 自动转 key 两处过时说明。skill 体积 4803 → 538 行。（15 文件 / 128 用例）
 
 </details>
 

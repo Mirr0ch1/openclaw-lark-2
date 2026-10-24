@@ -107,6 +107,30 @@ function profileOf(argv) {
   return undefined;
 }
 
+/**
+ * The single configured profile, or null when the store is empty or ambiguous.
+ * Used only on the error path (caller forgot --profile), so one extra spawn is
+ * acceptable — and it makes 'prompt: off' safe for single-account installs.
+ */
+function onlyProfile() {
+  const bin = resolveBinary();
+  if (!bin) return null;
+  const env = { ...process.env };
+  if (!String(env.OPENCLAW_HOME || "").trim()) {
+    env.OPENCLAW_HOME = path.join(process.env.HOME || os.homedir(), ".openclaw");
+  }
+  const res = spawnSync(bin, ["profile", "list"], { encoding: "utf8", timeout: 8000, env });
+  if (res.status !== 0 || !res.stdout) return null;
+  try {
+    const list = JSON.parse(res.stdout);
+    if (!Array.isArray(list) || list.length !== 1) return null;
+    const name = list[0] && list[0].name;
+    return typeof name === "string" && name.trim() ? name.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 function resolveBinary() {
   if (process.env.LARK_CLI_BIN) return process.env.LARK_CLI_BIN;
   const exts = process.platform === "win32" ? [".cmd", ".exe", ""] : [""];
@@ -163,15 +187,27 @@ function main() {
     return 2;
   }
 
-  const profile = profileOf(argv);
+  let profile = profileOf(argv);
   if (!profile || !String(profile).trim()) {
-    process.stderr.write(
-      "feishu-lark: --profile <account> is required.\n" +
-        "This gateway serves several Feishu apps; omitting the profile would\n" +
-        "silently fall back to another account's credentials.\n\n" +
-        USAGE,
-    );
-    return 2;
+    // Single-account installs (the common case) have exactly one profile, so
+    // there is nothing to get wrong: adopt it and say so. With two or more the
+    // call is ambiguous and must fail loudly — that ambiguity is the whole
+    // reason this wrapper exists.
+    const only = onlyProfile();
+    if (!only) {
+      process.stderr.write(
+        "feishu-lark: --profile <account> is required.\n" +
+          "This gateway serves several Feishu apps; omitting the profile would\n" +
+          "silently fall back to another account's credentials.\n\n" +
+          USAGE,
+      );
+      return 2;
+    }
+    profile = only;
+    // Make the identity explicit for the child too: never rely on the CLI's
+    // "last active profile" fallback.
+    argv.unshift("--profile", only);
+    process.stderr.write("feishu-lark: no --profile given; using the only configured profile '" + only + "'.\n");
   }
 
   const bin = resolveBinary();

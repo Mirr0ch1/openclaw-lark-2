@@ -11,7 +11,18 @@ description: |
 
 # 飞书插件（渠道）问题排查
 
-> 本 skill 只覆盖**插件/渠道自身**的排障。飞书 API 操作（文档、表格、任务、日历等）的性能或权限问题，请走对应的 lark-cli 业务 skill（先用 `lark-shared` 处理认证与 scope）。
+> 本 skill 只覆盖**插件/渠道自身**的排障。飞书业务操作（文档、表格、任务、日历等）见 `feishu-cli` skill。
+
+## 快速体检命令
+
+| 命令 | 作用 |
+|---|---|
+| `/feishu doctor` | 账户配置 / API 连通性 / 应用权限 / 用户授权 |
+| `/feishu larkcli status` | **账号 → lark-cli profile 映射**（含 appId 漂移、token 状态、用的是哪个 profile 存储） |
+| `/feishu larkcli sync` | 重建/修复 profile（凭证缺失会自动补） |
+| `/feishu diagnose` | 深度诊断报告 |
+
+**"模型说找不到飞书能力"**：插件只保留 15 个工具（`feishu_auth`、chat/wiki/drive/sheets 读写等），文档/表格/任务/日历一律走 `feishu-cli` skill + `bin/feishu-lark`。先确认 `lark-cli --version` 可用，再跑 `/feishu larkcli status` 看映射是否就绪。
 
 ## FAQ：卡片按钮点击无反应
 

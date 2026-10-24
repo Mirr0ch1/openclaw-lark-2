@@ -14,7 +14,6 @@ const plugin_sdk_1 = require("openclaw/plugin-sdk/core");
 const plugin_1 = require("./src/channel/plugin.js");
 const lark_client_1 = require("./src/core/lark-client.js");
 const index_1 = require("./src/tools/oapi/index.js");
-const index_2 = require("./src/tools/mcp/doc/index.js");
 const oauth_1 = require("./src/tools/oauth.js");
 const oauth_batch_auth_1 = require("./src/tools/oauth-batch-auth.js");
 const diagnose_1 = require("./src/commands/diagnose.js");
@@ -108,8 +107,6 @@ const plugin = {
         // ========================================
         // Register OAPI tools (calendar, task - using Feishu Open API directly)
         (0, index_1.registerOapiTools)(api);
-        // Register MCP doc tools (using Model Context Protocol)
-        (0, index_2.registerFeishuMcpDocTools)(api);
         // Register OAuth tool (UAT device flow authorization)
         (0, oauth_1.registerFeishuOAuthTool)(api);
         // Register OAuth batch auth tool (batch authorization for all app scopes)

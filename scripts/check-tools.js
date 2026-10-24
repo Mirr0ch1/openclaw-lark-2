@@ -112,8 +112,7 @@ async function realSmoke() {
     const tc = createToolClient(cfg, 0);
     const tests = [
         { n: 'im.chat.list', api: 'feishu_im_chat.list', as: 'tenant', fn: (s) => s.im.v1.chat.list({ params: { page_size: 1 } }) },
-        { n: 'calendar.list', api: 'feishu_calendar_calendar.list', as: 'tenant', fn: (s) => s.calendar.calendar.list({ params: { page_size: 1 } }) },
-        { n: 'task.list', api: 'feishu_task_task.list', as: 'tenant', fn: (s) => s.task.v2.task.list({ params: { page_size: 1 } }) },
+        { n: 'sheets.meta', api: 'feishu_sheet.info', as: 'tenant', fn: (s) => s.sheets.v3.spreadsheet.get({ path: { spreadsheet_token: 'shtcn_dryrun' } }) },
         { n: 'wiki.space.list', api: 'feishu_wiki_space.list', as: 'tenant', fn: (s) => s.wiki.space.list({ params: { page_size: 1 } }) },
         { n: 'drive.file.list', api: 'feishu_drive_file.list', as: 'tenant', fn: (s) => s.drive.file.list({ params: { page_size: 1 } }) },
     ];

@@ -19,6 +19,7 @@ const { wrapperPath } = require("../../src/larkcli/profiles.js");
 const wrapper = join(__dirname, "..", "..", "bin", "feishu-lark");
 
 const ECHO_BIN = [
+  'if [ "$1" = "profile" ] && [ "$2" = "list" ]; then cat "$FAKE_PROFILES"; exit 0; fi',
   "#!/bin/sh",
   'for a in "$@"; do echo "arg:$a"; done',
   'echo "env:$OPENCLAW_HOME"',
@@ -39,11 +40,14 @@ function runW(args: string[], env: Record<string, string> = {}) {
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "lark2-wrapper-"));
   fakeBin = join(dir, "fake-lark-cli");
+  writeFileSync(join(dir, "profiles.json"), "[]");
+  process.env.FAKE_PROFILES = join(dir, "profiles.json");
   writeFileSync(fakeBin, ECHO_BIN);
   chmodSync(fakeBin, 0o755);
 });
 
 afterEach(() => {
+  delete process.env.FAKE_PROFILES;
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -119,5 +123,21 @@ describe("feishu-lark wrapper", () => {
     const res = runW(["--profile", "plaud", "whoami"], { OPENCLAW_HOME: "", HOME: dir });
     expect(res.status).toBe(0);
     expect(res.stdout).toContain("env:" + join(dir, ".openclaw"));
+  });
+
+  it("adopts the only profile when --profile is omitted (single-account install)", () => {
+    writeFileSync(process.env.FAKE_PROFILES as string, JSON.stringify([{ name: "solo", appId: "cli_solo" }]));
+    const res = runW(["whoami"]);
+    expect(res.status).toBe(0);
+    expect(res.stdout).toContain("arg:--profile");
+    expect(res.stdout).toContain("arg:solo");
+    expect(res.stderr).toContain("using the only configured profile");
+  });
+
+  it("still refuses when the store has more than one profile", () => {
+    writeFileSync(process.env.FAKE_PROFILES as string, JSON.stringify([{ name: "a" }, { name: "b" }]));
+    const res = runW(["whoami"]);
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("--profile <account> is required");
   });
 });

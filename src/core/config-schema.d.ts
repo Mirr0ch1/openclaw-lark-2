@@ -95,8 +95,6 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
     }>>;
     webhookPath: z.ZodOptional<z.ZodString>;
     webhookPort: z.ZodOptional<z.ZodNumber>;
-    mcpEndpoint: z.ZodOptional<z.ZodString>;
-    mcp_url: z.ZodOptional<z.ZodString>;
     durableIngress: z.ZodOptional<z.ZodBoolean>;
     dmPolicy: z.ZodOptional<z.ZodEnum<{
         open: "open";
@@ -290,8 +288,6 @@ export declare const FeishuConfigSchema: z.ZodObject<{
     }>>;
     webhookPath: z.ZodOptional<z.ZodString>;
     webhookPort: z.ZodOptional<z.ZodNumber>;
-    mcpEndpoint: z.ZodOptional<z.ZodString>;
-    mcp_url: z.ZodOptional<z.ZodString>;
     durableIngress: z.ZodOptional<z.ZodBoolean>;
     dmPolicy: z.ZodOptional<z.ZodEnum<{
         open: "open";
@@ -484,8 +480,6 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         }>>;
         webhookPath: z.ZodOptional<z.ZodString>;
         webhookPort: z.ZodOptional<z.ZodNumber>;
-        mcpEndpoint: z.ZodOptional<z.ZodString>;
-        mcp_url: z.ZodOptional<z.ZodString>;
         durableIngress: z.ZodOptional<z.ZodBoolean>;
         dmPolicy: z.ZodOptional<z.ZodEnum<{
             open: "open";
