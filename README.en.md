@@ -1,6 +1,11 @@
 # openclaw-lark-2
 
-> Feishu / Lark channel plugin · native OpenClaw 2.0 · forked from Feishu's official `@larksuite/openclaw-lark`
+> Feishu / Lark channel plugin · native OpenClaw 2.0
+>
+> Forked from Feishu's official `@larksuite/openclaw-lark`. Upstream stopped at OpenClaw 1.x — this project finishes that road and takes it one step further:
+> **native 2.0 · 23 Feishu domains · one gateway serving several Feishu bots.**
+>
+> In one line: **capability belongs to lark-cli; identity and channel belong to the plugin.**
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@mirr0ch1/openclaw-lark-2"><img alt="version" src="https://img.shields.io/badge/version-2026.10.10-blue"></a>
@@ -12,9 +17,7 @@
 
 ## Important
 
-> **2026.10.10 is a breaking refactor**: registered tools went from 38 to 1; Feishu business capability is now provided by `lark-cli`, and the plugin keeps only the channel, identity and authorization.
->
-> **Upgrading from a version before 2026.10.10? Read [Migrating from before 2026.10.10](#migrating-from-before-20261010) first** — it covers the capability-consent step triggered by the tool-list change.
+> **2026.10.10 is a breaking refactor.** Upgrading from a version before 2026.10.10? Read [Migrating from before 2026.10.10](#migrating-from-before-20261010) first — it covers the capability-consent step triggered by the tool-list change.
 
 ## Table of Contents
 
@@ -31,9 +34,9 @@
 
 | Dimension | **openclaw-lark-2** | **@openclaw/feishu** (OpenClaw) | **@larksuite/openclaw-lark** (Feishu) |
 |---|:---:|:---:|:---:|
-| Origin | fork of Feishu 7.16, rewritten for 2.0 | OpenClaw in-house | Feishu open source (no follow-up since 2026.7.16) |
+| Origin | fork of Feishu 7.16, rewritten for 2.0 | OpenClaw in-house | Feishu open source (abandoned by the official team after 2026.7.16) |
 | OpenClaw 2.0 | **✅ native 2.0 SDK** | ✅ native 2.0 | ❌ 1.x `loadConfig`, cannot load |
-| Domain coverage | **23 domains** | ~6 domains | 10 domains |
+| Domain coverage (Feishu ops) | **23 domains (lark-cli wired end to end)** | ~6 domains | 10 domains |
 | Per-turn tool cost | **1 tool / 479 chars ≈ 0.14k tokens** | 14 tools / ≈15–20k chars ≈ **4–6k tokens** (est.) | 39 tools / ≈65–70k chars ≈ **18–21k tokens** (est.) |
 | Delivery | **CLI on demand + 28 domain skills** | resident tools | resident tools |
 | Upgrade path | **plugin and capability decoupled — upgrade either, anytime** | tied to plugin releases | tied to plugin releases |
@@ -50,7 +53,7 @@
 
 > Token figures are the per-turn tool-schema payload: measured for this plugin (`scripts/check-tools.js`), estimated for the two official ones from tool count and parameter-definition size (~1–1.8 KB schema per tool).
 
-### Rows that need a sentence of explanation
+### Details
 
 **OpenClaw 2.0.** Upstream is stuck on the 1.x `loadConfig` plugin API; 2.0 replaced the plugin model, so upstream code **cannot load**. This project is a native 2.0 implementation, not just "it runs":
 
