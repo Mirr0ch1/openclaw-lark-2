@@ -22,7 +22,7 @@ description: |
 | `/feishu larkcli sync` | 重建/修复 profile（凭证缺失会自动补） |
 | `/feishu diagnose` | 深度诊断报告 |
 
-**"模型说找不到飞书能力"**：插件只保留 15 个工具（`feishu_auth`、chat/wiki/drive/sheets 读写等），文档/表格/任务/日历一律走 `feishu-cli` skill + `bin/feishu-lark`。先确认 `lark-cli --version` 可用，再跑 `/feishu larkcli status` 看映射是否就绪。
+**"模型说找不到飞书能力"**：插件只保留 **1 个工具**（`feishu_auth`，负责聊天内授权），文档/表格/任务/日历/消息一律走 `feishu-cli` skill + `bin/feishu-lark`。先确认 `lark-cli --version` 可用，再跑 `/feishu larkcli status` 看映射是否就绪。
 
 ## FAQ：卡片按钮点击无反应
 

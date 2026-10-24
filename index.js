@@ -13,9 +13,7 @@ exports.isMessageExpired = exports.checkMessageGate = exports.parseMessageEvent 
 const plugin_sdk_1 = require("openclaw/plugin-sdk/core");
 const plugin_1 = require("./src/channel/plugin.js");
 const lark_client_1 = require("./src/core/lark-client.js");
-const index_1 = require("./src/tools/oapi/index.js");
-const oauth_1 = require("./src/tools/oauth.js");
-const oauth_batch_auth_1 = require("./src/tools/oauth-batch-auth.js");
+const auth_1 = require("./src/tools/auth.js");
 const diagnose_1 = require("./src/commands/diagnose.js");
 const index_3 = require("./src/commands/index.js");
 const profiles_1 = require("./src/larkcli/profiles.js");
@@ -105,12 +103,11 @@ const plugin = {
             log.warn('ensureStableWrapper failed (ignored): ' + (err instanceof Error ? err.message : String(err)));
         }
         // ========================================
-        // Register OAPI tools (calendar, task - using Feishu Open API directly)
-        (0, index_1.registerOapiTools)(api);
-        // Register OAuth tool (UAT device flow authorization)
-        (0, oauth_1.registerFeishuOAuthTool)(api);
-        // Register OAuth batch auth tool (batch authorization for all app scopes)
-        (0, oauth_batch_auth_1.registerFeishuOAuthBatchAuthTool)(api);
+        // Tool surface is deliberately tiny: every Lark business operation goes
+        // through lark-cli (see skills/feishu-cli + bin/feishu-lark). The only
+        // capability a CLI cannot offer from inside a chat is asking the user to
+        // authorize in a place they can tap, so feishu_auth is all we register.
+        (0, auth_1.registerFeishuAuthTool)(api);
         // These hooks are purely diagnostic (tool-usage tracing). OpenClaw treats
         // `before_tool_call` as fail-closed: if a plugin handler throws, the whole
         // tool call is blocked — for EVERY tool, not just ours. So the hook body

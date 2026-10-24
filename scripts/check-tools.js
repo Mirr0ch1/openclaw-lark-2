@@ -104,39 +104,26 @@ function sdkPathCheck() {
 }
 
 // ---------------------------------------------------------------------------
-// Layer 3 — real read-only smoke via ToolClient
+// Layer 3 — CLI delegation smoke (the plugin's real integration path now)
 // ---------------------------------------------------------------------------
-async function realSmoke() {
-    const { createToolClient } = require(path.join(root, 'src', 'core', 'tool-client.js'));
+async function cliSmoke() {
+    const profiles = require(path.join(root, 'src', 'larkcli', 'profiles.js'));
     const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-    const tc = createToolClient(cfg, 0);
-    const tests = [
-        { n: 'im.chat.list', api: 'feishu_im_chat.list', as: 'tenant', fn: (s) => s.im.v1.chat.list({ params: { page_size: 1 } }) },
-        { n: 'sheets.meta', api: 'feishu_sheet.info', as: 'tenant', fn: (s) => s.sheets.v3.spreadsheet.get({ path: { spreadsheet_token: 'shtcn_dryrun' } }) },
-        { n: 'wiki.space.list', api: 'feishu_wiki_space.list', as: 'tenant', fn: (s) => s.wiki.space.list({ params: { page_size: 1 } }) },
-        { n: 'drive.file.list', api: 'feishu_drive_file.list', as: 'tenant', fn: (s) => s.drive.file.list({ params: { page_size: 1 } }) },
-    ];
-    console.log('[真实冒烟] read-only ToolClient calls:');
-    for (const t of tests) {
-        try {
-            const res = await tc.invoke(t.api, t.fn, { as: t.as });
-            console.log(`  ${t.n}: OK code=${res && res.code}`);
-        }
-        catch (e) {
-            const msg = String((e && e.message) || e).replace(/\n/g, ' ').slice(0, 90);
-            const cls = String(e && e.name || 'Error');
-            const scope = /缺少权限|scope|permission|Forbidden|99991400/i.test(msg);
-            const userAuth = /need_user_authorization|user.*auth|请先授权/i.test(msg);
-            console.log(`  ${t.n}: ${scope ? '缺scope(链路OK)' : userAuth ? '需用户授权' : '异常'} [${cls}] ${msg.slice(0, 70)}`);
-        }
+    const bin = profiles.resolveLarkCliBinary(cfg);
+    console.log('[CLI委派] lark-cli:', bin || 'NOT FOUND');
+    if (!bin) return { ok: false };
+    console.log('  wrapper:', profiles.wrapperPath());
+    const rows = profiles.healthCheck(cfg);
+    for (const r of rows) {
+        console.log(`  ${r.accountId} -> profile ${r.profile}: ${r.ok ? 'OK' : 'FAIL'} ${r.identity || ''} ${r.error || ''}`);
     }
-    return { ok: true };
+    return { ok: rows.every((r) => r.ok) };
 }
 
 (async () => {
     console.log('=== openclaw-lark-2 工具 dry-run ===');
     const r1 = registrationCheck();
     const r2 = sdkPathCheck();
-    await realSmoke();
-    console.log('\n结论:', r1.ok && r2.ok ? '注册层 + SDK 路径均通过' : '发现问题，见上');
+    const r3 = await cliSmoke();
+    console.log('\n结论:', r1.ok && r2.ok && r3.ok ? '注册层 + SDK 路径 + CLI 委派均通过' : '发现问题，见上');
 })();

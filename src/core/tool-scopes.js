@@ -68,63 +68,9 @@ exports.filterSensitiveScopes = filterSensitiveScopes;
  * @see {@link ToolActionKey} 所有可用的工具动作键
  */
 exports.TOOL_SCOPES = {
-                                                                                                                                                                                                                                                                    'feishu_chat.search': ['im:chat:read'],
-    'feishu_chat.get': ['im:chat:read'],
-    'feishu_chat_members.default': ['im:chat.members:read'],
-    'feishu_drive_file.list': ['space:document:retrieve'],
-    'feishu_drive_file.get_meta': ['drive:drive.metadata:readonly'],
-    'feishu_drive_file.copy': ['docs:document:copy'],
-    'feishu_drive_file.move': ['space:document:move'],
-    'feishu_drive_file.delete': ['space:document:delete'],
-    'feishu_drive_file.upload': ['drive:file:upload'],
-    'feishu_drive_file.download': ['drive:file:download'],
-    'feishu_doc_media.download': ['board:whiteboard:node:read', 'docs:document.media:download'],
-    'feishu_doc_media.insert': ['docx:document:write_only', 'docs:document.media:upload'],
-    'feishu_doc_comments.list': ['wiki:node:read', 'docs:document.comment:read'],
-    'feishu_doc_comments.list_replies': ['wiki:node:read', 'docs:document.comment:read'],
-    'feishu_doc_comments.create': ['wiki:node:read', 'docs:document.comment:create'],
-    'feishu_doc_comments.reply': ['wiki:node:read', 'docs:document.comment:create'],
-    'feishu_doc_comments.patch': ['docs:document.comment:update'],
-    'feishu_wiki_space.list': ['wiki:space:retrieve'],
-    'feishu_wiki_space.get': ['wiki:space:read'],
-    'feishu_wiki_space.create': ['wiki:space:write_only'],
-    'feishu_wiki_space_node.list': ['wiki:node:retrieve'],
-    'feishu_wiki_space_node.get': ['wiki:node:read'],
-    'feishu_wiki_space_node.create': ['wiki:node:create'],
-    'feishu_wiki_space_node.move': ['wiki:node:move'],
-    'feishu_wiki_space_node.copy': ['wiki:node:copy'],
-    'feishu_im_user_message.send': ['im:message', 'im:message.send_as_user'],
-    'feishu_im_user_message.reply': ['im:message', 'im:message.send_as_user'],
-    'feishu_im_user_fetch_resource.default': [
-        'im:message.group_msg:get_as_user',
-        'im:message.p2p_msg:get_as_user',
-        'im:message:readonly',
-    ],
-                'feishu_get_user.basic_batch': ['contact:user.basic_profile:readonly'],
-    'feishu_get_user.default': ['contact:contact.base:readonly', 'contact:user.base:readonly'],
-    'feishu_search_user.default': ['contact:user:search'],
-                'feishu_sheet.info': ['sheets:spreadsheet.meta:read', 'sheets:spreadsheet:read'],
-    'feishu_sheet.read': ['sheets:spreadsheet.meta:read', 'sheets:spreadsheet:read'],
-    'feishu_sheet.write': [
-        'sheets:spreadsheet.meta:read',
-        'sheets:spreadsheet:read',
-        'sheets:spreadsheet:create',
-        'sheets:spreadsheet:write_only',
-    ],
-    'feishu_sheet.append': [
-        'sheets:spreadsheet.meta:read',
-        'sheets:spreadsheet:read',
-        'sheets:spreadsheet:create',
-        'sheets:spreadsheet:write_only',
-    ],
-    'feishu_sheet.find': ['sheets:spreadsheet.meta:read', 'sheets:spreadsheet:read'],
-    'feishu_sheet.create': [
-        'sheets:spreadsheet.meta:read',
-        'sheets:spreadsheet:read',
-        'sheets:spreadsheet:create',
-        'sheets:spreadsheet:write_only',
-    ],
-    'feishu_sheet.export': ['docs:document:export'],
+    // Empty by design: the plugin registers exactly one tool (feishu_auth),
+    // which needs no app scope. Every Lark business operation now runs through
+    // lark-cli, so scope requirements live with that app, not here.
 };
 // ===== 必需的应用身份权限 =====
 /**

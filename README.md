@@ -178,7 +178,7 @@ openclaw plugins install openclaw-lark-2-2026.10.9.tgz
 | 版本 | **2026.10.9** | 2026.8.1 | 2026.7.16 |
 | OpenClaw 兼容 | **≥2026.8.1（2.0 原生）** | ≥2026.8.1（2.0 原生） | ≥2026.5.4（1.x，2.0 下无法加载） |
 | Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃） |
-| 契约工具数 | **15**（业务能力走 lark-cli，目标收敛到 1） | 14 | 39 |
+| 契约工具数 | **1**（业务能力全部走 lark-cli，插件只留 `feishu_auth`） | 14 | 39 |
 | calendar / task / sheets | ✅ | ❌ | ✅ |
 | im 收发 / 搜索工具 | ✅ 6 | ❌（走 channel action） | ✅ 6 |
 | 入站消息转换器 | **22 种** | 部分 | 22 种 |
@@ -201,7 +201,7 @@ openclaw plugins install openclaw-lark-2-2026.10.9.tgz
 
 ### 取长补短的思路
 
-1. **工具面正在收敛到 lark-cli**：原先 38 个工具覆盖 im / doc / wiki / drive / bitable / calendar / task / sheets / search / oauth，每轮常驻约 2 万 token schema；其中 23 个已被 `lark-cli` 完全覆盖且插件自己的 skill 已标注"停用"，**2026.10.10 起下线**（doc×3 / bitable×5 / calendar×4 / task×7 / im 读取×3 / 文档搜索×1）。当前 15 个，M3 后只剩 1 个（`feishu_auth`，负责聊天内 device-flow 授权）。账号 → lark-cli profile 的映射由插件每轮注入并在 `bin/feishu-lark` 强制校验。
+1. **工具面正在收敛到 lark-cli**：原先 38 个工具覆盖 im / doc / wiki / drive / bitable / calendar / task / sheets / search / oauth，每轮常驻约 2 万 token schema；其中 23 个已被 `lark-cli` 完全覆盖且插件自己的 skill 已标注"停用"，**2026.10.10 起全部下线**（doc×3 / bitable×5 / calendar×4 / task×7 / im 读取×3 / 文档搜索×1，以及 drive / sheets / wiki / contact / chat / media 共 36 个）。现在只剩 **1 个**：`feishu_auth`（聊天内 device-flow 授权）—— CLI 做不了的唯一一件事。账号 → lark-cli profile 的映射由插件每轮注入并在 `bin/feishu-lark` 强制校验。
 2. **架构 = 官方 2.0 原生适配**：完整使用 OpenClaw 2.0 SDK；字节 7.16 因用 `loadConfig` 在 2.0 下直接无法加载。
 3. **交互增强（两家都没有）**：内置 `ask_user` 按钮卡片；工具动态展示默认开启；PIN 消息操作。
 4. **安全补强（取官方）**：`fetchWithSsrFGuard` 应用到**全部**出站请求；官方仅用于 CardKit 与 app 注册，字节只有手写 IPv4 检查。
