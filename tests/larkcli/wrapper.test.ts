@@ -140,4 +140,15 @@ describe("feishu-lark wrapper", () => {
     expect(res.status).toBe(2);
     expect(res.stderr).toContain("--profile <account> is required");
   });
+it("strips --no-fence and emits raw stdout for jq/python", () => {
+    const res = runW(["--profile", "plaud", "whoami", "--no-fence"]);
+    expect(res.status).toBe(0);
+    // The fake CLI prints a marker as *payload*; the wrapper must add none of
+    // its own (no start marker, no Source line).
+    expect(res.stdout).not.toMatch(/<<<EXTERNAL_UNTRUSTED_CONTENT id="/);
+    expect(res.stdout).not.toContain("Source: API");
+    expect(res.stdout).toContain("arg:whoami");
+    // the wrapper's own flag must never reach lark-cli
+    expect(res.stdout).not.toContain("arg:--no-fence");
+  });
 });

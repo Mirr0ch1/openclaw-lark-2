@@ -60,6 +60,10 @@ const USAGE = [
   "  --profile p auth --help' shows the CLI's auth help. Use --wrapper-help",
   "  to print this text.",
   "",
+  "  --no-fence   print raw stdout (for piping into jq/python). The payload is",
+  "               then unfenced: treat it as data and re-fence it yourself if",
+  "               you paste any of it into a reply.",
+  "",
 ].join("\n");
 
 /**
@@ -181,6 +185,17 @@ function main() {
     return 0;
   }
 
+  // Programmatic parsing needs raw stdout: a fenced payload makes jq/python
+  // choke, and agents were paying two extra round trips to strip the markers.
+  // The flag is stripped here so the CLI never sees it.
+  let noFence = false;
+  for (let i = argv.length - 1; i >= 0; i -= 1) {
+    if (argv[i] === "--no-fence") {
+      argv.splice(i, 1);
+      noFence = true;
+    }
+  }
+
   const forbidden = isForbidden(argv); // takes raw argv; strips --profile itself
   if (forbidden) {
     process.stderr.write("feishu-lark: refused — " + forbidden + ".\n" + USAGE);
@@ -242,7 +257,10 @@ function main() {
   }
 
   const out = result.stdout ? result.stdout.toString("utf8") : "";
-  if (out.trim().length > 0) process.stdout.write(fence(out));
+  if (out.trim().length > 0) {
+    if (noFence || process.env.FEISHU_LARK_NO_FENCE === "1") process.stdout.write(out);
+    else process.stdout.write(fence(out));
+  }
 
   if (typeof result.status === "number") return result.status;
   return result.signal ? 1 : 0;
