@@ -1,9 +1,6 @@
 # openclaw-lark-2
 
-> 飞书 / Lark 渠道插件 · OpenClaw 2.0 原生
->
-> 从飞书官方 `@larksuite/openclaw-lark` 分叉而来，把它没走完的路走完：
-> **OpenClaw 2.0 适配 · 比 OpenClaw 官方插件宽得多的能力面 · 让 lark-cli 真正能服务多个飞书 bot。**
+> 飞书 / Lark 渠道插件 · OpenClaw 2.0 原生 · 从飞书官方 `@larksuite/openclaw-lark` 分叉
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@mirr0ch1/openclaw-lark-2"><img alt="version" src="https://img.shields.io/badge/version-2026.10.10-blue"></a>
@@ -13,83 +10,20 @@
   <img alt="license" src="https://img.shields.io/badge/license-MIT-black">
 </p>
 
+## 重要通知
+
+> **2026.10.10 是一次重大重构**：注册工具 38 → 1，飞书业务能力改由 `lark-cli` 承担，插件只保留渠道、身份与授权。
+>
+> **从 2026.10.10 之前的版本升级的用户，请先读 [从 2026.10.10 之前的版本迁移](#从-20261010-之前的版本迁移)** —— 含工具列表变更后的 capability consent 处理。
+
 ## 目录
 
-- [这个项目为什么存在](#这个项目为什么存在)
-- [三条主线优势](#三条主线优势)
 - [三方对比](#三方对比)
 - [架构](#架构)
 - [快速开始](#快速开始)
 - [配置](#配置)
-- [2026.10 大重构：这次改了什么](#202610-大重构这次改了什么)
-- [从旧版迁移（38 → 1）](#从旧版迁移38--1)
+- [从 2026.10.10 之前的版本迁移](#从-20261010-之前的版本迁移)
 - [更新日志](#更新日志)
-
----
-
-## 这个项目为什么存在
-
-2026 年 7 月，飞书官方开源了 `@larksuite/openclaw-lark` —— 39 个工具，是当时最完整的飞书能力面。
-
-但它有一个硬伤：**插件 API 停在 OpenClaw 1.x**（`loadConfig` 那一代）。OpenClaw 2.0 换了插件模型（`runtime.config.current()`、`registerTool`、`agentPrompt`、channel actions），而**上游自 2026.7.16 之后没有再跟进 2.0 适配** —— 这条产品线在 2.0 上是断的：既装不上，也没人接。
-
-于是有了这个分支：**接着它的能力面往下走，同时把 OpenClaw 2.0 该有的东西补上。**
-
-走到 2026.10，这个项目长成了另一种形态：**飞书能力不再由插件自己实现，而是交给 `lark-cli`；插件只负责渠道工程、身份与授权。** 结果不是"功能变少"，而是 —— 能力从 10 个域变成 **23 个域**，而每轮上下文从 2 万 token 变成 **479 字符**。
-
----
-
-## 三条主线优势
-
-### 一、全面适配 OpenClaw 2.0（上游没做的那一半）
-
-这不是"能加载"级别的适配，而是把 2.0 的机制都用上：
-
-| 2.0 机制 | 本项目 | 上游 `@larksuite/openclaw-lark` |
-|---|---|---|
-| 插件入口 | `register()` + `runtime.config.current()` | `loadConfig()`（1.x） |
-| 工具注册 | `registerTool` / `registerCommand` | 1.x 工具表 |
-| 每轮上下文注入 | `agentPrompt.inboundFormattingHints({cfg, accountId})` | 无（`alwaysActive` 在 2.0 是无效字段） |
-| 渠道消息动作 | 实现 `feishuMessageActions`，接入核心 `message` 工具 | 无 |
-| 卡片交互回调 | `card.action.trigger` 全链路（含 `ask_user` 按钮、inject_prompt） | 部分 |
-| 宿主原语 | 直接使用 `plugin-sdk/*`（10.2 起 344 个子路径）：durable ingress、thread bindings、webhook、retry | 无 |
-
-**为什么重要**：在 OpenClaw 2.0 上，上游那份代码不是"体验差一点"，而是**装不上**。本项目是这条线唯一能跑的延续。
-
-### 二、能力面远宽于 OpenClaw 官方插件
-
-OpenClaw 官方 `@openclaw/feishu` 走的是"够用就好"：14 个工具，覆盖 doc / drive / wiki / chat / perm / bitable 少数域，**没有 calendar、task、sheets**。
-
-本项目覆盖 **23 个域**（docs / sheets / base / drive / im / task / calendar / wiki / contact / approval / mail / minutes / vc / okr / slides / whiteboard / markdown / mindnotes / note / event / attendance / apps / application），并且自带 28 个域 skill 按需加载 —— 模型不会背命令，用到哪个域就读哪个域的 skill。
-
-渠道侧也同样是"多出来"的部分：
-
-| 能力 | 本项目 | `@openclaw/feishu` |
-|---|---|---|
-| 入站消息转换器 | **22 种** | 部分 |
-| 群聊流式卡片 | **✅ `replyMode.group:"streaming"`** | ✅ |
-| 多图合并成一条 post | **✅ 默认** | ❌ 逐张 |
-| 内置 `ask_user` 按钮卡片 | **✅ 按钮 + "其他答案" + 群聊全员可交互** | ❌ 文本回退 |
-| 工具步骤动态展示 | **✅ 默认开** | ⚠️ 仅 verbose/preview |
-| PIN / unpin 消息 | **✅** | ✅ |
-| 持久化入站队列 | **✅ 可选（`durableIngress`）** | ✅ 默认开 |
-| 全量出站 SSRF 防护 | **✅ DNS pinning + 私网阻断 + 重定向校验** | ✅ 仅 CardKit / 注册 |
-
-### 三、全面结合 lark-cli —— 并且补上了它做不到的事
-
-`lark-cli` 是飞书官方的命令行工具，23 个域、28 个域 skill、`schema` 惰性查询、风险分级 —— 能力比任何插件都全。但它有一个结构性限制：
-
-> **它是"单 profile"的**：`profile use` 切换的是进程级全局状态，一次只能当一个飞书应用（bot）。
-
-也就是说，**一个 OpenClaw 网关想同时服务多个飞书 bot（不同 app），单靠 lark-cli 做不到。**
-
-本项目为此加了三层，让它真正变成多 bot 的执行层：
-
-1. **按调用选身份**：每个账号对应一个 lark-cli profile，调用时用 `--profile <账号>`（命令行级，不是全局切换）。
-2. **每轮注入身份**：插件把"这条消息属于哪个账号"写进 Message Context（122 字符），模型不需要猜、也不会忘。
-3. **命令行层强制**：`bin/feishu-lark` 没有 `--profile` 直接失败、拒绝 `profile use` 等全局命令、把 stdout 统一围栏。
-
-结果：**一个网关，多个飞书 bot，互不串号**；而且能力随 CLI 升级 —— `npm i -g @larksuite/cli` 就能拿到新域，不用等插件发版。
 
 ---
 
@@ -99,12 +33,12 @@ OpenClaw 官方 `@openclaw/feishu` 走的是"够用就好"：14 个工具，覆�
 |---|:---:|:---:|:---:|
 | 来源 | 飞书官方 7.16 的分支，重写为 2.0 原生 | OpenClaw 官方自研 | 飞书官方开源（2026.7.16 起未再跟进） |
 | OpenClaw 2.0 兼容 | **✅ 原生 2.0 SDK** | ✅ 原生 2.0 | ❌ 1.x `loadConfig`，2.0 下无法加载 |
-| 能力面 | **23 域（lark-cli）** | ~6 域 / 14 工具 | 10 域 / 39 工具 |
+| 能力面 | **23 域** | ~6 域 | 10 域 |
+| 每轮工具开销 | **1 个工具 / 479 字符 ≈ 0.14k token** | 14 个工具 / ≈1.5–2 万字符 ≈ **4–6k token**（估） | 39 个工具 / ≈6.5–7 万字符 ≈ **18–21k token**（估） |
 | 能力交付方式 | **CLI 按需调用 + 28 个域 skill** | 工具常驻 | 工具常驻 |
-| 每轮上下文开销 | **479 字符** | 14 个工具的 schema | 39 个工具的 schema |
+| 能力升级路径 | **插件与能力解耦，各自随时升级** | 随插件发版 | 随插件发版 |
 | 多 bot / 多账号 | **✅ `--profile` 按调用 + 强制校验** | ✅ `accountId` 参数 | ❌ |
 | 身份错配防护 | **✅ 缺 profile 直接失败** | ⚠️ 依赖调用方传参 | ❌ |
-| 能力升级路径 | **`npm i -g @larksuite/cli`** | 等插件发版 | 等插件发版 |
 | 用户授权（device flow） | **✅ 聊天内卡片 + `feishu_auth`** | ❌ | ✅ |
 | exec 输出围栏 | **✅ 包装器统一** | — | — |
 | 群聊流式卡片 | **✅** | ✅ | ❌ 默认 static |
@@ -114,7 +48,42 @@ OpenClaw 官方 `@openclaw/feishu` 走的是"够用就好"：14 个工具，覆�
 | 诊断 | **✅ `/feishu doctor`、`/feishu larkcli status`** | ✅ | ⚠️ |
 | 测试 | **✅ 61 文件 / 485 用例** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
 
-> 一句话选择建议：要**开箱即用、少装东西** → `@openclaw/feishu`；要**在 OpenClaw 2.0 上用完整飞书能力 + 多 bot + 长任务稳定** → 本项目。
+> token 数为每轮注入的工具 schema 体量：本插件为实测（`scripts/check-tools.js`），官方两家按工具数与参数定义体量估算（每工具 ≈1–1.8 KB schema）。能力面之外的渠道差异另见下表注释。
+
+### 表格里几行需要展开
+
+**OpenClaw 2.0 兼容。** 上游停在 1.x 的 `loadConfig` 插件 API；2.0 换了插件模型，所以上游代码在 2.0 下**无法加载**。本项目是原生 2.0 实现，不只是"能跑"：
+
+| 2.0 机制 | 本项目用法 |
+|---|---|
+| 插件入口 | `register()` + `runtime.config.current()` |
+| 工具 / 命令 | `registerTool`、`registerCommand` |
+| 每轮上下文 | `agentPrompt.inboundFormattingHints({cfg, accountId})`（`alwaysActive` 在 2.0 是无效字段） |
+| 渠道消息动作 | 实现 `feishuMessageActions`，接入核心 `message` 工具 |
+| 卡片交互 | `card.action.trigger` 全链路（`ask_user` 按钮、inject_prompt） |
+| 宿主原语 | 直接使用 `plugin-sdk/*`（10.2 起 344 个子路径）：durable ingress、thread bindings、webhook、retry |
+
+**能力面。** 本项目的 23 个域来自 lark-cli：docs / sheets / base / drive / im / task / calendar / wiki / contact / approval / mail / minutes / vc / okr / slides / whiteboard / markdown / mindnotes / note / event / attendance / apps / application，并自带 28 个域 skill 按需加载。OpenClaw 官方插件 14 个工具覆盖 doc / drive / wiki / chat / perm / bitable，**没有 calendar、task、sheets**。
+
+渠道侧同样不是同一档：
+
+| 渠道能力 | 本项目 | `@openclaw/feishu` |
+|---|---|---|
+| 入站消息转换器 | **22 种** | 部分 |
+| 群聊流式卡片 | **✅ `replyMode.group:"streaming"`** | ✅ |
+| 多图合并成一条 post | **✅ 默认** | ❌ 逐张 |
+| `ask_user` 按钮卡片 | **✅ 按钮 + "其他答案" + 群聊全员可交互** | ❌ 文本回退 |
+| 工具步骤动态展示 | **✅ 默认开** | ⚠️ 仅 verbose/preview |
+| 持久化入站队列 | **✅ 可选（`durableIngress`）** | ✅ 默认开 |
+| 全量出站 SSRF 防护 | **✅ DNS pinning + 私网阻断 + 重定向校验** | ✅ 仅 CardKit / 注册 |
+
+**多 bot / 多账号。** lark-cli 是**单 profile** 的：`profile use` 切换的是进程级全局状态，一次只能当一个飞书应用。所以"一个网关同时服务多个飞书 bot（不同 app）"单靠 lark-cli 做不到。本项目补了三层：
+
+1. 账号 ↔ profile **按调用选择**（`--profile <账号>`，不是全局切换）；
+2. 每轮把"这条消息属于哪个账号"注入上下文（122 字符），模型不需要猜；
+3. `bin/feishu-lark` 在命令行层强制：缺 `--profile` 直接失败、拒绝 `profile use` 等全局命令、stdout 统一围栏。
+
+**能力升级路径。** 能力在 CLI 侧：新增域和命令随 lark-cli 自身升级即可用；插件侧只在渠道与身份逻辑变化时更新。**两者解耦，谁也不用等谁发版。**
 
 ---
 
@@ -130,8 +99,7 @@ OpenClaw 官方 `@openclaw/feishu` 走的是"够用就好"：14 个工具，覆�
 │ bin/feishu-lark：强制 profile / 拒绝全局命令 / 围栏 │
 └────────────────────────────────────────────────────┘
 ┌─ 能力层（lark-cli）───────────────────────────────┐
-│ docs / sheets / base / drive / im / task / … 23 域  │
-│ 28 个域 skill 按需读取、schema 惰性查询、风险分级   │
+│ 23 域 · 28 个域 skill · schema 惰性查询 · 风险分级  │
 └────────────────────────────────────────────────────┘
 ~~~
 
@@ -149,8 +117,8 @@ openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2 --accept-capabilities
 openclaw config set channels.feishu.appId cli_xxx
 openclaw config set channels.feishu.appSecret xxx
 
-# 3. 把账号同步成 lark-cli profile（幂等，自动沿用已有 profile）
-#    在飞书里发：/feishu larkcli sync
+# 3. 在飞书里同步账号 → lark-cli profile（幂等，自动沿用已有 profile）
+#    /feishu larkcli sync
 
 # 4. 体检
 #    /feishu larkcli status   → 每个账号的 profile / appId / token 状态
@@ -198,35 +166,37 @@ openclaw config set channels.feishu.appSecret xxx
 
 ---
 
-## 2026.10 大重构：这次改了什么
+## 从 2026.10.10 之前的版本迁移
 
-前面讲的是"这个项目是什么"；这一节讲"我们最近动了什么"。**动机**：插件自带的 skill 里早就写着"这些 `feishu_*` 工具已停用"，但每一轮仍在给模型注入 2 万 token 的 schema —— 模型同时收到"你有这个能力"和"别用它"。删工具不是砍能力，是把能力放到它该在的地方。
+2026.10.10 把注册工具从 38 个收敛到 1 个（`feishu_auth`），业务能力改由 lark-cli 承担。升级后有两件事要做。
 
-| 维度 | 重构前（2026.10.9） | 重构后（2026.10.10） |
-|---|---|---|
-| 注册工具 | **38 个** | **1 个**（`feishu_auth`） |
-| 每轮工具 schema | 67,206 字符 ≈ 1.8–2.1 万 token | **479 字符**（−99.3%） |
-| 每轮身份提示 | — | **122 字符**（`minimal`，可关） |
-| 内置 skill | 8 个 / 538 行 | **3 个 / 218 行** |
-| 业务域覆盖 | 10 个（自实现，随插件升级） | **23 个域**（lark-cli，按需加载） |
-| 工具层代码 | `src/tools` 12,098 行 | **662 行**（−94%） |
-| 多账号 | 每个工具一个 `accountId` 参数 | **`--profile` 按调用** + 每轮注入 |
-| 用户授权 | 插件自建 UAT 存储 | **lark-cli device flow** + 聊天内卡片 |
-| 结果围栏 | 只有插件工具做 | **包装器统一做**（含 exec 路径） |
+### 1. 处理 capability consent 警告
 
-三件值得单独说的事：
+插件声明的能力面变了（工具列表 38 → 1），OpenClaw 会要求重新确认。看到下面这条时：
 
-1. **身份从"参数"变成"信封"**：账号 → profile 的映射由插件每轮注入，由 `bin/feishu-lark` 在命令行层强制 —— 多 bot 场景下"写错应用"从"可能发生"变成"不可能发生"。
-2. **围栏补上 exec 这个缺口**：OpenClaw 核心只对 web_fetch / 目录 / 工具错误做 `EXTERNAL_UNTRUSTED_CONTENT` 围栏，**exec 的 stdout 不围栏**。业务改走 CLI 后这个边界会整体消失，所以围栏下沉到包装器（`--no-fence` 供 jq/python 解析）。
-3. **授权回到"点一下"**：lark-cli 的 device flow 本来是为"只能发最终消息的 harness"设计的，插件把它变成飞书里的卡片（按钮 + 授权码），这是 CLI 在聊天里做不到的唯一一件事 —— 也是唯一保留的工具。
+~~~text
+Plugin "openclaw-lark-2" requires capability consent; disable and re-enable it
+or run: openclaw plugins enable openclaw-lark-2 --accept-capabilities
+~~~
 
----
+执行一次确认即可：
 
-## 从旧版迁移（38 → 1）
+~~~bash
+openclaw plugins enable openclaw-lark-2 --accept-capabilities
+~~~
 
-工具没了，能力都在：
+在飞书里也可以：`/plugins enable openclaw-lark-2 --accept-capabilities`。
 
-| 原来的工具 | 现在怎么做 |
+- **ClawHub / npm 安装**：安装记录带完整性校验，升级时可以直接 `openclaw plugins update openclaw-lark-2 --accept-capabilities` 一步完成。
+- **本地目录 / 压缩包安装**：没有完整性记录，OpenClaw 无法证明新字节就是你确认过的那份，**每次替换都要重新确认**。
+
+### 2. 清掉残留的工具白名单
+
+`agents.*.tools.alsoAllow` 里指向已下线工具的 `feishu_*` 条目删掉（`tools.deny` 里的留着无害）。否则这些名字既不存在也永远匹配不上。
+
+### 3. 工具去哪了
+
+| 原工具 | 现在怎么做 |
 |---|---|
 | `feishu_create_doc` / `fetch_doc` / `update_doc` | `feishu-lark --profile <p> docs +create / +fetch / +update` |
 | `feishu_bitable_*` / `calendar_*` / `task_*` | `feishu-lark … base / calendar / task …` |
@@ -235,9 +205,7 @@ openclaw config set channels.feishu.appSecret xxx
 | `feishu_drive_file` / `sheet` / `wiki_*` / `get_user` / `chat*` | `feishu-lark … drive / sheets / wiki / contact / im …` |
 | `feishu_oauth` / `oauth_batch_auth` | **`feishu_auth`**（唯一保留的工具） |
 
-模型不需要你教它这些 —— `feishu-cli` skill 里有路由表，命令细节用 `lark-cli <域> --help` 或 `lark-cli skills read lark-<域>` 按需取。
-
-> **升级提示**：从 ≤2026.10.9 升级时，建议把 `agents.*.tools.alsoAllow` 里的 `feishu_*` 条目清掉（这些工具已不存在）。
+模型不需要你教它这些：`feishu-cli` skill 里有路由表，命令细节用 `lark-cli <域> --help` 或 `lark-cli skills read lark-<域>` 按需取。
 
 ---
 

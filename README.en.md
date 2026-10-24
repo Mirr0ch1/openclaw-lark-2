@@ -1,83 +1,29 @@
 # openclaw-lark-2
 
-> Feishu / Lark channel plugin · native OpenClaw 2.0
+> Feishu / Lark channel plugin · native OpenClaw 2.0 · forked from Feishu's official `@larksuite/openclaw-lark`
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@mirr0ch1/openclaw-lark-2"><img alt="version" src="https://img.shields.io/badge/version-2026.10.10-blue"></a>
+  <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-green">
+  <img alt="domains" src="https://img.shields.io/badge/domains-23%20(via%20lark--cli)-orange">
+  <img alt="tests" src="https://img.shields.io/badge/tests-61%20files%20%2F%20485%20cases-brightgreen">
+  <img alt="license" src="https://img.shields.io/badge/license-MIT-black">
+</p>
+
+## Important
+
+> **2026.10.10 is a breaking refactor**: registered tools went from 38 to 1; Feishu business capability is now provided by `lark-cli`, and the plugin keeps only the channel, identity and authorization.
 >
-> Forked from Feishu's official `@larksuite/openclaw-lark` to finish what it left undone:
-> **OpenClaw 2.0 support · a far wider surface than the OpenClaw official plugin · and making lark-cli actually usable for multiple Feishu bots.**
+> **Upgrading from a version before 2026.10.10? Read [Migrating from before 2026.10.10](#migrating-from-before-20261010) first** — it covers the capability-consent step triggered by the tool-list change.
 
 ## Table of Contents
 
-- [Why this project exists](#why-this-project-exists)
-- [Three headline advantages](#three-headline-advantages)
 - [Three-way comparison](#three-way-comparison)
 - [Architecture](#architecture)
 - [Quick start](#quick-start)
 - [Configuration](#configuration)
-- [The 2026.10 refactor](#the-202610-refactor)
-- [Migrating from 38 tools](#migrating-from-38-tools)
+- [Migrating from before 2026.10.10](#migrating-from-before-20261010)
 - [Changelog](#changelog)
-
----
-
-## Why this project exists
-
-In July 2026 Feishu open-sourced `@larksuite/openclaw-lark` — 39 tools, the most complete Feishu surface at the time.
-
-It has one hard problem: **its plugin API is stuck on OpenClaw 1.x** (`loadConfig`). OpenClaw 2.0 replaced the plugin model (`runtime.config.current()`, `registerTool`, `agentPrompt`, channel actions), and **upstream has not followed since 2026.7.16** — on 2.0 that line is simply broken: it does not install, and nobody is picking it up.
-
-This fork continues that surface while adding everything 2.0 expects.
-
-By 2026.10 the project became something else: **Feishu capability is no longer implemented by the plugin — it comes from `lark-cli`; the plugin owns the channel, identity and authorization.** The result is not "less capability": domain coverage went from 10 to **23**, while per-turn context went from ~20k tokens to **479 characters**.
-
----
-
-## Three headline advantages
-
-### 1. Full OpenClaw 2.0 support (the half upstream never did)
-
-| 2.0 mechanism | This project | Upstream `@larksuite/openclaw-lark` |
-|---|---|---|
-| Plugin entry | `register()` + `runtime.config.current()` | `loadConfig()` (1.x) |
-| Tool registration | `registerTool` / `registerCommand` | 1.x tool table |
-| Per-turn context injection | `agentPrompt.inboundFormattingHints({cfg, accountId})` | none (`alwaysActive` is a no-op field on 2.0) |
-| Channel message actions | implements `feishuMessageActions`, wired into core's `message` tool | none |
-| Card action callbacks | full `card.action.trigger` chain (ask_user buttons, inject_prompt) | partial |
-| Host primitives | `plugin-sdk/*` (344 subpaths since 10.2): durable ingress, thread bindings, webhook, retry | none |
-
-**Why it matters**: on OpenClaw 2.0, upstream is not "a bit worse" — it does not install. This project is the only continuation of that line that runs.
-
-### 2. A much wider surface than the OpenClaw official plugin
-
-`@openclaw/feishu` is "good enough": 14 tools covering doc / drive / wiki / chat / perm / bitable, and **no calendar, task or sheets**.
-
-This project covers **23 domains** (docs / sheets / base / drive / im / task / calendar / wiki / contact / approval / mail / minutes / vc / okr / slides / whiteboard / markdown / mindnotes / note / event / attendance / apps / application) with 28 bundled domain skills loaded on demand.
-
-On the channel side:
-
-| Capability | This project | `@openclaw/feishu` |
-|---|---|---|
-| Inbound message converters | **22 kinds** | partial |
-| Group streaming card | **✅ `replyMode.group:"streaming"`** | ✅ |
-| Multi-image merged post | **✅ default** | ❌ one by one |
-| Built-in `ask_user` button card | **✅ button + free-form answer + all group members** | ❌ text fallback |
-| Tool-step display | **✅ on by default** | ⚠️ verbose/preview only |
-| PIN / unpin | **✅** | ✅ |
-| Durable ingress queue | **✅ opt-in** | ✅ on by default |
-| Full egress SSRF guard | **✅ DNS pinning + private-net block + redirect checks** | ✅ CardKit/registration only |
-
-### 3. Built around lark-cli — and it fills a gap lark-cli has
-
-`lark-cli` is Feishu's official CLI: 23 domains, 28 domain skills, lazy `schema` lookup, risk levels. But it has a structural limit:
-
-> **It is single-profile.** `profile use` flips process-global state — one Feishu app (bot) at a time.
-
-So **one OpenClaw gateway serving several Feishu bots is impossible with lark-cli alone.** This project adds three layers to make it a real multi-bot execution layer:
-
-1. **Per-call identity**: one lark-cli profile per account, selected with `--profile <account>` (per invocation, not a global switch).
-2. **Per-turn injection**: the plugin states which account this conversation belongs to (122 characters), so the model never guesses.
-3. **Command-line enforcement**: `bin/feishu-lark` fails without `--profile`, refuses `profile use` and other global commands, and fences stdout.
-
-Result: **one gateway, many Feishu bots, no cross-account writes** — and capability tracks the CLI: `npm i -g @larksuite/cli` brings new domains without waiting for a plugin release.
 
 ---
 
@@ -85,14 +31,14 @@ Result: **one gateway, many Feishu bots, no cross-account writes** — and capab
 
 | Dimension | **openclaw-lark-2** | **@openclaw/feishu** (OpenClaw) | **@larksuite/openclaw-lark** (Feishu) |
 |---|:---:|:---:|:---:|
-| Origin | fork of Feishu 7.16, rewritten for 2.0 | OpenClaw in-house | Feishu open source (no 2.0 follow-up since 2026.7.16) |
+| Origin | fork of Feishu 7.16, rewritten for 2.0 | OpenClaw in-house | Feishu open source (no follow-up since 2026.7.16) |
 | OpenClaw 2.0 | **✅ native 2.0 SDK** | ✅ native 2.0 | ❌ 1.x `loadConfig`, cannot load |
-| Surface | **23 domains (lark-cli)** | ~6 domains / 14 tools | 10 domains / 39 tools |
+| Domain coverage | **23 domains** | ~6 domains | 10 domains |
+| Per-turn tool cost | **1 tool / 479 chars ≈ 0.14k tokens** | 14 tools / ≈15–20k chars ≈ **4–6k tokens** (est.) | 39 tools / ≈65–70k chars ≈ **18–21k tokens** (est.) |
 | Delivery | **CLI on demand + 28 domain skills** | resident tools | resident tools |
-| Per-turn context | **479 chars** | 14 tools' schema | 39 tools' schema |
+| Upgrade path | **plugin and capability decoupled — upgrade either, anytime** | tied to plugin releases | tied to plugin releases |
 | Multi-bot / multi-account | **✅ `--profile` per call, enforced** | ✅ `accountId` param | ❌ |
 | Wrong-account protection | **✅ fails without a profile** | ⚠️ caller's job | ❌ |
-| Capability upgrade | **`npm i -g @larksuite/cli`** | wait for a release | wait for a release |
 | User authorization | **✅ in-chat card + `feishu_auth`** | ❌ | ✅ |
 | exec output fencing | **✅ wrapper** | — | — |
 | Group streaming card | **✅** | ✅ | ❌ static by default |
@@ -102,7 +48,42 @@ Result: **one gateway, many Feishu bots, no cross-account writes** — and capab
 | Diagnostics | **✅ `/feishu doctor`, `/feishu larkcli status`** | ✅ | ⚠️ |
 | Tests | **✅ 61 files / 485 cases** | ✅ 99 files / 1202 cases | ❌ none |
 
-> Rule of thumb: **zero extra installs** → `@openclaw/feishu`. **Full Feishu surface on OpenClaw 2.0 with multiple bots and stable long tasks** → this project.
+> Token figures are the per-turn tool-schema payload: measured for this plugin (`scripts/check-tools.js`), estimated for the two official ones from tool count and parameter-definition size (~1–1.8 KB schema per tool).
+
+### Rows that need a sentence of explanation
+
+**OpenClaw 2.0.** Upstream is stuck on the 1.x `loadConfig` plugin API; 2.0 replaced the plugin model, so upstream code **cannot load**. This project is a native 2.0 implementation, not just "it runs":
+
+| 2.0 mechanism | How this plugin uses it |
+|---|---|
+| Plugin entry | `register()` + `runtime.config.current()` |
+| Tools / commands | `registerTool`, `registerCommand` |
+| Per-turn context | `agentPrompt.inboundFormattingHints({cfg, accountId})` (`alwaysActive` is a no-op on 2.0) |
+| Channel message actions | implements `feishuMessageActions`, wired into core's `message` tool |
+| Card interactions | full `card.action.trigger` chain (`ask_user` buttons, inject_prompt) |
+| Host primitives | `plugin-sdk/*` (344 subpaths since 10.2): durable ingress, thread bindings, webhook, retry |
+
+**Domain coverage.** The 23 domains come from lark-cli (docs / sheets / base / drive / im / task / calendar / wiki / contact / approval / mail / minutes / vc / okr / slides / whiteboard / markdown / mindnotes / note / event / attendance / apps / application) with 28 domain skills loaded on demand. `@openclaw/feishu` ships 14 tools over doc / drive / wiki / chat / perm / bitable — **no calendar, task or sheets**.
+
+Channel side is a different tier too:
+
+| Channel capability | This plugin | `@openclaw/feishu` |
+|---|---|---|
+| Inbound converters | **22 kinds** | partial |
+| Group streaming card | **✅ `replyMode.group:"streaming"`** | ✅ |
+| Multi-image merged post | **✅ default** | ❌ one by one |
+| `ask_user` button card | **✅ button + free-form answer + all group members** | ❌ text fallback |
+| Tool-step display | **✅ default on** | ⚠️ verbose/preview only |
+| Durable ingress queue | **✅ opt-in** | ✅ default on |
+| Full egress SSRF guard | **✅ DNS pinning + private-net block + redirect checks** | ✅ CardKit/registration only |
+
+**Multi-bot / multi-account.** lark-cli is **single-profile**: `profile use` flips process-global state, one Feishu app at a time. So one gateway serving several Feishu bots is impossible with the CLI alone. This plugin adds three layers:
+
+1. account ↔ profile **per call** (`--profile <account>`, not a global switch);
+2. the conversation's account is injected into context every turn (122 chars), so the model never guesses;
+3. `bin/feishu-lark` enforces it at the command line: no profile → fail, global commands refused, stdout fenced.
+
+**Upgrade path.** Capability lives in the CLI: new domains and commands arrive with lark-cli upgrades; the plugin changes only when channel or identity logic changes. **Neither side waits for the other.**
 
 ---
 
@@ -165,31 +146,35 @@ Account id doubles as the lark-cli profile name; if that appId is already bound 
 
 ---
 
-## The 2026.10 refactor
+## Migrating from before 2026.10.10
 
-The sections above describe *what this project is*. This one describes *what changed recently*. **Motivation**: the plugin's own skills already said "these `feishu_*` tools are deprecated", yet every turn still injected ~20k tokens of their schema — the model was told "you have this capability" and "don't use it" at once. Removing tools is not cutting capability; it is putting capability where it belongs.
+2026.10.10 collapsed the registered tools from 38 to 1 (`feishu_auth`); business capability moved to lark-cli. Two steps after upgrading.
 
-| | Before (2026.10.9) | After (2026.10.10) |
-|---|---|---|
-| Registered tools | **38** | **1** (`feishu_auth`) |
-| Per-turn tool schema | 67,206 chars ≈ 18–21k tokens | **479 chars** (−99.3%) |
-| Per-turn identity hint | — | **122 chars** (`minimal`, can be disabled) |
-| Bundled skills | 8 / 538 lines | **3 / 218 lines** |
-| Domain coverage | 10 (self-implemented) | **23** (lark-cli, on demand) |
-| Tool-layer code | `src/tools` 12,098 lines | **662 lines** (−94%) |
-| Multi-account | one `accountId` per tool | **`--profile` per call** + injection |
-| User authorization | plugin-owned UAT store | **lark-cli device flow** + in-chat card |
-| Result fencing | plugin tools only | **wrapper-level** (covers exec) |
+### 1. Handle the capability-consent warning
 
-Three things worth calling out:
+The plugin's declared surface changed (tool list 38 → 1), so OpenClaw asks for consent again. When you see:
 
-1. **Identity became an envelope**: account → profile is injected per turn and enforced by `bin/feishu-lark` — writing into the wrong app stops being possible rather than unlikely.
-2. **The exec fencing gap is closed**: core fences web_fetch / directory / tool-error output but **not exec stdout**; with capability moving to a CLI, the wrapper is the only place that boundary can live (`--no-fence` for jq/python).
-3. **Authorization is one tap again**: lark-cli's device flow becomes a Feishu card with a button and a copyable code — the one thing a CLI cannot do in a chat, and the only tool left.
+~~~text
+Plugin "openclaw-lark-2" requires capability consent; disable and re-enable it
+or run: openclaw plugins enable openclaw-lark-2 --accept-capabilities
+~~~
 
----
+accept once:
 
-## Migrating from 38 tools
+~~~bash
+openclaw plugins enable openclaw-lark-2 --accept-capabilities
+~~~
+
+In Feishu: `/plugins enable openclaw-lark-2 --accept-capabilities`.
+
+- **ClawHub / npm installs** record artifact integrity, so an upgrade can accept in one step: `openclaw plugins update openclaw-lark-2 --accept-capabilities`.
+- **Local path / archive installs** carry no integrity record, so OpenClaw cannot prove the new bytes are what you approved — **every replacement needs a fresh confirmation**.
+
+### 2. Drop the stale tool allow-list
+
+Remove `feishu_*` entries from `agents.*.tools.alsoAllow` (entries in `tools.deny` are harmless).
+
+### 3. Where the tools went
 
 | Old tool | Now |
 |---|---|
@@ -201,8 +186,6 @@ Three things worth calling out:
 | `feishu_oauth` / `oauth_batch_auth` | **`feishu_auth`** (the only remaining tool) |
 
 The `feishu-cli` skill carries the routing table; details come from `lark-cli <domain> --help` or `lark-cli skills read lark-<domain>`.
-
-> Upgrading from ≤2026.10.9: clear `feishu_*` entries from `agents.*.tools.alsoAllow` — those tools no longer exist.
 
 ---
 
