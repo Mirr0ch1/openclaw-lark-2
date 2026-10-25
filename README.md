@@ -14,7 +14,7 @@
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
-  <img alt="tests" src="https://img.shields.io/badge/tests-485%20passed-2ea44f?style=flat-square">
+  <img alt="tests" src="https://img.shields.io/badge/tests-495%20passed-2ea44f?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
@@ -53,7 +53,7 @@
 | `ask_user` 按钮卡片 | **✅** | ❌ | ❌ |
 | 工具步骤展示 | **✅ 默认开** | ⚠️ verbose | ⚠️ verbose |
 | 诊断 | **✅ `/feishu doctor`、`/feishu larkcli status`** | ✅ | ⚠️ |
-| 测试 | **✅ 61 文件 / 485 用例** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
+| 测试 | **✅ 62 文件 / 495 用例** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
 
 > [!NOTE]
 > token 数为每轮注入的工具 schema 体量：本插件为实测（`scripts/check-tools.js`），官方两家按工具数与参数定义体量估算（每工具 ≈1–1.8 KB schema）。能力面之外的渠道差异另见下表注释。
