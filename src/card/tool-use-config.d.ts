@@ -23,4 +23,4 @@ export declare function resolveToolUseDisplayConfig(params: {
     agentId: string;
     sessionKey: string;
     body?: string;
-}): ToolUseDisplayConfig;
+}): Promise<ToolUseDisplayConfig>;

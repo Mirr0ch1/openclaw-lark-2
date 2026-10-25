@@ -188,7 +188,7 @@ async function dispatchNormalMessage(dc, ctxPayload, routing, chatHistories, his
         return;
     }
     const effectiveSessionKey = dc.threadSessionKey ?? dc.route.sessionKey;
-    const toolUseDisplay = (0, tool_use_config_1.resolveToolUseDisplayConfig)({
+    const toolUseDisplay = await (0, tool_use_config_1.resolveToolUseDisplayConfig)({
         cfg: dc.accountScopedCfg,
         feishuCfg: dc.account.config,
         agentId: dc.route.agentId,

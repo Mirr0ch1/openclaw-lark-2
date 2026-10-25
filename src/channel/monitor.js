@@ -71,7 +71,7 @@ async function monitorSingleAccount(params) {
         accountId,
     });
     if (!threadBindings) {
-        log(`feishu[${accountId}]: thread bindings unavailable on this core (needs createAccountScopedConversationBindingManager)`);
+        log(`feishu[${accountId}]: thread bindings unavailable on this core (no account-scoped conversation binding manager API)`);
     }
     /** Per-chat history maps (used for group-chat context window). */
     const chatHistories = new Map();

@@ -10,8 +10,8 @@
  * subagent output can be routed back to the right place.
  *
  * Core already ships a high-level account-scoped manager
- * (`openclaw/plugin-sdk/thread-bindings-runtime` →
- * `createAccountScopedConversationBindingManager`) which, for a given
+ * (`openclaw/plugin-sdk/thread-bindings-runtime`; V2 since 2026.10.10, with a
+ * deprecated synchronous factory on older cores) which, for a given
  * channel+account:
  *   - resolves the idle/max-age policy from config,
  *   - projects its records into `SessionBindingRecord`s, and
@@ -56,10 +56,26 @@ function loadManagerFactory() {
     try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const mod = require('openclaw/plugin-sdk/thread-bindings-runtime');
-        const factory = mod?.createAccountScopedConversationBindingManager;
-        managerFactory = typeof factory === 'function' ? factory : null;
+        // Prefer the V2 manager: worker-backed async reads/writes plus the
+        // current-source assertion. The synchronous manager is deprecated
+        // (compatibility ends 2026-12-31, removal ships in the first January
+        // 2027 stable release).
+        //
+        // The legacy factory stays only as a fallback for cores that predate
+        // 2026.10.10 and ship no V2 surface at all; delete the fallback branch
+        // once this plugin's core floor is >= 2026.10.10.
+        const v2Factory = mod?.createAccountScopedConversationBindingManagerV2;
+        const legacyFactory = mod?.createAccountScopedConversationBindingManager;
+        managerFactory = typeof v2Factory === 'function'
+            ? v2Factory
+            : typeof legacyFactory === 'function'
+                ? legacyFactory
+                : null;
         if (!managerFactory) {
-            log.warn('thread bindings unavailable: core exposes no createAccountScopedConversationBindingManager');
+            log.warn('thread bindings unavailable: this core exposes no account-scoped conversation binding manager');
+        }
+        else if (typeof v2Factory !== 'function') {
+            log.debug('thread bindings: core has no V2 binding manager yet, using the legacy factory');
         }
     }
     catch (err) {
