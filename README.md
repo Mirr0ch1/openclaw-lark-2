@@ -18,6 +18,8 @@
   <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
+<p align="center"><sub><b>中文</b> · <a href="./README.en.md">English</a></sub></p>
+
 ## 重要通知
 
 > [!IMPORTANT]
