@@ -10,7 +10,7 @@
 <p align="center"><sub>一句话：能力交给 lark-cli，身份与渠道留给插件。</sub></p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-2026.10.10-blue?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-2026.10.11-blue?style=flat-square">
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
@@ -40,20 +40,20 @@
 
 | 维度 | **openclaw-lark-2**（本项目） | **@openclaw/feishu**（OpenClaw 官方） | **@larksuite/openclaw-lark**（飞书官方） |
 |---|:---:|:---:|:---:|
-| 来源 | 飞书官方 7.16 的分支，重写为 2.0 原生 | OpenClaw 官方自研 | 飞书官方开源（2026.7.16 官方团队弃坑停止维护） |
+| 来源 | 飞书官方 `@larksuite/openclaw-lark` 2026.7.16 的分支，重写为 2.0 原生 | OpenClaw 官方自研 | 飞书官方开源（2026.7.16 官方团队弃坑停止维护） |
 | OpenClaw 2.0 兼容 | **✅ 原生 2.0 SDK** | ✅ 原生 2.0 | ❌ 1.x `loadConfig`，2.0 下无法加载 |
 | 能力面（飞书操作） | **23 域（全自动对接 lark-cli）** | ~6 域 | 10 域 |
 | 每轮工具开销 | **1 个工具 / 479 字符 ≈ 0.14k token** | 14 个工具 / ≈1.5–2 万字符 ≈ **4–6k token**（估） | 39 个工具 / ≈6.5–7 万字符 ≈ **18–21k token**（估） |
 | 能力交付方式 | **CLI 按需调用 + 28 个域 skill** | 工具常驻 | 工具常驻 |
 | 能力升级路径 | **插件与能力解耦，各自随时升级** | 随插件发版 | 随插件发版 |
-| 多 bot / 多账号 | **✅ `--profile` 按调用 + 强制校验** | ✅ `accountId` 参数 | ❌ |
+| 多 bot / 多账号 | **✅ 插件 ↔ lark-cli 全链路：每账号绑定一个 profile，调用时强制带上** | ✅ `accountId` 参数 | ✅ 插件内 `accounts` 配置 |
 | 身份错配防护 | **✅ 缺 profile 直接失败** | ⚠️ 依赖调用方传参 | ❌ |
 | 用户授权（device flow） | **✅ 聊天内卡片 + `feishu_auth`** | ❌ | ✅ |
 | exec 输出围栏 | **✅ 包装器统一** | — | — |
 | 群聊流式卡片 | **✅** | ✅ | ❌ 默认 static |
 | 多图合并 post | **✅ 默认** | ❌ | ❌ |
 | `ask_user` 按钮卡片 | **✅** | ❌ | ❌ |
-| 工具步骤展示 | **✅ 默认开** | ⚠️ verbose | ⚠️ verbose |
+| 工具步骤展示 | **✅ 卡片内独立区块，默认开（不依赖 `/verbose`）** | ⚠️ 靠 `/verbose` 文本回显 | ⚠️ 靠 `/verbose` 文本回显 |
 | 诊断 | **✅ `/feishu doctor`、`/feishu larkcli status`** | ✅ | ⚠️ |
 | 测试 | **✅ 62 文件 / 495 用例** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
 
@@ -87,7 +87,7 @@
 | 群聊流式卡片 | **✅ `replyMode.group:"streaming"`** | ✅ |
 | 多图合并成一条 post | **✅ 默认** | ❌ 逐张 |
 | `ask_user` 按钮卡片 | **✅ 按钮 + "其他答案" + 群聊全员可交互** | ❌ 文本回退 |
-| 工具步骤动态展示 | **✅ 默认开** | ⚠️ 仅 verbose/preview |
+| 工具步骤动态展示 | **✅ 卡片内独立区块，默认开** | ⚠️ 仅 `/verbose` / preview 文本回显 |
 | 持久化入站队列 | **✅ 可选（`durableIngress`）** | ✅ 默认开 |
 | 全量出站 SSRF 防护 | **✅ DNS pinning + 私网阻断 + 重定向校验** | ✅ 仅 CardKit / 注册 |
 
@@ -225,6 +225,18 @@ openclaw plugins enable openclaw-lark-2 --accept-capabilities
 ## 更新日志
 
 <details open>
+<summary><b>2026.10.11</b> · 2026-10-25 · 文档修正：三方对比与英文表述</summary>
+
+无代码变更。修正 README 里的描述错误，并把中英两版重新接上：
+
+- 三方对比「多 bot / 多账号」：`@larksuite/openclaw-lark` 其实**是支持的**（插件内 `accounts` 配置），此前误标为 ❌；本项目的差别只在「账号 ↔ lark-cli profile 全链路绑定、每次调用强制带上」。
+- 三方对比「工具步骤展示」：原来两列只写 `verbose`，看不出差别。改为说明 —— 本项目是**卡片内独立区块、默认开**；官方两家靠 `/verbose` 的文本回显。
+- 英文版把 "fork of Feishu 7.16" 写清为 `@larksuite/openclaw-lark` 2026.7.16，避免与 OpenClaw 内置的 `@openclaw/feishu` 混淆。
+- 补回中英互链（`中文 · English`）；徽章与对比表的用例数同步为 **62 文件 / 495 用例**。
+
+</details>
+
+<details>
 <summary><b>2026.10.10</b> · 2026-10-25 · 大重构：工具面 38 → 1，业务能力委派 lark-cli</summary>
 
 这次不再"加功能"，而是重新划边界：**插件负责渠道与身份，lark-cli 负责业务能力。**

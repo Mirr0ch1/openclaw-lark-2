@@ -10,7 +10,7 @@
 <p align="center"><sub>In one line: capability belongs to lark-cli; identity and channel belong to the plugin.</sub></p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-2026.10.10-blue?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-2026.10.11-blue?style=flat-square">
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
@@ -40,20 +40,20 @@
 
 | Dimension | **openclaw-lark-2** | **@openclaw/feishu** (OpenClaw) | **@larksuite/openclaw-lark** (Feishu) |
 |---|:---:|:---:|:---:|
-| Origin | fork of Feishu 7.16, rewritten for 2.0 | OpenClaw in-house | Feishu open source (abandoned by the official team after 2026.7.16) |
+| Origin | fork of Feishu's `@larksuite/openclaw-lark` 2026.7.16, rewritten for 2.0 | OpenClaw in-house | Feishu open source (abandoned by the official team after 2026.7.16) |
 | OpenClaw 2.0 | **✅ native 2.0 SDK** | ✅ native 2.0 | ❌ 1.x `loadConfig`, cannot load |
 | Domain coverage (Feishu ops) | **23 domains (lark-cli wired end to end)** | ~6 domains | 10 domains |
 | Per-turn tool cost | **1 tool / 479 chars ≈ 0.14k tokens** | 14 tools / ≈15–20k chars ≈ **4–6k tokens** (est.) | 39 tools / ≈65–70k chars ≈ **18–21k tokens** (est.) |
 | Delivery | **CLI on demand + 28 domain skills** | resident tools | resident tools |
 | Upgrade path | **plugin and capability decoupled — upgrade either, anytime** | tied to plugin releases | tied to plugin releases |
-| Multi-bot / multi-account | **✅ `--profile` per call, enforced** | ✅ `accountId` param | ❌ |
+| Multi-bot / multi-account | **✅ plugin ↔ lark-cli end to end: one profile per account, enforced on every call** | ✅ `accountId` param | ✅ in-plugin `accounts` config |
 | Wrong-account protection | **✅ fails without a profile** | ⚠️ caller's job | ❌ |
 | User authorization | **✅ in-chat card + `feishu_auth`** | ❌ | ✅ |
 | exec output fencing | **✅ wrapper** | — | — |
 | Group streaming card | **✅** | ✅ | ❌ static by default |
 | Multi-image post | **✅ default** | ❌ | ❌ |
 | `ask_user` button card | **✅** | ❌ | ❌ |
-| Tool-step display | **✅ default on** | ⚠️ verbose | ⚠️ verbose |
+| Tool-step display | **✅ in-card blocks, on by default (no `/verbose` needed)** | ⚠️ `/verbose` text echo only | ⚠️ `/verbose` text echo only |
 | Diagnostics | **✅ `/feishu doctor`, `/feishu larkcli status`** | ✅ | ⚠️ |
 | Tests | **✅ 62 files / 495 cases** | ✅ 99 files / 1202 cases | ❌ none |
 
@@ -87,7 +87,7 @@ Channel side is a different tier too:
 | Group streaming card | **✅ `replyMode.group:"streaming"`** | ✅ |
 | Multi-image merged post | **✅ default** | ❌ one by one |
 | `ask_user` button card | **✅ button + free-form answer + all group members** | ❌ text fallback |
-| Tool-step display | **✅ default on** | ⚠️ verbose/preview only |
+| Tool-step display | **✅ in-card blocks, on by default** | ⚠️ `/verbose` / preview text echo only |
 | Durable ingress queue | **✅ opt-in** | ✅ default on |
 | Full egress SSRF guard | **✅ DNS pinning + private-net block + redirect checks** | ✅ CardKit/registration only |
 
@@ -204,6 +204,18 @@ The `feishu-cli` skill carries the routing table; details come from `lark-cli <d
 ## Changelog
 
 <details open>
+<summary><b>2026.10.11</b> · 2026-10-25 · Docs fix: comparison table and English wording</summary>
+
+No code changes. Fixes factual slips in the README and reconnects the two languages:
+
+- Comparison table, multi-bot / multi-account: `@larksuite/openclaw-lark` **does support it** (in-plugin `accounts` config) and was wrongly marked ❌. This project's difference is only the account ↔ lark-cli profile binding, enforced on every call.
+- Comparison table, tool-step display: the two right-hand cells only said `verbose`, which hid the difference. They now state it — in-card blocks, on by default here; `/verbose` text echo for the two official plugins.
+- The English "fork of Feishu 7.16" now names `@larksuite/openclaw-lark` 2026.7.16 explicitly, so it cannot be confused with OpenClaw's built-in `@openclaw/feishu`.
+- Restored the `中文 · English` switcher, and synced the badges and the comparison row to **62 files / 495 tests**.
+
+</details>
+
+<details>
 <summary><b>2026.10.10</b> · 2026-10-25 · Big refactor: tool surface 38 → 1, business capability delegated to lark-cli</summary>
 
 This release does not add features; it redraws the boundary: **the plugin owns the channel and the identity, lark-cli owns the business capability.**
