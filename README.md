@@ -252,10 +252,16 @@ openclaw plugins enable openclaw-lark-2 --accept-capabilities
 
 - 新增 `channels.feishu.larkCli`（`enabled` / `prompt` / `binaryPath`）；移除随 MCP 传输下线的 `mcpEndpoint` / `mcp_url`。
 
+**SDK 弃用适配**
+
+- 会话级 `/verbose` 覆盖改走异步读 `getSessionEntryAsync`（同步 `getSessionEntry` 兼容至 2026-12-31，2027 年 1 月首个 stable 版本移除）；内联 `/verbose` 直接短路、不再读会话库；老 core 缺异步读时按「无会话覆盖」回落配置默认值。
+- 会话绑定管理器改为 **V2 优先**（`createAccountScopedConversationBindingManagerV2`：worker 异步读写 + 当前来源断言）。`< 2026.10.10` 的 core 没有 V2，回落到旧工厂并只打一条 debug 日志；该兜底会在 peer 底线抬到 10.10 后删除。
+- 行为与存储格式不变，只有读写路径迁移。发布后 ClawHub 弃用审计的 session 一条应清零；bindings 一条会保留到兜底删除为止。
+
 **测试与自检**
 
 - `scripts/check-tools.js` 第三层改为 CLI 委派冒烟（二进制、包装器、每账号 profile 健康）。
-- **61 文件 / 485 用例**。
+- **62 文件 / 495 用例**（含本轮新增的 tool-use 解析用例与双代管理器兼容用例）。
 
 </details>
 

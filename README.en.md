@@ -202,6 +202,49 @@ The `feishu-cli` skill carries the routing table; details come from `lark-cli <d
 ## Changelog
 
 <details open>
+<summary><b>2026.10.10</b> · 2026-10-25 · Big refactor: tool surface 38 → 1, business capability delegated to lark-cli</summary>
+
+This release does not add features; it redraws the boundary: **the plugin owns the channel and the identity, lark-cli owns the business capability.**
+
+**Tool surface (breaking)**
+
+- Registered tools **38 → 1**: only `feishu_auth` (in-chat device-flow authorization) remains. 37 removed: doc×3 (taking the whole remote MCP transport with them), bitable×5, calendar×4, task×7, im read×3, doc search×1, drive×3, sheets×1, wiki×2, contact×2, chat×2, media×2, `im_user_message`, `oauth`, `oauth_batch_auth`.
+- Per-turn tool schema **67,206 → 479 characters** (−99.3%); `src/tools` **12,098 → 662 lines** (−94%).
+- `contracts.tools` / `toolMetadata` in `openclaw.plugin.json` recomputed from the live registrations; `TOOL_SCOPES` emptied (the channel's own `REQUIRED_APP_SCOPES` stays).
+
+**Identity envelope (new)**
+
+- `bin/feishu-lark`: `--profile` enforced per call (missing → hard failure; a single-profile install adopts it automatically), process-global subcommands rejected (`profile use/add/remove`, `config bind`, `lark-cli update`), stdout fenced as `EXTERNAL_UNTRUSTED_CONTENT` by default (`--no-fence` for jq/python).
+- `src/larkcli/profiles.js`: account ↔ profile mapping (appId-first resolution, reuses existing bindings), `provisionProfiles` (idempotent, secret over stdin, backs up before writing, heals `not_configured`), `healthCheck` (detects appId drift).
+- `inboundFormattingHints` injects the identity every turn: `minimal` (default, 122 chars) / `compact` / `full` / `off`.
+
+**Authorization**
+
+- The plugin's own UAT stack (`oauth` / `auto-auth` / `oauth-cards` / `onboarding-auth` / `device-flow` / `token-store` / `uat-client`) removed entirely; `/feishu auth` now prints the authorization walkthrough, and the user-authorization section of `/feishu doctor` reports lark-cli profile state.
+- New `feishu_auth`: `authorize` sends a button card carrying the authorization link → `complete` finishes the flow with `--device-code`; `status` / `revoke` map to `auth status` / `auth logout`.
+
+**Skills**
+
+- 8 → 3: new `feishu-cli` (identity rules + domain routing table + high-risk / cross-session read rules + output parsing); five thin pointers removed.
+
+**Config**
+
+- New `channels.feishu.larkCli` (`enabled` / `prompt` / `binaryPath`); `mcpEndpoint` / `mcp_url` removed together with the MCP transport.
+
+**SDK deprecation adaptation**
+
+- The session-level `/verbose` override now goes through the async reader `getSessionEntryAsync` (the synchronous `getSessionEntry` keeps working through 2026-12-31 and is removed in the first January 2027 stable release); an inline `/verbose` short-circuits before any store read; a core without the async reader is treated as "no session override" and falls back to the configured default.
+- The conversation binding manager now prefers **V2** (`createAccountScopedConversationBindingManagerV2`: worker-backed async reads/writes plus the current-source assertion). Cores before 2026.10.10 ship no V2 at all, so they fall back to the legacy factory with a single debug log; that fallback disappears once the peer floor reaches 10.10.
+- Behaviour and storage formats are unchanged — only the read/write paths moved. After publishing, the session entry in the ClawHub deprecation audit should clear; the bindings entry stays until the fallback is removed.
+
+**Testing and self-checks**
+
+- The third layer of `scripts/check-tools.js` is now a CLI-delegation smoke test (binary, wrapper, per-account profile health).
+- **62 files / 495 tests**, including this round's tool-use resolution cases and the two-generation manager coverage.
+
+</details>
+
+<details>
 <summary><b>2026.10.9</b> · 2026-10-15 · Dead-code cleanup</summary>
 
 Removed 15 exports with zero references in `src/`, `tests/`, or `index.js` (-151 lines): the card-trace `hasToolUseTraceRun` / `_resetForTesting`, `read-policy`'s `canEnumerateAllFeishuGroups`, `shutdown-hooks`' `_resetShutdownHooks`, `tool-scopes`' `REQUIRED_SCOPE_DESCRIPTIONS`, `bot-loop-guard`'s `resetAllBotLoops` / `botLoopStateSize`, `sentinel-store`'s `clearSentinelStore` (and the cascaded `clearAllSentinelStores`), `time-utils`' `secondsStringToDateTime` / `dateTimeToMillis` (and the cascaded `secondsToDateTime`), plus the **intentionally-disabled multi-account-isolation** helpers `generateIsolationFixCommands` / `generateSharedAgentCommands` (and the cascaded `getDmScopeFixCommand`) — the wired no-op stubs `collectIsolationWarnings` / `emitSecurityWarnings` are kept.
