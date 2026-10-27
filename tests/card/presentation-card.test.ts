@@ -194,6 +194,26 @@ describe("presentation → Feishu card", () => {
     expect(buildPresentationCard({ blocks: [{ type: "text", text: "  " }] })).toBeUndefined();
   });
 
+  it("keeps tables past the Feishu limit visible as a code block", () => {
+    const table = (name: string) => ({
+      type: "table",
+      caption: name,
+      headers: ["A"],
+      rows: [["1"]],
+    });
+    const card: Card = buildPresentationCard({
+      blocks: [table("one"), table("two"), table("three"), table("four")],
+    });
+    const markdown = elementsOf(card, "markdown");
+    // The first three render as tables; the fourth is degraded, not dropped.
+    const asTable = markdown.filter(
+      (element) => element.content?.includes("| A |") && !element.content?.includes("```"),
+    );
+    expect(asTable).toHaveLength(3);
+    expect(markdown.some((element) => element.content?.includes("```"))).toBe(true);
+    expect(markdown.some((element) => element.content?.includes("four"))).toBe(true);
+  });
+
   it("resolves button actions without a canonical action field", () => {
     expect(resolvePresentationButtonAction({ label: "x", value: "v" })).toEqual({
       kind: "opaque",

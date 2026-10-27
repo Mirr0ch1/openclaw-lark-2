@@ -77,8 +77,12 @@ function resolvePayloadCardDelivery(payload) {
     if (!presentation)
         return { text: payloadText };
     const card = (0, presentation_card_1.buildPresentationCard)(presentation);
-    if (!card)
-        return { text: payloadText };
+    if (!card) {
+        // The card did not fit Feishu's budget (too many elements or bytes).
+        // Fall back to core's own text rendering so nothing is lost.
+        const fallback = (0, interactive_runtime_1.renderMessagePresentationFallbackText)({ presentation });
+        return { text: fallback?.trim() ? fallback : payloadText };
+    }
     const textIsFallback = payload.presentationTextMode === 'fallback';
     return { card, text: textIsFallback ? '' : payloadText };
 }

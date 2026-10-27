@@ -14,7 +14,7 @@
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
-  <img alt="tests" src="https://img.shields.io/badge/tests-526%20passed-2ea44f?style=flat-square">
+  <img alt="tests" src="https://img.shields.io/badge/tests-533%20passed-2ea44f?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
@@ -314,7 +314,7 @@ before delivery. This release wires the protocol up.
 **Tests**
 
 - 3 new test files (portable blocks → card, command argument menu, model picker),
-  31 cases; the full suite is **65 files / 526 cases** and passes.
+  31 cases; the full suite is **66 files / 533 cases** and passes.
 
 </details>
 

@@ -276,11 +276,17 @@ function buildPresentationCard(presentation) {
                 break;
             }
             case 'table': {
-                if (tableCount >= MAX_TABLES_PER_CARD)
-                    break;
                 const markdown = buildMarkdownTable(block);
                 if (!markdown.trim())
                     break;
+                if (tableCount >= MAX_TABLES_PER_CARD) {
+                    // Feishu rejects a card with more than a few markdown
+                    // tables (error 230099/11310). Keep the overflow visible
+                    // as a code block instead of dropping it — the same
+                    // degradation the plugin applies to over-long card text.
+                    elements.push({ tag: 'markdown', content: `\`\`\`\n${markdown}\n\`\`\`` });
+                    break;
+                }
                 tableCount += 1;
                 elements.push({ tag: 'markdown', content: (0, markdown_style_1.optimizeMarkdownStyle)(markdown) });
                 break;
