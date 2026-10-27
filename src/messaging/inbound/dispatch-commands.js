@@ -101,25 +101,35 @@ async function dispatchSystemCommand(dc, ctxPayload, replyToMessageId) {
                 // card instead of plain text.
                 const { card, text: cardText } = (0, presentation_delivery_1.resolvePayloadCardDelivery)(payload);
                 if (card) {
-                    if (cardText.trim()) {
-                        await (0, send_1.sendMessageFeishu)({
+                    const replyToId = replyToMessageId ?? dc.ctx.messageId;
+                    try {
+                        await (0, send_1.sendCardFeishu)({
                             cfg: dc.accountScopedCfg,
                             to: dc.ctx.chatId,
-                            text: cardText,
-                            replyToMessageId: replyToMessageId ?? dc.ctx.messageId,
+                            card,
+                            replyToMessageId: replyToId,
                             accountId: dc.account.accountId,
                             replyInThread: dc.isThread,
                         });
+                        delivered = true;
                     }
-                    await (0, send_1.sendCardFeishu)({
-                        cfg: dc.accountScopedCfg,
-                        to: dc.ctx.chatId,
-                        card,
-                        replyToMessageId: replyToMessageId ?? dc.ctx.messageId,
-                        accountId: dc.account.accountId,
-                        replyInThread: dc.isThread,
-                    });
-                    delivered = true;
+                    catch (cardErr) {
+                        // A rejected card must never swallow the reply — fall
+                        // back to the plain-text rendering of the same payload.
+                        dc.error(`feishu[${dc.account.accountId}]: card delivery failed, falling back to text: ${String(cardErr)}`);
+                        const fallbackText = cardText.trim() || text;
+                        if (!fallbackText)
+                            throw cardErr;
+                        await (0, send_1.sendMessageFeishu)({
+                            cfg: dc.accountScopedCfg,
+                            to: dc.ctx.chatId,
+                            text: fallbackText,
+                            replyToMessageId: replyToId,
+                            accountId: dc.account.accountId,
+                            replyInThread: dc.isThread,
+                        });
+                        delivered = true;
+                    }
                     return;
                 }
                 if (!text)

@@ -242,25 +242,51 @@ function createFeishuReplyDispatcher(params) {
             // it instead of duplicating it.
             const { card, text: cardText } = (0, presentation_delivery_1.resolvePayloadCardDelivery)(payload);
             if (card) {
-                if (cardText.trim()) {
+                // The prompt text goes first so it reads above the buttons.
+                let textSent = false;
+                try {
+                    if (cardText.trim()) {
+                        await (0, send_1.sendMessageFeishu)({
+                            cfg,
+                            to: chatId,
+                            text: cardText,
+                            replyToMessageId,
+                            replyInThread,
+                            accountId,
+                            threadId,
+                        });
+                        textSent = true;
+                    }
+                    await (0, send_1.sendCardFeishu)({
+                        cfg,
+                        to: chatId,
+                        card,
+                        replyToMessageId,
+                        replyInThread,
+                        accountId,
+                    });
+                }
+                catch (cardErr) {
+                    // A rejected card must never swallow the reply — deliver
+                    // the text rendering of the same payload instead.
+                    log.warn('deliver: card delivery failed, falling back to text', {
+                        error: String(cardErr),
+                    });
+                    if (textSent)
+                        return;
+                    const fallbackText = cardText.trim() || getVisiblePayloadText(payload);
+                    if (!fallbackText.trim())
+                        throw cardErr;
                     await (0, send_1.sendMessageFeishu)({
                         cfg,
                         to: chatId,
-                        text: cardText,
+                        text: fallbackText,
                         replyToMessageId,
                         replyInThread,
                         accountId,
                         threadId,
                     });
                 }
-                await (0, send_1.sendCardFeishu)({
-                    cfg,
-                    to: chatId,
-                    card,
-                    replyToMessageId,
-                    replyInThread,
-                    accountId,
-                });
                 return;
             }
             // 提取文本和媒体 URL

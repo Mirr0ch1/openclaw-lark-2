@@ -470,15 +470,22 @@ async function dispatchToAgent(params) {
             if (card) {
                 dc.log(`feishu[${dc.account.accountId}]: command argument menu detected, sending interactive card`);
                 log.info('command argument menu detected, sending interactive card');
-                await (0, send_1.sendCardFeishu)({
-                    cfg: dc.accountScopedCfg,
-                    to: dc.ctx.chatId,
-                    card,
-                    replyToMessageId: params.replyToMessageId ?? dc.ctx.messageId,
-                    accountId: dc.account.accountId,
-                    replyInThread: routing.replyInThread,
-                });
-                return;
+                try {
+                    await (0, send_1.sendCardFeishu)({
+                        cfg: dc.accountScopedCfg,
+                        to: dc.ctx.chatId,
+                        card,
+                        replyToMessageId: params.replyToMessageId ?? dc.ctx.messageId,
+                        accountId: dc.account.accountId,
+                        replyInThread: routing.replyInThread,
+                    });
+                    return;
+                }
+                catch (cardErr) {
+                    // The menu card is a nicety — if Feishu rejects it, run the
+                    // command normally instead of dropping the message.
+                    dc.error(`feishu[${dc.account.accountId}]: command menu card failed, falling back to the command itself: ${String(cardErr)}`);
+                }
             }
         }
     }
