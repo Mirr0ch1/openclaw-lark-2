@@ -14,7 +14,7 @@
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
-  <img alt="tests" src="https://img.shields.io/badge/tests-495%20passed-2ea44f?style=flat-square">
+  <img alt="tests" src="https://img.shields.io/badge/tests-526%20passed-2ea44f?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
@@ -28,6 +28,7 @@
 ## 目录
 
 - [三方对比](#三方对比)
+- [富文本与交互按钮](#富文本与交互按钮)
 - [架构](#架构)
 - [快速开始](#快速开始)
 - [配置](#配置)
@@ -102,6 +103,51 @@ lark-cli 是**单 profile** 的：`profile use` 切换的是进程级全局状�
 #### 能力升级路径
 
 能力在 CLI 侧：新增域和命令随 lark-cli 自身升级即可用；插件侧只在渠道与身份逻辑变化时更新。**两者解耦，谁也不用等谁发版。**
+
+---
+
+## 富文本与交互按钮
+
+OpenClaw 核心有一套**渠道无关**的富文本协议 `MessagePresentation`：`/status` 会产出一个 `table` 区块（"Session status" 两列表格），审批、`ask_user`、provider 登录会产出 `buttons` 区块。核心按渠道声明的 `presentationCapabilities` 把这些区块适配一次，再交给渠道的 `renderPresentation` 钩子渲染；**渠道不声明能力，核心就把它们全部降级成纯文本**。
+
+本插件声明并实现了这套协议，所以飞书里看到的和 Telegram 里一致：
+
+| 可移植区块 | 飞书卡片元素 |
+|---|---|
+| `text` | `markdown` |
+| `context` | `markdown`（`text_size: notation`，弱化显示） |
+| `divider` | `hr` |
+| `table` | `markdown`（内嵌 GFM 表格，飞书原生渲染成表格） |
+| `buttons` | `column_set` → `column` → `button` |
+| `select` | 同上，每个选项一个按钮（飞书没有原生菜单控件） |
+| `chart` | 不支持原生图表，由核心降级成文本 |
+
+涉及的模块：
+
+- `src/card/presentation-card.js` —— 可移植区块 → 飞书卡片 JSON 2.0（纯函数，可单测）。
+- `src/card/presentation-delivery.js` —— 回复载荷 → 卡片 + 随附文本。
+- `src/messaging/outbound/outbound.js` —— 声明 `presentationCapabilities` 与 `renderPresentation`。
+
+### 命令参数菜单
+
+`/verbose`、`/think`、`/fast`、`/reasoning` 这类命令的**候选项由核心定义**（`commands-registry`），渠道只负责渲染。Telegram 用 inline keyboard 渲染；飞书没有原生命令注册，所以插件在入站时解析命令、解析出候选菜单，渲染成一张卡片：
+
+- 每个按钮的 `value` 是 `{ action: "inject_prompt", prompt: "/verbose on" }`；
+- 点击后按钮把该命令文本当作一条用户消息注入，走正常命令链路（`src/channel/event-handlers.js` 的 `handleInjectPromptAction`）；
+- 因此权限、审计、持久化全部沿用核心原有路径，插件不持有任何命令状态。
+
+模块：`src/channel/command-menu.js`。
+
+### 模型选择器
+
+核心驱动模型选择器，通过 `ChannelCommandAdapter` 钩子向渠道索取按钮。本插件实现了全部 5 个钩子（`src/channel/model-menu.js`），按钮同样走 `inject_prompt`：
+
+| 按钮 | 注入的命令 |
+|---|---|
+| Browse providers | `/models providers` |
+| 某个 provider | `/models <provider>` |
+| 某个 model | `/model <provider>/<model> -s`（会话级，与 Telegram 选择器的作用域一致） |
+| 翻页 | `/models <provider> <page>` |
 
 ---
 
@@ -223,6 +269,35 @@ openclaw plugins enable openclaw-lark-2 --accept-capabilities
 ---
 
 ## 更新日志
+
+<details open>
+<summary><b>未发布</b> · 2026-10-27 · 富文本与交互按钮：/status 出表格，/verbose 出按钮</summary>
+
+之前飞书渠道只有纯文本和 `ask_user` 卡片，因为插件没有声明 OpenClaw 的**可移植富文本协议**（`MessagePresentation`）能力，核心在投递前就把所有 `table` / `buttons` 区块降级成了文本。这次把协议接上了。
+
+**可移植富文本**
+
+- 声明 `presentationCapabilities`（`tables` / `buttons` / `selects` / `context` / `divider` 开启，`charts` 关闭由核心降级）并实现 `renderPresentation`。
+- 新增 `src/card/presentation-card.js`：可移植区块 → 飞书卡片 JSON 2.0。`table` 渲染成卡片内的 GFM 表格（飞书原生渲染成表格），`buttons` / `select` 渲染成 `column_set` → `column` → `button`（v2 没有 v1 的 `action` 包装）。
+- 新增 `src/card/presentation-delivery.js`：回复载荷 → 卡片 + 随附文本；当载荷带 `presentationTextMode: "fallback"`（文本就是展示的降级副本）时不再重复发送文本。
+- 三个投递入口都接上了：核心出站 `sendPayload`、入站命令回复（`/status` 走这里）、入站 agent 回复（审批 / provider 登录按钮走这里）。
+- 代码自建的卡片走 `channelData.feishu.nativeCard`，不经过面向模型生成卡片的清洗器，因此保留完整元素保真度。
+
+**命令参数菜单**
+
+- 新增 `src/channel/command-menu.js`：用核心的 `commands-registry` 解析 `/verbose`、`/think`、`/fast` 等命令的候选菜单，渲染成卡片。
+- 按钮的 `value` 是 `{ action: "inject_prompt", prompt: "/verbose on" }`，点击后把命令文本当作用户消息注入 —— 复用插件已有的 `inject_prompt` 机制，不新增任何命令状态，权限与审计仍走核心原有路径。
+- 只对**有命令权限**的发送者显示；已在参数菜单里的命令（如 `/verbose on`）不再弹菜单。
+
+**模型选择器**
+
+- 新增 `src/channel/model-menu.js`，实现核心 `ChannelCommandAdapter` 的 5 个模型选择器钩子（`/model`、`/models` 的按钮来源）。按钮同样走 `inject_prompt`，模型选择由核心自己执行（`/model <provider>/<model> -s`，会话级作用域，与 Telegram 选择器一致）。
+
+**测试**
+
+- 新增 3 个测试文件（可移植区块 → 卡片、命令参数菜单、模型选择器），共 31 个用例；全量 **65 文件 / 526 用例** 通过。
+
+</details>
 
 <details open>
 <summary><b>2026.10.11</b> · 2026-10-25 · 文档修正：三方对比与英文表述</summary>

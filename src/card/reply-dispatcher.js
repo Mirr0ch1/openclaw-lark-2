@@ -23,6 +23,7 @@ const deliver_1 = require("../messaging/outbound/deliver.js");
 const send_1 = require("../messaging/outbound/send.js");
 const typing_1 = require("../messaging/outbound/typing.js");
 const builder_1 = require("./builder.js");
+const presentation_delivery_1 = require("./presentation-delivery.js");
 const card_error_1 = require("./card-error.js");
 const reply_mode_1 = require("./reply-mode.js");
 const streaming_card_controller_1 = require("./streaming-card-controller.js");
@@ -231,6 +232,35 @@ function createFeishuReplyDispatcher(params) {
             // ---- Post-dispatch guard ----
             if (dispatchFullyComplete) {
                 log.debug('deliver: skipped (dispatch already complete)');
+                return;
+            }
+            // ---- Portable presentation (status tables, approval buttons) ----
+            // Core's channel-agnostic `MessagePresentation` payloads become an
+            // interactive card instead of the plain-text fallback. When the
+            // payload's text is the presentation's fallback (the
+            // `presentationTextMode: "fallback"` contract) the card replaces
+            // it instead of duplicating it.
+            const { card, text: cardText } = (0, presentation_delivery_1.resolvePayloadCardDelivery)(payload);
+            if (card) {
+                if (cardText.trim()) {
+                    await (0, send_1.sendMessageFeishu)({
+                        cfg,
+                        to: chatId,
+                        text: cardText,
+                        replyToMessageId,
+                        replyInThread,
+                        accountId,
+                        threadId,
+                    });
+                }
+                await (0, send_1.sendCardFeishu)({
+                    cfg,
+                    to: chatId,
+                    card,
+                    replyToMessageId,
+                    replyInThread,
+                    accountId,
+                });
                 return;
             }
             // 提取文本和媒体 URL

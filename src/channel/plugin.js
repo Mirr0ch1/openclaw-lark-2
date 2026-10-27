@@ -48,6 +48,7 @@ const account_id_1 = require("openclaw/plugin-sdk/account-id");
 const channel_status_1 = require("openclaw/plugin-sdk/channel-status");
 const accounts_1 = require("../core/accounts.js");
 const outbound_1 = require("../messaging/outbound/outbound.js");
+const model_menu_1 = require("./model-menu.js");
 const actions_1 = require("../messaging/outbound/actions.js");
 const policy_1 = require("../messaging/inbound/policy.js");
 const lark_client_1 = require("../core/lark-client.js");
@@ -276,6 +277,20 @@ exports.feishuPlugin = {
     // Outbound
     // -------------------------------------------------------------------------
     outbound: outbound_1.feishuOutbound,
+    // -------------------------------------------------------------------------
+    // Command menus (model picker)
+    // -------------------------------------------------------------------------
+    // Core drives the model picker and asks the channel for the buttons. The
+    // Telegram channel answers with an inline keyboard; Feishu answers with a
+    // button list whose entries inject the equivalent command text, so core
+    // still performs the selection.
+    commands: {
+        buildModelsMenuChannelData: model_menu_1.buildFeishuModelsMenuChannelData,
+        buildModelsProviderChannelData: model_menu_1.buildFeishuModelsProviderChannelData,
+        buildModelsAddProviderChannelData: model_menu_1.buildFeishuModelsAddProviderChannelData,
+        buildModelsListChannelData: model_menu_1.buildFeishuModelsListChannelData,
+        buildModelBrowseChannelData: model_menu_1.buildFeishuModelBrowseChannelData,
+    },
     // -------------------------------------------------------------------------
     // Threading
     // -------------------------------------------------------------------------

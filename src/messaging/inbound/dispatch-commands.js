@@ -14,6 +14,7 @@ exports.dispatchSystemCommand = dispatchSystemCommand;
 const lark_logger_1 = require("../../core/lark-logger.js");
 const lark_ticket_1 = require("../../core/lark-ticket.js");
 const reply_dispatcher_1 = require("../../card/reply-dispatcher.js");
+const presentation_delivery_1 = require("../../card/presentation-delivery.js");
 const tool_use_trace_store_1 = require("../../card/tool-use-trace-store.js");
 const send_1 = require("../outbound/send.js");
 const dispatch_builders_1 = require("./dispatch-builders.js");
@@ -95,6 +96,32 @@ async function dispatchSystemCommand(dc, ctxPayload, replyToMessageId) {
                     return;
                 }
                 const text = payload.text?.trim() ?? '';
+                // Portable presentation blocks (`/status` renders a table) and
+                // plugin-native buttons (model picker) become an interactive
+                // card instead of plain text.
+                const { card, text: cardText } = (0, presentation_delivery_1.resolvePayloadCardDelivery)(payload);
+                if (card) {
+                    if (cardText.trim()) {
+                        await (0, send_1.sendMessageFeishu)({
+                            cfg: dc.accountScopedCfg,
+                            to: dc.ctx.chatId,
+                            text: cardText,
+                            replyToMessageId: replyToMessageId ?? dc.ctx.messageId,
+                            accountId: dc.account.accountId,
+                            replyInThread: dc.isThread,
+                        });
+                    }
+                    await (0, send_1.sendCardFeishu)({
+                        cfg: dc.accountScopedCfg,
+                        to: dc.ctx.chatId,
+                        card,
+                        replyToMessageId: replyToMessageId ?? dc.ctx.messageId,
+                        accountId: dc.account.accountId,
+                        replyInThread: dc.isThread,
+                    });
+                    delivered = true;
+                    return;
+                }
                 if (!text)
                     return;
                 await (0, send_1.sendMessageFeishu)({

@@ -11,6 +11,8 @@ const accounts_1 = require("../../core/accounts.js");
 const deliver_1 = require("./deliver.js");
 const media_1 = require("./media.js");
 const native_card_1 = require("../../card/native-card.js");
+const presentation_card_1 = require("../../card/presentation-card.js");
+const presentation_delivery_1 = require("../../card/presentation-delivery.js");
 const post_chunking_1 = require("./post-chunking.js");
 const send_context_1 = require("./send-context.js");
 const multi_image_mode_1 = require("./multi-image-mode.js");
@@ -96,6 +98,23 @@ exports.feishuOutbound = {
     chunker: (text, limit) => (0, post_chunking_1.chunkFeishuPostMarkdown)({ text, limit }),
     chunkerMode: 'markdown',
     textChunkLimit: 15000,
+    // --- Portable presentation support ---
+    // Core adapts its channel-agnostic `MessagePresentation` blocks to these
+    // capabilities before handing them to `renderPresentation`. Without them
+    // core degrades every table/button block to plain text, which is what
+    // Feishu used to receive for `/status`, approvals and command menus.
+    presentationCapabilities: presentation_card_1.FEISHU_PRESENTATION_CAPABILITIES,
+    renderPresentation: ({ payload, presentation }) => {
+        const card = (0, presentation_card_1.buildPresentationCard)(presentation);
+        if (!card)
+            return null;
+        // The card is code-built, so it bypasses the model-authored card
+        // sanitiser and keeps full element fidelity.
+        return {
+            text: undefined,
+            channelData: { feishu: { nativeCard: card } },
+        };
+    },
     sendText: async ({ cfg, to, text, accountId, replyToId, threadId, onDeliveryResult }) => {
         log.info(`sendText: target=${to}, textLength=${text.length}`);
         // Synthetic targets (e.g. VC meeting-invited) have no real IM peer —
@@ -187,21 +206,37 @@ exports.feishuOutbound = {
         const mediaUrls = payload.mediaUrls?.length ? payload.mediaUrls : payload.mediaUrl ? [payload.mediaUrl] : [];
         log.info(`sendPayload: target=${to}, ` +
             `textLength=${text.length}, mediaCount=${mediaUrls.length}, ` +
-            `hasCard=${Boolean(feishuData?.card)}`);
-        // --- channelData.feishu.card: card message path ---
+            `hasCard=${Boolean(feishuData?.card)}, ` +
+            `hasNativeCard=${Boolean(feishuData?.nativeCard)}, ` +
+            `hasButtons=${Boolean(feishuData?.buttons?.length)}, ` +
+            `hasPresentation=${Boolean(payload.presentation)}`);
+        // --- Card message path ---
         // Feishu card messages are standalone (msg_type="interactive"), so
         // text and media must be sent as separate messages around the card.
-        // Sanitise the model-authored card; if nothing usable survives, treat it
-        // as absent and fall through to the standard text/media path.
+        //
+        // Two card sources:
+        //  - `channelData.feishu.card` — a model-authored card. It is
+        //    sanitised; if nothing usable survives it falls through to the
+        //    standard text/media path.
+        //  - `channelData.feishu.nativeCard`, `channelData.feishu.buttons` and
+        //    the portable `presentation` — cards this plugin built itself
+        //    (status tables, command menus, model picker). They keep full
+        //    element fidelity, which the model-authored sanitiser would strip.
         const modelCard = feishuData?.card
             ? (0, native_card_1.sanitizeModelAuthoredCard)(feishuData.card)
             : undefined;
-        if (modelCard) {
-            if (text.trim()) {
-                const textResult = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text });
+        const resolvedCard = (0, presentation_delivery_1.resolvePayloadCardDelivery)(payload);
+        const card = modelCard ?? resolvedCard.card;
+        // A model-authored card keeps the payload text as a separate message;
+        // a portable presentation renders the same information, so its text is
+        // only kept when it is additional content rather than the fallback.
+        const cardText = modelCard ? text : resolvedCard.text;
+        if (card) {
+            if (cardText.trim()) {
+                const textResult = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text: cardText });
                 await reportDeliveryResult(onDeliveryResult, { channel: 'feishu', ...textResult });
             }
-            const cardResult = await (0, deliver_1.sendCardLark)({ ...ctx, to: ctx.to, card: modelCard });
+            const cardResult = await (0, deliver_1.sendCardLark)({ ...ctx, to: ctx.to, card });
             await reportDeliveryResult(onDeliveryResult, { channel: 'feishu', ...cardResult });
             const warnings = [];
             for (const mediaUrl of mediaUrls) {

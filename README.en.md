@@ -14,7 +14,7 @@
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
-  <img alt="tests" src="https://img.shields.io/badge/tests-495%20passed-2ea44f?style=flat-square">
+  <img alt="tests" src="https://img.shields.io/badge/tests-526%20passed-2ea44f?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
@@ -28,6 +28,7 @@
 ## Table of Contents
 
 - [Three-way comparison](#three-way-comparison)
+- [Rich text and interactive buttons](#rich-text-and-interactive-buttons)
 - [Architecture](#architecture)
 - [Quick start](#quick-start)
 - [Configuration](#configuration)
@@ -102,6 +103,67 @@ lark-cli is **single-profile**: `profile use` flips process-global state, one Fe
 #### Upgrade path
 
 Capability lives in the CLI: new domains and commands arrive with lark-cli upgrades; the plugin changes only when channel or identity logic changes. **Neither side waits for the other.**
+
+---
+
+## Rich text and interactive buttons
+
+OpenClaw core has a **channel-agnostic** rich-text protocol, `MessagePresentation`:
+`/status` emits a `table` block ("Session status", two columns), and approvals,
+`ask_user` and provider login emit `buttons` blocks. Core adapts those blocks
+to the capabilities the channel declares (`presentationCapabilities`) and then
+calls the channel's `renderPresentation` hook. **A channel that declares no
+capabilities gets every one of them downgraded to plain text.**
+
+This plugin declares and implements that protocol, so Feishu now renders what
+Telegram renders:
+
+| Portable block | Feishu card element |
+|---|---|
+| `text` | `markdown` |
+| `context` | `markdown` with `text_size: notation` (low emphasis) |
+| `divider` | `hr` |
+| `table` | `markdown` holding a GFM table (Feishu draws it as a real table) |
+| `buttons` | `column_set` → `column` → `button` |
+| `select` | the same, one button per option (Feishu has no native menu control) |
+| `chart` | no native chart element, so core downgrades it to text |
+
+Modules:
+
+- `src/card/presentation-card.js` — portable blocks → Feishu Card JSON 2.0
+  (pure functions, unit-tested).
+- `src/card/presentation-delivery.js` — reply payload → card + accompanying text.
+- `src/messaging/outbound/outbound.js` — declares `presentationCapabilities` and
+  implements `renderPresentation`.
+
+### Command argument menus
+
+The **choices** for commands like `/verbose`, `/think` and `/fast` are owned by
+core (`commands-registry`); the channel only renders them. Telegram renders them
+as an inline keyboard. Feishu has no native command registration, so the plugin
+parses the inbound command, resolves the candidate menu and renders a card:
+
+- every button's `value` is `{ action: "inject_prompt", prompt: "/verbose on" }`;
+- clicking it injects that command text as a user message and goes through the
+  normal command pipeline (`handleInjectPromptAction` in
+  `src/channel/event-handlers.js`);
+- therefore authorization, auditing and persistence all stay on core's existing
+  path — the plugin keeps no command state of its own.
+
+Module: `src/channel/command-menu.js`.
+
+### Model picker
+
+Core drives the model picker and asks the channel for buttons through the
+`ChannelCommandAdapter` hooks. This plugin implements all five of them
+(`src/channel/model-menu.js`); the buttons use `inject_prompt` too:
+
+| Button | Injected command |
+|---|---|
+| Browse providers | `/models providers` |
+| A provider | `/models <provider>` |
+| A model | `/model <provider>/<model> -s` (session scope, the same scope the Telegram picker applies) |
+| Pagination | `/models <provider> <page>` |
 
 ---
 
@@ -202,6 +264,59 @@ The `feishu-cli` skill carries the routing table; details come from `lark-cli <d
 ---
 
 ## Changelog
+
+<details open>
+<summary><b>Unreleased</b> · 2026-10-27 · Rich text and interactive buttons: /status draws a table, /verbose gets buttons</summary>
+
+The Feishu channel only had plain text and the `ask_user` card, because the
+plugin never declared OpenClaw's **portable rich-text protocol**
+(`MessagePresentation`). Core downgraded every `table` / `buttons` block to text
+before delivery. This release wires the protocol up.
+
+**Portable rich text**
+
+- Declares `presentationCapabilities` (`tables` / `buttons` / `selects` /
+  `context` / `divider` on, `charts` off so core downgrades them) and implements
+  `renderPresentation`.
+- New `src/card/presentation-card.js`: portable blocks → Feishu Card JSON 2.0.
+  A `table` becomes a GFM table inside the card (Feishu draws it as a real
+  table); `buttons` / `select` become `column_set` → `column` → `button` (v2 has
+  no v1 `action` wrapper).
+- New `src/card/presentation-delivery.js`: reply payload → card + accompanying
+  text. When the payload carries `presentationTextMode: "fallback"` (the text is
+  the fallback copy of the presentation) the text is no longer sent twice.
+- Wired into all three delivery paths: core outbound `sendPayload`, inbound
+  command replies (where `/status` lands) and inbound agent replies (approval
+  and provider-login buttons).
+- Code-built cards travel as `channelData.feishu.nativeCard`, bypassing the
+  model-authored card sanitiser, so they keep full element fidelity.
+
+**Command argument menus**
+
+- New `src/channel/command-menu.js`: resolves the candidate menu for `/verbose`,
+  `/think`, `/fast` and friends through core's `commands-registry` and renders
+  it as a card.
+- Button values are `{ action: "inject_prompt", prompt: "/verbose on" }`; a click
+  injects the command text as a user message. This reuses the plugin's existing
+  `inject_prompt` mechanism and adds no command state, so authorization and
+  auditing stay on core's path.
+- The menu is only offered to senders who may run commands, and a command whose
+  argument is already given (`/verbose on`) does not open a menu.
+
+**Model picker**
+
+- New `src/channel/model-menu.js` implements core's five `ChannelCommandAdapter`
+  model-picker hooks (the button source for `/model` and `/models`). The buttons
+  use `inject_prompt` as well, and core performs the selection
+  (`/model <provider>/<model> -s`, session scope — the same scope the Telegram
+  picker applies).
+
+**Tests**
+
+- 3 new test files (portable blocks → card, command argument menu, model picker),
+  31 cases; the full suite is **65 files / 526 cases** and passes.
+
+</details>
 
 <details open>
 <summary><b>2026.10.11</b> · 2026-10-25 · Docs fix: comparison table and English wording</summary>

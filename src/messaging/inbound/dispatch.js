@@ -20,6 +20,8 @@ const reply_history_1 = require("openclaw/plugin-sdk/reply-history");
 const lark_logger_1 = require("../../core/lark-logger.js");
 const lark_ticket_1 = require("../../core/lark-ticket.js");
 const reply_dispatcher_1 = require("../../card/reply-dispatcher.js");
+const presentation_card_1 = require("../../card/presentation-card.js");
+const command_menu_1 = require("../../channel/command-menu.js");
 const chat_queue_1 = require("../../channel/chat-queue.js");
 const tool_use_config_1 = require("../../card/tool-use-config.js");
 const tool_use_trace_store_1 = require("../../card/tool-use-trace-store.js");
@@ -446,11 +448,44 @@ async function dispatchToAgent(params) {
         }
         return;
     }
+    // 7b. Native command argument menu → interactive card
+    //     Core owns the argument choices for commands like /verbose and
+    //     /think; the Telegram channel renders them as an inline keyboard.
+    //     Feishu has no native command registration, so the same menu is
+    //     rendered here as a card whose buttons inject the chosen command
+    //     text as a user message. Only senders who may run commands get it.
+    if (!isCommentFlow && dc.commandAuthorized) {
+        const menu = await (0, command_menu_1.resolveFeishuCommandMenu)({
+            cfg: dc.accountScopedCfg,
+            agentId: dc.route.agentId,
+            sessionKey: effectiveSessionKey,
+            text: contentTrimmed,
+        });
+        if (menu) {
+            const card = (0, presentation_card_1.buildFeishuButtonsCard)({
+                text: menu.title,
+                buttons: menu.buttons,
+            });
+            if (card) {
+                dc.log(`feishu[${dc.account.accountId}]: command argument menu detected, sending interactive card`);
+                log.info('command argument menu detected, sending interactive card');
+                await (0, send_1.sendCardFeishu)({
+                    cfg: dc.accountScopedCfg,
+                    to: dc.ctx.chatId,
+                    card,
+                    replyToMessageId: params.replyToMessageId ?? dc.ctx.messageId,
+                    accountId: dc.account.accountId,
+                    replyInThread: routing.replyInThread,
+                });
+                return;
+            }
+        }
+    }
     // 8. Dispatch: system command vs. normal message
     //    Comment targets always go to normal dispatch — system command
     //    delivery uses sendMessageFeishu which can't reach comment threads.
     const isCommand = !isCommentFlow &&
-        dc.core.channel.commands.isControlCommandMessage(params.ctx.content, params.accountScopedCfg);
+        dc.core.channel.commands.isControlCommandMessage(params.ctx.content, dc.accountScopedCfg);
     // Resolve per-group skill filter (per-group > default "*")
     const skillFilter = dc.isGroup ? (params.groupConfig?.skills ?? params.defaultGroupConfig?.skills) : undefined;
     if (isCommand) {
