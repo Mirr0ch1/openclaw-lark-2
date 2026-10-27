@@ -232,12 +232,24 @@ exports.feishuOutbound = {
         // only kept when it is additional content rather than the fallback.
         const cardText = modelCard ? text : resolvedCard.text;
         if (card) {
+            let cardTextSent = false;
             if (cardText.trim()) {
                 const textResult = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text: cardText });
                 await reportDeliveryResult(onDeliveryResult, { channel: 'feishu', ...textResult });
+                cardTextSent = true;
             }
-            const cardResult = await (0, deliver_1.sendCardLark)({ ...ctx, to: ctx.to, card });
-            await reportDeliveryResult(onDeliveryResult, { channel: 'feishu', ...cardResult });
+            let cardResult;
+            try {
+                cardResult = await (0, deliver_1.sendCardLark)({ ...ctx, to: ctx.to, card });
+                await reportDeliveryResult(onDeliveryResult, { channel: 'feishu', ...cardResult });
+            }
+            catch (cardErr) {
+                // A rejected card must not lose the reply: the text (if any)
+                // already went out, so only rethrow when nothing was sent.
+                log.warn(`sendPayload: card delivery failed: ${String(cardErr)}`);
+                if (!cardTextSent)
+                    throw cardErr;
+            }
             const warnings = [];
             for (const mediaUrl of mediaUrls) {
                 const mediaResult = await (0, deliver_1.sendMediaLark)({ ...ctx, to: ctx.to, mediaUrl, mediaLocalRoots });
@@ -253,8 +265,8 @@ exports.feishuOutbound = {
             }
             return {
                 channel: 'feishu',
-                messageId: cardResult.messageId,
-                chatId: cardResult.chatId,
+                messageId: cardResult?.messageId ?? '',
+                chatId: cardResult?.chatId ?? ctx.to,
                 ...(warnings.length > 0 ? { meta: { warnings } } : {}),
             };
         }
