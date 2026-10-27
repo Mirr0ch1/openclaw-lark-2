@@ -55,6 +55,14 @@ function resolvePayloadCardDelivery(payload) {
         ? channelData.feishu
         : undefined;
     const payloadText = typeof payload.text === 'string' ? payload.text : '';
+    // The ask_user question has its own clickable option card
+    // (`card/ask-user-gateway-card.js`); leave it alone so the options stay
+    // tappable instead of being flattened into label-only text.
+    if (channelData && typeof channelData === 'object' && !Array.isArray(channelData)
+        && channelData.askUser && typeof channelData.askUser === 'object'
+        && typeof channelData.askUser.questionId === 'string' && channelData.askUser.questionId) {
+        return { text: payloadText };
+    }
     if (feishuData && typeof feishuData === 'object' && !Array.isArray(feishuData)) {
         // Code-built card: trusted, never passed through the sanitiser.
         if (feishuData.nativeCard && typeof feishuData.nativeCard === 'object' && !Array.isArray(feishuData.nativeCard)) {

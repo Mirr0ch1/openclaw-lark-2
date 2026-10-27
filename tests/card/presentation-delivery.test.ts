@@ -52,6 +52,16 @@ describe("payload → Feishu card resolution", () => {
     expect(resolvePayloadCardDelivery({ text: "plain" }).text).toBe("plain");
   });
 
+  it("leaves an ask_user question to its own clickable option card", () => {
+    const resolved: Resolved = resolvePayloadCardDelivery({
+      text: "Pick an option",
+      channelData: { askUser: { questionId: "q1" } },
+      presentation: { blocks: [{ type: "buttons", buttons: [{ label: "a" }] }] },
+    });
+    expect(resolved.card).toBeUndefined();
+    expect(resolved.text).toBe("Pick an option");
+  });
+
   it("falls back to the presentation text when the card does not fit", () => {
     // A presentation far past Feishu's 30 KB card budget cannot become a card.
     const resolved: Resolved = resolvePayloadCardDelivery({
