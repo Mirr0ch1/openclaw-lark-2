@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {
-  resolvePayloadCard,
   resolvePayloadCardDelivery,
 } = require("../../src/card/presentation-delivery.js");
 
@@ -48,7 +47,7 @@ describe("payload → Feishu card resolution", () => {
   });
 
   it("returns no card for a payload with nothing renderable", () => {
-    expect(resolvePayloadCard({ text: "plain" })).toBeUndefined();
+    expect(resolvePayloadCardDelivery({ text: "plain" }).card).toBeUndefined();
     expect(resolvePayloadCardDelivery({ text: "plain" }).text).toBe("plain");
   });
 

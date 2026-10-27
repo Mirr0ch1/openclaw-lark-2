@@ -20,22 +20,9 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resolvePayloadCard = void 0;
 exports.resolvePayloadCardDelivery = void 0;
-exports.resolvePresentationText = void 0;
 const interactive_runtime_1 = require("openclaw/plugin-sdk/interactive-runtime");
 const presentation_card_1 = require("./presentation-card.js");
-/**
- * Resolve a reply payload to a Feishu interactive card.
- *
- * @param {unknown} payload A core reply payload.
- * @returns {Record<string, unknown> | undefined} The card, or undefined when the
- * payload carries nothing that can be rendered as a card.
- */
-function resolvePayloadCard(payload) {
-    return resolvePayloadCardDelivery(payload).card;
-}
-exports.resolvePayloadCard = resolvePayloadCard;
 /**
  * Resolve a reply payload to a card plus the text that has to accompany it.
  *
@@ -95,15 +82,3 @@ function resolvePayloadCardDelivery(payload) {
     return { card, text: textIsFallback ? '' : payloadText };
 }
 exports.resolvePayloadCardDelivery = resolvePayloadCardDelivery;
-/**
- * Plain-text rendering of a payload's presentation, used when the card path
- * is unavailable (card too large, or the user is in a chat that cannot render
- * cards).
- */
-function resolvePresentationText(payload) {
-    const presentation = (0, interactive_runtime_1.normalizeMessagePresentation)(payload?.presentation);
-    if (!presentation)
-        return undefined;
-    const text = (0, interactive_runtime_1.renderMessagePresentationFallbackText)({ presentation });
-    return text?.trim() ? text : undefined;
-}

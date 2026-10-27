@@ -112,7 +112,10 @@ function buildFeishuModelsListChannelData(params) {
             continue;
         const qualified = modelId.includes('/') ? modelId : `${provider}/${modelId}`;
         const displayLabel = modelNames?.get(qualified) ?? modelId;
-        const isCurrent = currentModel.length > 0 && currentModel === qualified;
+        // Same comparison the Telegram picker uses: a provider-qualified
+        // selection matches `provider/model`, a bare one matches `model`.
+        const isCurrent = currentModel.length > 0
+            && currentModel === (currentModel.includes('/') ? qualified : modelId);
         buttons.push({
             label: isCurrent ? `${displayLabel} ✓` : displayLabel,
             prompt: `/model ${qualified} -s`,
