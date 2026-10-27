@@ -10,7 +10,7 @@
 <p align="center"><sub>一句话：能力交给 lark-cli，身份与渠道留给插件。</sub></p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-2026.10.14-blue?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-2026.10.15-blue?style=flat-square">
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
@@ -110,7 +110,7 @@ lark-cli 是**单 profile** 的：`profile use` 切换的是进程级全局状�
 
 OpenClaw 核心有一套**渠道无关**的富文本协议 `MessagePresentation`：`/status` 会产出一个 `table` 区块（"Session status" 两列表格），审批、`ask_user`、provider 登录会产出 `buttons` 区块。核心按渠道声明的 `presentationCapabilities` 把这些区块适配一次，再交给渠道的 `renderPresentation` 钩子渲染；**渠道不声明能力，核心就把它们全部降级成纯文本**。
 
-本插件声明并实现了这套协议，所以飞书里看到的和 Telegram 里一致：
+本插件声明并实现了这套协议：
 
 | 可移植区块 | 飞书卡片元素 |
 |---|---|
@@ -130,17 +130,17 @@ OpenClaw 核心有一套**渠道无关**的富文本协议 `MessagePresentation`
 
 ### 命令参数菜单
 
-`/verbose`、`/think`、`/fast`、`/reasoning` 这类命令的**候选项由核心定义**（`commands-registry`），渠道只负责渲染。Telegram 用 inline keyboard 渲染；飞书没有原生命令注册，所以插件在入站时解析命令、解析出候选菜单，渲染成一张卡片：
+`/verbose`、`/think`、`/fast`、`/reasoning` 这类命令的**候选项由核心定义**（`commands-registry`），渠道只负责渲染。Telegram 用 inline keyboard；飞书没有原生命令注册，改为在入站时解析命令、渲染候选菜单卡片：
 
 - 每个按钮的 `value` 是 `{ action: "inject_prompt", prompt: "/verbose on" }`；
-- 点击后按钮把该命令文本当作一条用户消息注入，走正常命令链路（`src/channel/event-handlers.js` 的 `handleInjectPromptAction`）；
-- 因此权限、审计、持久化全部沿用核心原有路径，插件不持有任何命令状态。
+- 点击后把该命令文本作为一条用户消息注入，走正常命令链路（`src/channel/event-handlers.js` 的 `handleInjectPromptAction`）；
+- 权限、审计、持久化仍走核心原有路径，插件不持有命令状态。
 
 模块：`src/channel/command-menu.js`。
 
 ### 模型选择器
 
-核心驱动模型选择器，通过 `ChannelCommandAdapter` 钩子向渠道索取按钮。本插件实现了全部 5 个钩子（`src/channel/model-menu.js`），按钮同样走 `inject_prompt`：
+核心驱动模型选择器，通过 `ChannelCommandAdapter` 钩子向渠道索取按钮。本插件实现全部 5 个钩子（`src/channel/model-menu.js`），按钮同样走 `inject_prompt`：
 
 | 按钮 | 注入的命令 |
 |---|---|
@@ -271,15 +271,15 @@ openclaw plugins enable openclaw-lark-2 --accept-capabilities
 ## 更新日志
 
 <details open>
-<summary><b>2026.10.14</b> · 2026-10-27 · 评审修复：出站载荷不再丢媒体/回复目标，入站路径补上核心能力适配</summary>
+<summary><b>2026.10.14</b> · 2026-10-27 · 评审修复：出站载荷不再丢媒体与回复目标，入站路径补上核心能力适配</summary>
 
-独立评审在 2026.10.13 基础上发现 4 个问题，都已修复并加了回归用例。
+**修复**
 
-- **出站载荷被整体替换（P0）**：`renderPresentation` 钩子原本返回一个新对象，而核心是"用钩子的返回值替换整个载荷"（`withoutPresentation` 只剥掉 `presentation`，不会把原载荷合回来）。于是带 presentation 的出站载荷会**丢掉 `mediaUrls` / `replyToId` / `location` / 其它 channelData**。现在改为合并回原载荷。
-- **`presentationTextMode` 在出站路径被一刀切丢弃（P2）**：只有当文本就是 presentation 的降级副本（`"fallback"`）时才丢弃；否则文本是额外内容，必须保留。
-- **入站路径绕过了核心的能力适配（P1）**：三条入站路径直接渲染 presentation，没跑 `adaptMessagePresentationForChannel`，于是：图表被**整块丢掉**（应当降级为文本）、`disabled` 按钮被渲染成**可点的活按钮**、`limits.text.maxLength` / `maxLabelLength` / `maxActions` 全部未生效。现在入站路径也走核心适配。
-- **表格预算只数了 `table` 区块（P1）**：飞书限制的是**渲染出来的** markdown 表格，文本区块里自带的表格也算。现在文本区块里的表格同样计入预算，超出的降级为代码块（与插件既有的 `sanitizeTextForCard` 行为一致）。
-- **`web-app` 动作丢掉链接（P2）**：带 URL 的 `web-app` 现在和普通 `url` 一样渲染为可点击链接。
+- **出站载荷合并**：`renderPresentation` 钩子改为合并回原载荷，不再整体替换。出站 presentation 载荷恢复 `mediaUrls` / `replyToId` / `location` / 其它 `channelData`。
+- **能力适配**：三条入站路径补跑 `adaptMessagePresentationForChannel`。图表降级为文本、`disabled` 按钮不再渲染成可点按钮、`limits`（maxLength / maxLabelLength / maxActions）生效。
+- **表格预算**：文本区块里的 markdown 表格同样计入卡片表格上限，超出降级为代码块。
+- **web-app 动作**：带 URL 的 `web-app` 与 `url` 一样渲染为可点击链接。
+- **出站文本**：仅当 `presentationTextMode === "fallback"` 时丢弃文本，其余情况保留。
 
 **测试**：新增 3 个测试文件 / 9 个用例；全量 **68 文件 / 547 用例** 通过。
 
@@ -288,36 +288,32 @@ openclaw plugins enable openclaw-lark-2 --accept-capabilities
 <details open>
 <summary><b>2026.10.13</b> · 2026-10-27 · 富文本与交互按钮：/status 出表格，/verbose 出按钮</summary>
 
-之前飞书渠道只有纯文本和 `ask_user` 卡片，因为插件没有声明 OpenClaw 的**可移植富文本协议**（`MessagePresentation`）能力，核心在投递前就把所有 `table` / `buttons` 区块降级成了文本。这次把协议接上了。
+飞书渠道此前只有纯文本和 `ask_user` 卡片：插件没有声明核心的**可移植富文本协议**（`MessagePresentation`），所有 `table` / `buttons` 区块在投递前就被降级成了文本。这次把协议接上。
 
 **可移植富文本**
 
-- 声明 `presentationCapabilities`（`tables` / `buttons` / `selects` / `context` / `divider` 开启，`charts` 关闭由核心降级）并实现 `renderPresentation`。
-- 新增 `src/card/presentation-card.js`：可移植区块 → 飞书卡片 JSON 2.0。`table` 渲染成卡片内的 GFM 表格（飞书原生渲染成表格），`buttons` / `select` 渲染成 `column_set` → `column` → `button`（v2 没有 v1 的 `action` 包装）。
-- 新增 `src/card/presentation-delivery.js`：回复载荷 → 卡片 + 随附文本；当载荷带 `presentationTextMode: "fallback"`（文本就是展示的降级副本）时不再重复发送文本。
-- 三个投递入口都接上了：核心出站 `sendPayload`、入站命令回复（`/status` 走这里）、入站 agent 回复（审批 / provider 登录按钮走这里）。
-- 代码自建的卡片走 `channelData.feishu.nativeCard`，不经过面向模型生成卡片的清洗器，因此保留完整元素保真度。
+- 声明 `presentationCapabilities`（`tables` / `buttons` / `selects` / `context` / `divider` 开启，`charts` 关闭由核心降级），实现 `renderPresentation`。
+- 新增 `src/card/presentation-card.js`：可移植区块 → 飞书卡片 JSON 2.0。`table` 渲染成卡片内的 GFM 表格，`buttons` / `select` 渲染成 `column_set` → `column` → `button`（v2 无 v1 的 `action` 包装）。
+- 新增 `src/card/presentation-delivery.js`：回复载荷 → 卡片 + 随附文本。
+- 三个投递入口接入：核心出站 `sendPayload`、入站命令回复（`/status`）、入站 agent 回复（审批 / provider 登录按钮）。
+- 代码自建的卡片走 `channelData.feishu.nativeCard`，不经过面向模型生成卡片的清洗器。
 
 **命令参数菜单**
 
 - 新增 `src/channel/command-menu.js`：用核心的 `commands-registry` 解析 `/verbose`、`/think`、`/fast` 等命令的候选菜单，渲染成卡片。
-- 按钮的 `value` 是 `{ action: "inject_prompt", prompt: "/verbose on" }`，点击后把命令文本当作用户消息注入 —— 复用插件已有的 `inject_prompt` 机制，不新增任何命令状态，权限与审计仍走核心原有路径。
-- 只对**有命令权限**的发送者显示；已在参数菜单里的命令（如 `/verbose on`）不再弹菜单。
+- 按钮 `value` 为 `{ action: "inject_prompt", prompt: "/verbose on" }`，点击后把命令文本当用户消息注入，复用已有的 `inject_prompt` 机制；不新增命令状态，权限与审计仍走核心路径。
+- 只对有命令权限的发送者显示。
 
 **模型选择器**
 
-- 新增 `src/channel/model-menu.js`，实现核心 `ChannelCommandAdapter` 的 5 个模型选择器钩子（`/model`、`/models` 的按钮来源）。按钮同样走 `inject_prompt`，模型选择由核心自己执行（`/model <provider>/<model> -s`，会话级作用域，与 Telegram 选择器一致）。
+- 新增 `src/channel/model-menu.js`，实现核心 `ChannelCommandAdapter` 的 5 个模型选择器钩子（`/model`、`/models` 的按钮来源）。模型选择由核心执行（`/model <provider>/<model> -s`，会话级作用域）。
 
-**测试**
+**工具链**
 
-- 新增 5 个测试文件（可移植区块 → 卡片、载荷 → 卡片解析、命令参数菜单、模型选择器、未定义标识符守卫），共 40 个用例；全量 **67 文件 / 538 用例** 通过。
+- 新增 `scripts/check-undef.js` + `tests/channel/no-undefined-identifiers.test.ts`：用 `tsc --checkJs` 只挑"未定义标识符"一类诊断扫全部 `src/**/*.js`。
+- 新增 `scripts/link-openclaw.js` + `postinstall`：`npm install` 会删掉手工建的 `node_modules/openclaw` 符号链接，钩子负责补回。
 
-**回归修复**
-
-- 修了本轮自己引入的一个事故：命令菜单代码块引用了 `effectiveSessionKey` —— 那是 `dispatchNormalMessage` / `dispatchCommentMessage` / `dispatchSyntheticMessage` 的局部变量，不是 `dispatchToAgent` 的。于是**每一条命令消息**（`/status` `/stop` `/verbose` …）在派发前就抛 `ReferenceError`，飞书里既没有回复也没有错误提示；普通消息因为没走到那行，看起来"正常"。现在按其他派发路径的同一写法取会话键：`dc.threadSessionKey ?? dc.route.sessionKey`。
-- 新增 `scripts/check-undef.js` + `tests/channel/no-undefined-identifiers.test.ts`：用 `tsc --checkJs` 只挑"未定义标识符"一类诊断（TS2304 等）扫全部 `src/**/*.js`，把这类事故挡在编译期。已用事故版本验证过它会红。
-- 新增 `scripts/link-openclaw.js` + `postinstall`：`npm install` 会删掉手工建的 `node_modules/openclaw` 符号链接（openclaw 是宿主程序本身，不是 npm 依赖），导致 `require('openclaw/plugin-sdk/...')` 全线失败。钩子负责补回。
-- 卡片发送失败不再吞掉回复：系统命令回复回落到纯文本；agent 回复回落到可见文本；命令菜单回落成"照常执行该命令"。
+**测试**：新增 5 个测试文件 / 40 个用例；全量 **67 文件 / 538 用例** 通过。
 
 </details>
 

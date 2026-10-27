@@ -10,7 +10,7 @@
 <p align="center"><sub>In one line: capability belongs to lark-cli; identity and channel belong to the plugin.</sub></p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-2026.10.14-blue?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-2026.10.15-blue?style=flat-square">
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
@@ -115,8 +115,7 @@ to the capabilities the channel declares (`presentationCapabilities`) and then
 calls the channel's `renderPresentation` hook. **A channel that declares no
 capabilities gets every one of them downgraded to plain text.**
 
-This plugin declares and implements that protocol, so Feishu now renders what
-Telegram renders:
+This plugin declares and implements that protocol:
 
 | Portable block | Feishu card element |
 |---|---|
@@ -139,23 +138,23 @@ Modules:
 ### Command argument menus
 
 The **choices** for commands like `/verbose`, `/think` and `/fast` are owned by
-core (`commands-registry`); the channel only renders them. Telegram renders them
-as an inline keyboard. Feishu has no native command registration, so the plugin
-parses the inbound command, resolves the candidate menu and renders a card:
+core (`commands-registry`); the channel only renders them. Telegram renders them as an
+inline keyboard. Feishu has no native command registration, so the plugin parses
+the inbound command and renders the candidate menu as a card:
 
 - every button's `value` is `{ action: "inject_prompt", prompt: "/verbose on" }`;
 - clicking it injects that command text as a user message and goes through the
   normal command pipeline (`handleInjectPromptAction` in
   `src/channel/event-handlers.js`);
-- therefore authorization, auditing and persistence all stay on core's existing
-  path — the plugin keeps no command state of its own.
+- authorization, auditing and persistence stay on core's existing path; the
+  plugin keeps no command state.
 
 Module: `src/channel/command-menu.js`.
 
 ### Model picker
 
 Core drives the model picker and asks the channel for buttons through the
-`ChannelCommandAdapter` hooks. This plugin implements all five of them
+`ChannelCommandAdapter` hooks. This plugin implements all five
 (`src/channel/model-menu.js`); the buttons use `inject_prompt` too:
 
 | Button | Injected command |
@@ -266,32 +265,23 @@ The `feishu-cli` skill carries the routing table; details come from `lark-cli <d
 ## Changelog
 
 <details open>
-<summary><b>2026.10.14</b> · 2026-10-27 · Review fixes: the outbound payload no longer loses media or the reply target, and the inbound paths run core's capability adaptation</summary>
+<summary><b>2026.10.14</b> · 2026-10-27 · Review fixes: the outbound payload no longer loses media or the reply target, inbound paths run core's capability adaptation</summary>
 
-An independent review of 2026.10.13 found four problems. All are fixed, with
-regression cases for each.
+**Fixes**
 
-- **The outbound payload was replaced wholesale (P0)**: the `renderPresentation`
-  hook returned a fresh object, and core *replaces* the payload with whatever
-  the hook returns (`withoutPresentation` only strips `presentation`; it does
-  not merge the original back). An outbound payload carrying a presentation
-  therefore lost `mediaUrls`, `replyToId`, `location` and every other
-  `channelData` key. It is now merged into the incoming payload.
-- **`presentationTextMode` was dropped unconditionally on the outbound path
-  (P2)**: the text is only dropped when it is the presentation's fallback copy
-  (`"fallback"`); otherwise it is additional content and must survive.
-- **The inbound paths bypassed core's capability adaptation (P1)**: all three
-  inbound paths rendered the presentation without
-  `adaptMessagePresentationForChannel`, so charts were **dropped entirely**
-  (they should degrade to text), `disabled` buttons were rendered as **live
-  clickable buttons**, and `limits.text.maxLength` / `maxLabelLength` /
-  `maxActions` were not enforced. The inbound paths now run core's adaptation.
-- **The table budget only counted `table` blocks (P1)**: Feishu's limit is on
-  *rendered* markdown tables, so a table inside a text block counts too. Such
-  tables now count against the budget and the overflow degrades to a code
-  block, matching the plugin's existing `sanitizeTextForCard` behaviour.
-- **A `web-app` action lost its URL (P2)**: a `web-app` action carrying a URL
-  now renders as a clickable link, exactly like a plain `url` action.
+- **Outbound payload merged**: the `renderPresentation` hook merges into the
+  incoming payload instead of replacing it, so an outbound presentation payload
+  keeps `mediaUrls`, `replyToId`, `location` and every other `channelData` key.
+- **Capability adaptation**: all three inbound paths now run
+  `adaptMessagePresentationForChannel` — charts degrade to text, `disabled`
+  buttons are no longer rendered as live buttons, and `limits` (maxLength /
+  maxLabelLength / maxActions) are enforced.
+- **Table budget**: a markdown table inside a text block counts against the
+  card's table limit too; the overflow degrades to a code block.
+- **web-app actions**: a `web-app` carrying a URL renders as a clickable link,
+  like a plain `url` action.
+- **Outbound text**: dropped only when `presentationTextMode === "fallback"`,
+  kept otherwise.
 
 **Tests**: 3 new test files / 9 cases; the full suite is **68 files / 547
 cases** and passes.
@@ -301,76 +291,52 @@ cases** and passes.
 <details open>
 <summary><b>2026.10.13</b> · 2026-10-27 · Rich text and interactive buttons: /status draws a table, /verbose gets buttons</summary>
 
-The Feishu channel only had plain text and the `ask_user` card, because the
-plugin never declared OpenClaw's **portable rich-text protocol**
-(`MessagePresentation`). Core downgraded every `table` / `buttons` block to text
-before delivery. This release wires the protocol up.
+The Feishu channel only had plain text and the `ask_user` card: the plugin never
+declared core's **portable rich-text protocol** (`MessagePresentation`), so every
+`table` / `buttons` block was downgraded to text before delivery. This release
+wires the protocol up.
 
 **Portable rich text**
 
-- Declares `presentationCapabilities` (`tables` / `buttons` / `selects` /
-  `context` / `divider` on, `charts` off so core downgrades them) and implements
+- Declares `presentationCapabilities` (`tables` / `buttons` / `selects` / `context` /
+  `divider` on, `charts` off so core downgrades them) and implements
   `renderPresentation`.
-- New `src/card/presentation-card.js`: portable blocks → Feishu Card JSON 2.0.
-  A `table` becomes a GFM table inside the card (Feishu draws it as a real
-  table); `buttons` / `select` become `column_set` → `column` → `button` (v2 has
-  no v1 `action` wrapper).
-- New `src/card/presentation-delivery.js`: reply payload → card + accompanying
-  text. When the payload carries `presentationTextMode: "fallback"` (the text is
-  the fallback copy of the presentation) the text is no longer sent twice.
-- Wired into all three delivery paths: core outbound `sendPayload`, inbound
-  command replies (where `/status` lands) and inbound agent replies (approval
-  and provider-login buttons).
+- New `src/card/presentation-card.js`: portable blocks → Feishu Card JSON 2.0. A
+  `table` becomes a GFM table inside the card; `buttons` / `select` become
+  `column_set` → `column` → `button` (v2 has no v1 `action` wrapper).
+- New `src/card/presentation-delivery.js`: reply payload → card + accompanying text.
+- Wired into three delivery paths: core outbound `sendPayload`, inbound command
+  replies (`/status`) and inbound agent replies (approval / provider-login buttons).
 - Code-built cards travel as `channelData.feishu.nativeCard`, bypassing the
-  model-authored card sanitiser, so they keep full element fidelity.
+  model-authored card sanitiser.
 
 **Command argument menus**
 
 - New `src/channel/command-menu.js`: resolves the candidate menu for `/verbose`,
-  `/think`, `/fast` and friends through core's `commands-registry` and renders
-  it as a card.
+  `/think`, `/fast` and friends through core's `commands-registry` and renders it
+  as a card.
 - Button values are `{ action: "inject_prompt", prompt: "/verbose on" }`; a click
-  injects the command text as a user message. This reuses the plugin's existing
-  `inject_prompt` mechanism and adds no command state, so authorization and
-  auditing stay on core's path.
-- The menu is only offered to senders who may run commands, and a command whose
-  argument is already given (`/verbose on`) does not open a menu.
+  injects the command text as a user message through the existing `inject_prompt`
+  mechanism. No plugin-side command state; authorization and auditing stay on
+  core's path.
+- Only offered to senders who may run commands.
 
 **Model picker**
 
 - New `src/channel/model-menu.js` implements core's five `ChannelCommandAdapter`
-  model-picker hooks (the button source for `/model` and `/models`). The buttons
-  use `inject_prompt` as well, and core performs the selection
-  (`/model <provider>/<model> -s`, session scope — the same scope the Telegram
-  picker applies).
+  model-picker hooks (the button source for `/model` and `/models`). Core performs
+  the selection (`/model <provider>/<model> -s`, session scope).
 
-**Tests**
+**Tooling**
 
-- 5 new test files (portable blocks → card, payload → card resolution, command
-  argument menu, model picker, undefined-identifier guard), 40 cases; the full
-  suite is **67 files / 538 cases** and passes.
-
-**Regression fixes**
-
-- Fixed an accident introduced by this same branch: the command-menu block
-  referenced `effectiveSessionKey` — a local of `dispatchNormalMessage` /
-  `dispatchCommentMessage` / `dispatchSyntheticMessage`, not of
-  `dispatchToAgent`. **Every command message** (`/status`, `/stop`, `/verbose`,
-  …) therefore threw a `ReferenceError` before it could dispatch or send
-  anything, so Feishu showed neither a reply nor an error; ordinary messages
-  skipped the block and still worked. The session key is now resolved the same
-  way the other dispatch paths do: `dc.threadSessionKey ?? dc.route.sessionKey`.
 - New `scripts/check-undef.js` + `tests/channel/no-undefined-identifiers.test.ts`:
-  a `tsc --checkJs` pass filtered to undefined-identifier diagnostics (TS2304 and
-  friends) over every `src/**/*.js`, so this class of accident is caught before
-  it ships. Verified red against the broken version.
+  a `tsc --checkJs` pass filtered to undefined-identifier diagnostics over every
+  `src/**/*.js`.
 - New `scripts/link-openclaw.js` + `postinstall`: `npm install` deletes the
-  hand-made `node_modules/openclaw` symlink (openclaw is the host program, not
-  a registry dependency), which broke every `require('openclaw/plugin-sdk/...')`
-  in standalone runs. The hook restores it.
-- A failed card send no longer swallows the reply: system-command replies fall
-  back to plain text, agent replies fall back to the visible text, and the
-  command menu falls back to running the command itself.
+  hand-made `node_modules/openclaw` symlink; the hook restores it.
+
+**Tests**: 5 new test files / 40 cases; the full suite is **67 files / 538
+cases** and passes.
 
 </details>
 
