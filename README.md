@@ -295,7 +295,14 @@ openclaw plugins enable openclaw-lark-2 --accept-capabilities
 
 **测试**
 
-- 新增 4 个测试文件（可移植区块 → 卡片、载荷 → 卡片解析、命令参数菜单、模型选择器），共 39 个用例；全量 **66 文件 / 534 用例** 通过。
+- 新增 5 个测试文件（可移植区块 → 卡片、载荷 → 卡片解析、命令参数菜单、模型选择器、未定义标识符守卫），共 40 个用例；全量 **67 文件 / 535 用例** 通过。
+
+**回归修复**
+
+- 修了本轮自己引入的一个事故：命令菜单代码块引用了 `effectiveSessionKey` —— 那是 `dispatchNormalMessage` / `dispatchCommentMessage` / `dispatchSyntheticMessage` 的局部变量，不是 `dispatchToAgent` 的。于是**每一条命令消息**（`/status` `/stop` `/verbose` …）在派发前就抛 `ReferenceError`，飞书里既没有回复也没有错误提示；普通消息因为没走到那行，看起来"正常"。现在按其他派发路径的同一写法取会话键：`dc.threadSessionKey ?? dc.route.sessionKey`。
+- 新增 `scripts/check-undef.js` + `tests/channel/no-undefined-identifiers.test.ts`：用 `tsc --checkJs` 只挑"未定义标识符"一类诊断（TS2304 等）扫全部 `src/**/*.js`，把这类事故挡在编译期。已用事故版本验证过它会红。
+- 新增 `scripts/link-openclaw.js` + `postinstall`：`npm install` 会删掉手工建的 `node_modules/openclaw` 符号链接（openclaw 是宿主程序本身，不是 npm 依赖），导致 `require('openclaw/plugin-sdk/...')` 全线失败。钩子负责补回。
+- 卡片发送失败不再吞掉回复：系统命令回复回落到纯文本；agent 回复回落到可见文本；命令菜单回落成"照常执行该命令"。
 
 </details>
 

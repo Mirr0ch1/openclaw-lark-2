@@ -313,9 +313,31 @@ before delivery. This release wires the protocol up.
 
 **Tests**
 
-- 4 new test files (portable blocks → card, payload → card resolution, command
-  argument menu, model picker), 39 cases; the full suite is **66 files / 534
-  cases** and passes.
+- 5 new test files (portable blocks → card, payload → card resolution, command
+  argument menu, model picker, undefined-identifier guard), 40 cases; the full
+  suite is **67 files / 535 cases** and passes.
+
+**Regression fixes**
+
+- Fixed an accident introduced by this same branch: the command-menu block
+  referenced `effectiveSessionKey` — a local of `dispatchNormalMessage` /
+  `dispatchCommentMessage` / `dispatchSyntheticMessage`, not of
+  `dispatchToAgent`. **Every command message** (`/status`, `/stop`, `/verbose`,
+  …) therefore threw a `ReferenceError` before it could dispatch or send
+  anything, so Feishu showed neither a reply nor an error; ordinary messages
+  skipped the block and still worked. The session key is now resolved the same
+  way the other dispatch paths do: `dc.threadSessionKey ?? dc.route.sessionKey`.
+- New `scripts/check-undef.js` + `tests/channel/no-undefined-identifiers.test.ts`:
+  a `tsc --checkJs` pass filtered to undefined-identifier diagnostics (TS2304 and
+  friends) over every `src/**/*.js`, so this class of accident is caught before
+  it ships. Verified red against the broken version.
+- New `scripts/link-openclaw.js` + `postinstall`: `npm install` deletes the
+  hand-made `node_modules/openclaw` symlink (openclaw is the host program, not
+  a registry dependency), which broke every `require('openclaw/plugin-sdk/...')`
+  in standalone runs. The hook restores it.
+- A failed card send no longer swallows the reply: system-command replies fall
+  back to plain text, agent replies fall back to the visible text, and the
+  command menu falls back to running the command itself.
 
 </details>
 
