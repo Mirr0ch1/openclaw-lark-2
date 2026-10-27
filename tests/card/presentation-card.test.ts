@@ -224,6 +224,42 @@ describe("presentation → Feishu card", () => {
       url: "https://e.com",
     });
   });
+
+  it("opens a web-app action that carries a URL", () => {
+    expect(
+      resolvePresentationButtonAction({
+        label: "open",
+        action: { type: "web-app", url: "https://app.example/x" },
+      }),
+    ).toEqual({ kind: "url", url: "https://app.example/x" });
+    expect(
+      resolvePresentationButtonAction({
+        label: "open",
+        action: { type: "web-app", widgetId: "w1" },
+      }),
+    ).toEqual({ kind: "opaque" });
+  });
+
+  it("counts a markdown table inside a text block against the card's table budget", () => {
+    // Feishu's limit is on *rendered* tables, so a table inside a text block
+    // counts too. With the budget spent, the text's table degrades to a code
+    // block instead of making Feishu reject the whole card.
+    const card: Card = buildPresentationCard({
+      blocks: [
+        { type: "table", caption: "one", headers: ["A"], rows: [["1"]] },
+        { type: "table", caption: "two", headers: ["A"], rows: [["2"]] },
+        { type: "table", caption: "three", headers: ["A"], rows: [["3"]] },
+        { type: "text", text: "| a | b |\n| --- | --- |\n| 1 | 2 |" },
+      ],
+    });
+    const markdown = elementsOf(card, "markdown");
+    const asTable = markdown.filter(
+      (element) => element.content?.includes("| A |") && !element.content?.includes("```"),
+    );
+    expect(asTable).toHaveLength(3);
+    const degraded = markdown.find((element) => element.content?.includes("```"));
+    expect(degraded?.content).toContain("| a | b |");
+  });
 });
 
 describe("button card", () => {

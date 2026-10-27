@@ -71,7 +71,15 @@ function resolvePayloadCardDelivery(payload) {
     const presentation = (0, interactive_runtime_1.normalizeMessagePresentation)(payload.presentation);
     if (!presentation)
         return { text: payloadText };
-    const card = (0, presentation_card_1.buildPresentationCard)(presentation);
+    // Apply core's capability adaptation before rendering: it downgrades what
+    // Feishu cannot show (charts become text, disabled controls become
+    // labels) and enforces the declared limits. The outbound path gets this
+    // from core itself; the inbound paths have to ask for it.
+    const adapted = (0, interactive_runtime_1.adaptMessagePresentationForChannel)({
+        presentation,
+        capabilities: (0, presentation_card_1.FEISHU_PRESENTATION_CAPABILITIES),
+    });
+    const card = (0, presentation_card_1.buildPresentationCard)(adapted);
     if (!card) {
         // The card did not fit Feishu's budget (too many elements or bytes).
         // Fall back to core's own text rendering so nothing is lost.

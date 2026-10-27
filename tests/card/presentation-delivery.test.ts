@@ -69,4 +69,92 @@ describe("payload → Feishu card resolution", () => {
     expect(resolved.card).toBeUndefined();
     expect(resolved.text.length).toBeGreaterThan(0);
   });
+
+  it("downgrades a chart to text instead of dropping it", () => {
+    const resolved: Resolved = resolvePayloadCardDelivery({
+      presentation: {
+        blocks: [
+          {
+            type: "chart",
+            chartType: "pie",
+            title: "Spend",
+            segments: [{ label: "tools", value: 3 }],
+          },
+        ],
+      },
+    });
+    const card = resolved.card as { body: { elements: Array<{ tag: string; content?: string }> } };
+    const markdown = card.body.elements.filter((element) => element.tag === "markdown");
+    expect(markdown.length).toBeGreaterThan(0);
+    expect(markdown.map((element) => element.content ?? "").join(" ")).toContain("Spend");
+  });
+
+  it("never renders a disabled control as a live button", () => {
+    const resolved: Resolved = resolvePayloadCardDelivery({
+      presentation: {
+        blocks: [
+          {
+            type: "buttons",
+            buttons: [
+              { label: "off", disabled: true, action: { type: "command", command: "/x off" } },
+              { label: "on", action: { type: "command", command: "/x on" } },
+            ],
+          },
+        ],
+      },
+    });
+    const card = resolved.card as {
+      body: {
+        elements: Array<{
+          tag: string;
+          content?: string;
+          columns?: Array<{ elements: Array<{ text: { content: string } }> }>;
+        }>;
+      };
+    };
+    const labels = card.body.elements
+      .filter((element) => element.tag === "column_set")
+      .flatMap((element) => (element.columns ?? []).flatMap((column) => column.elements.map((button) => button.text.content)));
+    expect(labels).toEqual(["on"]);
+  });
+
+  it("splits an over-long text block into the declared limit", () => {
+    const resolved: Resolved = resolvePayloadCardDelivery({
+      presentation: { blocks: [{ type: "text", text: "y".repeat(9000) }] },
+    });
+    const card = resolved.card as { body: { elements: Array<{ tag: string; content?: string }> } };
+    const lengths = card.body.elements
+      .filter((element) => element.tag === "markdown")
+      .map((element) => (element.content ?? "").length);
+    expect(lengths.length).toBeGreaterThan(1);
+    expect(Math.max(...lengths)).toBeLessThanOrEqual(4000);
+  });
+
+  it("truncates an over-long button label", () => {
+    const resolved: Resolved = resolvePayloadCardDelivery({
+      presentation: {
+        blocks: [
+          {
+            type: "buttons",
+            buttons: [
+              { label: "L" + "z".repeat(80), action: { type: "command", command: "/x" } },
+            ],
+          },
+        ],
+      },
+    });
+    const card = resolved.card as {
+      body: {
+        elements: Array<{
+          tag: string;
+          columns?: Array<{ elements: Array<{ text: { content: string } }> }>;
+        }>;
+      };
+    };
+    const labels = card.body.elements
+      .filter((element) => element.tag === "column_set")
+      .flatMap((element) => (element.columns ?? []).flatMap((column) => column.elements.map((button) => button.text.content)));
+    expect(labels).toHaveLength(1);
+    expect((labels[0] ?? "").length).toBeLessThanOrEqual(30);
+  });
 });

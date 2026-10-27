@@ -10,11 +10,11 @@
 <p align="center"><sub>一句话：能力交给 lark-cli，身份与渠道留给插件。</sub></p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-2026.10.13-blue?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-2026.10.14-blue?style=flat-square">
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
-  <img alt="tests" src="https://img.shields.io/badge/tests-538%20passed-2ea44f?style=flat-square">
+  <img alt="tests" src="https://img.shields.io/badge/tests-547%20passed-2ea44f?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
@@ -269,6 +269,21 @@ openclaw plugins enable openclaw-lark-2 --accept-capabilities
 ---
 
 ## 更新日志
+
+<details open>
+<summary><b>2026.10.14</b> · 2026-10-27 · 评审修复：出站载荷不再丢媒体/回复目标，入站路径补上核心能力适配</summary>
+
+独立评审在 2026.10.13 基础上发现 4 个问题，都已修复并加了回归用例。
+
+- **出站载荷被整体替换（P0）**：`renderPresentation` 钩子原本返回一个新对象，而核心是"用钩子的返回值替换整个载荷"（`withoutPresentation` 只剥掉 `presentation`，不会把原载荷合回来）。于是带 presentation 的出站载荷会**丢掉 `mediaUrls` / `replyToId` / `location` / 其它 channelData**。现在改为合并回原载荷。
+- **`presentationTextMode` 在出站路径被一刀切丢弃（P2）**：只有当文本就是 presentation 的降级副本（`"fallback"`）时才丢弃；否则文本是额外内容，必须保留。
+- **入站路径绕过了核心的能力适配（P1）**：三条入站路径直接渲染 presentation，没跑 `adaptMessagePresentationForChannel`，于是：图表被**整块丢掉**（应当降级为文本）、`disabled` 按钮被渲染成**可点的活按钮**、`limits.text.maxLength` / `maxLabelLength` / `maxActions` 全部未生效。现在入站路径也走核心适配。
+- **表格预算只数了 `table` 区块（P1）**：飞书限制的是**渲染出来的** markdown 表格，文本区块里自带的表格也算。现在文本区块里的表格同样计入预算，超出的降级为代码块（与插件既有的 `sanitizeTextForCard` 行为一致）。
+- **`web-app` 动作丢掉链接（P2）**：带 URL 的 `web-app` 现在和普通 `url` 一样渲染为可点击链接。
+
+**测试**：新增 3 个测试文件 / 9 个用例；全量 **68 文件 / 547 用例** 通过。
+
+</details>
 
 <details open>
 <summary><b>2026.10.13</b> · 2026-10-27 · 富文本与交互按钮：/status 出表格，/verbose 出按钮</summary>

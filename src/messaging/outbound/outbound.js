@@ -108,11 +108,19 @@ exports.feishuOutbound = {
         const card = (0, presentation_card_1.buildPresentationCard)(presentation);
         if (!card)
             return null;
+        // Core replaces the payload with whatever this hook returns, so the
+        // rest of the payload has to be carried over: media, reply target,
+        // location and any other channelData would otherwise be dropped.
         // The card is code-built, so it bypasses the model-authored card
         // sanitiser and keeps full element fidelity.
+        const textIsFallback = payload.presentationTextMode === 'fallback';
         return {
-            text: undefined,
-            channelData: { feishu: { nativeCard: card } },
+            ...payload,
+            text: textIsFallback ? undefined : payload.text,
+            channelData: {
+                ...payload.channelData,
+                feishu: { ...payload.channelData?.feishu, nativeCard: card },
+            },
         };
     },
     sendText: async ({ cfg, to, text, accountId, replyToId, threadId, onDeliveryResult }) => {

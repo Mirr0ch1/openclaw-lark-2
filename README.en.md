@@ -10,11 +10,11 @@
 <p align="center"><sub>In one line: capability belongs to lark-cli; identity and channel belong to the plugin.</sub></p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-2026.10.13-blue?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-2026.10.14-blue?style=flat-square">
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
-  <img alt="tests" src="https://img.shields.io/badge/tests-538%20passed-2ea44f?style=flat-square">
+  <img alt="tests" src="https://img.shields.io/badge/tests-547%20passed-2ea44f?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
@@ -264,6 +264,39 @@ The `feishu-cli` skill carries the routing table; details come from `lark-cli <d
 ---
 
 ## Changelog
+
+<details open>
+<summary><b>2026.10.14</b> · 2026-10-27 · Review fixes: the outbound payload no longer loses media or the reply target, and the inbound paths run core's capability adaptation</summary>
+
+An independent review of 2026.10.13 found four problems. All are fixed, with
+regression cases for each.
+
+- **The outbound payload was replaced wholesale (P0)**: the `renderPresentation`
+  hook returned a fresh object, and core *replaces* the payload with whatever
+  the hook returns (`withoutPresentation` only strips `presentation`; it does
+  not merge the original back). An outbound payload carrying a presentation
+  therefore lost `mediaUrls`, `replyToId`, `location` and every other
+  `channelData` key. It is now merged into the incoming payload.
+- **`presentationTextMode` was dropped unconditionally on the outbound path
+  (P2)**: the text is only dropped when it is the presentation's fallback copy
+  (`"fallback"`); otherwise it is additional content and must survive.
+- **The inbound paths bypassed core's capability adaptation (P1)**: all three
+  inbound paths rendered the presentation without
+  `adaptMessagePresentationForChannel`, so charts were **dropped entirely**
+  (they should degrade to text), `disabled` buttons were rendered as **live
+  clickable buttons**, and `limits.text.maxLength` / `maxLabelLength` /
+  `maxActions` were not enforced. The inbound paths now run core's adaptation.
+- **The table budget only counted `table` blocks (P1)**: Feishu's limit is on
+  *rendered* markdown tables, so a table inside a text block counts too. Such
+  tables now count against the budget and the overflow degrades to a code
+  block, matching the plugin's existing `sanitizeTextForCard` behaviour.
+- **A `web-app` action lost its URL (P2)**: a `web-app` action carrying a URL
+  now renders as a clickable link, exactly like a plain `url` action.
+
+**Tests**: 3 new test files / 9 cases; the full suite is **68 files / 547
+cases** and passes.
+
+</details>
 
 <details open>
 <summary><b>2026.10.13</b> · 2026-10-27 · Rich text and interactive buttons: /status draws a table, /verbose gets buttons</summary>

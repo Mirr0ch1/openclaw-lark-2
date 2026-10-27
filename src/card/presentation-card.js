@@ -51,6 +51,7 @@ exports.resolvePresentationButtonAction = void 0;
 const markdown_style_1 = require("./markdown-style.js");
 const card_error_1 = require("./card-error.js");
 const builder_1 = require("./builder.js");
+const interactive_runtime_1 = require("openclaw/plugin-sdk/interactive-runtime");
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -148,12 +149,18 @@ function resolvePresentationButtonAction(button) {
         if (action.type === 'url' && typeof action.url === 'string' && action.url.trim()) {
             return { kind: 'url', url: action.url.trim() };
         }
+        // A web app with a URL opens that URL, exactly like a plain url action.
+        if (action.type === 'web-app' && typeof action.url === 'string' && action.url.trim()) {
+            return { kind: 'url', url: action.url.trim() };
+        }
         // approval / question / callback / model-picker carry transport data
         // addressed to a specific channel — never guess a behaviour here.
         return { kind: 'opaque' };
     }
     if (typeof button?.url === 'string' && button.url.trim())
         return { kind: 'url', url: button.url.trim() };
+    if (typeof button?.webApp?.url === 'string' && button.webApp.url.trim())
+        return { kind: 'url', url: button.webApp.url.trim() };
     if (typeof button?.value === 'string' && button.value.trim())
         return { kind: 'opaque', value: button.value.trim() };
     return { kind: 'opaque' };
@@ -186,6 +193,10 @@ function resolveSafeUrl(url) {
 function buildButtonElement(button) {
     const label = typeof button?.label === 'string' ? button.label.trim() : '';
     if (!label)
+        return undefined;
+    // Feishu buttons cannot be rendered disabled, so a disabled control is not
+    // offered as a live button — the caller keeps its label as text.
+    if (button?.disabled === true)
         return undefined;
     const action = resolvePresentationButtonAction(button);
     if (action.kind === 'inject') {
@@ -264,9 +275,20 @@ function buildPresentationCard(presentation) {
                 const text = typeof block.text === 'string' ? block.text : '';
                 if (!text.trim())
                     break;
+                // A text block can carry a markdown table of its own, and
+                // Feishu's table limit applies to *rendered* tables. Keep the
+                // budget in step by counting them and degrading the overflow
+                // to code blocks instead of letting Feishu reject the card.
+                const textTables = card_error_1.findMarkdownTablesOutsideCodeBlocks(text).length;
+                let content = text;
+                if (textTables > 0) {
+                    const remaining = Math.max(0, MAX_TABLES_PER_CARD - tableCount);
+                    content = (0, card_error_1.sanitizeTextForCard)(text, remaining);
+                    tableCount += Math.min(textTables, remaining);
+                }
                 elements.push({
                     tag: 'markdown',
-                    content: (0, markdown_style_1.optimizeMarkdownStyle)(text),
+                    content: (0, markdown_style_1.optimizeMarkdownStyle)(content),
                     ...block.type === 'context' ? { text_size: 'notation' } : {},
                 });
                 break;
@@ -313,8 +335,16 @@ function buildPresentationCard(presentation) {
                 break;
             }
             case 'chart': {
-                // `charts: false` means core downgrades charts to a text block
-                // before we see them; this is a defensive fallback only.
+                // Feishu has no native chart element. Core downgrades charts to
+                // a text block when `charts` is not advertised; this is the
+                // safety net for the paths that do not run that adaptation.
+                const text = (0, interactive_runtime_1.renderMessagePresentationChartFallbackText)(block);
+                if (text?.trim()) {
+                    elements.push({
+                        tag: 'markdown',
+                        content: (0, markdown_style_1.optimizeMarkdownStyle)(text),
+                    });
+                }
                 break;
             }
             default:
