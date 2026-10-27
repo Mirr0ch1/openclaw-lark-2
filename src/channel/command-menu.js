@@ -25,6 +25,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveFeishuCommandMenu = void 0;
 const native_command_registry_1 = require("openclaw/plugin-sdk/command-auth-native");
 const session_store_runtime_1 = require("openclaw/plugin-sdk/session-store-runtime");
+const lark_logger_1 = require("../core/lark-logger.js");
+const log = (0, lark_logger_1.larkLogger)('channel/command-menu');
 /** Matches a leading slash command and captures the rest as its arguments. */
 const COMMAND_TEXT_RE = /^\/([A-Za-z0-9_.-]+)(?:\s+([\s\S]*))?$/;
 /**
@@ -81,6 +83,34 @@ async function resolveSessionModelContext(params) {
     }
 }
 /**
+ * Resolve a command's argument menu.
+ *
+ * Core is retiring the synchronous `resolveCommandArgMenu` (2026-12-31) in
+ * favour of an awaited variant. Prefer the new one when the host provides it,
+ * fall back to the legacy call otherwise — the same "new API first, legacy as
+ * fallback" shape the plugin already uses for the conversation-binding manager
+ * (`core/thread-bindings.js`).
+ *
+ * @param {Record<string, unknown>} runtime The SDK module that owns the API.
+ */
+async function resolveCommandArgMenuCompat(runtime, params) {
+    if (typeof runtime.resolveCommandArgMenuAsync === 'function') {
+        try {
+            return await runtime.resolveCommandArgMenuAsync(params);
+        }
+        catch (err) {
+            log.warn('resolveCommandArgMenuAsync failed, falling back to the synchronous API', {
+                error: String(err),
+            });
+        }
+    }
+    if (typeof runtime.resolveCommandArgMenu === 'function') {
+        return runtime.resolveCommandArgMenu(params);
+    }
+    return undefined;
+}
+exports.resolveCommandArgMenuCompat = resolveCommandArgMenuCompat;
+/**
  * Resolve the argument menu for an inbound command text.
  *
  * @param {{ cfg: unknown, agentId?: string, sessionKey?: string, text: string }} params
@@ -109,7 +139,7 @@ async function resolveFeishuCommandMenu(params) {
     const agentId = params?.agentId ?? 'main';
     const sessionKey = params?.sessionKey;
     const modelContext = await resolveSessionModelContext({ cfg: params?.cfg, agentId, sessionKey });
-    const menu = (0, native_command_registry_1.resolveCommandArgMenu)({
+    const menu = await resolveCommandArgMenuCompat(native_command_registry_1, {
         command,
         args,
         cfg: params?.cfg,

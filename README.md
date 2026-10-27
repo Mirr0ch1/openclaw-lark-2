@@ -14,7 +14,7 @@
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
-  <img alt="tests" src="https://img.shields.io/badge/tests-535%20passed-2ea44f?style=flat-square">
+  <img alt="tests" src="https://img.shields.io/badge/tests-538%20passed-2ea44f?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
@@ -295,7 +295,7 @@ openclaw plugins enable openclaw-lark-2 --accept-capabilities
 
 **测试**
 
-- 新增 5 个测试文件（可移植区块 → 卡片、载荷 → 卡片解析、命令参数菜单、模型选择器、未定义标识符守卫），共 40 个用例；全量 **67 文件 / 535 用例** 通过。
+- 新增 5 个测试文件（可移植区块 → 卡片、载荷 → 卡片解析、命令参数菜单、模型选择器、未定义标识符守卫），共 40 个用例；全量 **67 文件 / 538 用例** 通过。
 
 **回归修复**
 

@@ -14,6 +14,16 @@ export interface FeishuCommandMenu {
     buttons: FeishuInjectButton[];
 }
 /**
+ * Resolve a command's argument menu, preferring the awaited SDK variant.
+ *
+ * Core is retiring the synchronous `resolveCommandArgMenu` (2026-12-31); the
+ * runtime module is injected so the fallback chain stays testable.
+ */
+export declare function resolveCommandArgMenuCompat(
+    runtime: Record<string, unknown>,
+    params: Record<string, unknown>,
+): Promise<unknown>;
+/**
  * Resolve the argument menu for an inbound command text.
  *
  * Returns undefined when the command has no argument menu (the caller then

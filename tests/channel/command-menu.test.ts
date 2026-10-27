@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { resolveFeishuCommandMenu } = require("../../src/channel/command-menu.js");
+const {
+  resolveCommandArgMenuCompat,
+  resolveFeishuCommandMenu,
+} = require("../../src/channel/command-menu.js");
 
 type Menu = {
   title: string;
@@ -54,5 +57,44 @@ describe("core command argument menu → Feishu buttons", () => {
     for (const button of menu?.buttons ?? []) {
       expect(button.prompt.startsWith("/think ")).toBe(true);
     }
+  });
+
+  it("prefers the awaited menu API when the host provides it", async () => {
+    // Core is retiring the synchronous `resolveCommandArgMenu`; the plugin
+    // must use the awaited variant when it exists.
+    let called = false;
+    const menu = await resolveCommandArgMenuCompat(
+      {
+        resolveCommandArgMenuAsync: async () => {
+          called = true;
+          return {
+            arg: { name: "mode", description: "mode" },
+            choices: [{ value: "on", label: "on" }],
+          };
+        },
+      } as never,
+      {} as never,
+    );
+    expect(called).toBe(true);
+    expect(menu?.choices?.[0]?.label).toBe("on");
+  });
+
+  it("falls back to the synchronous menu API when the awaited one throws", async () => {
+    const fallback = { arg: { name: "mode" }, choices: [{ value: "off", label: "off" }] };
+    const menu = await resolveCommandArgMenuCompat(
+      {
+        resolveCommandArgMenuAsync: async () => {
+          throw new Error("boom");
+        },
+        resolveCommandArgMenu: () => fallback,
+      } as never,
+      {} as never,
+    );
+    expect(menu).toBe(fallback);
+  });
+
+  it("returns nothing when the host exposes neither API", async () => {
+    const menu = await resolveCommandArgMenuCompat({} as never, {} as never);
+    expect(menu).toBeUndefined();
   });
 });
