@@ -10,11 +10,11 @@
 <p align="center"><sub>In one line: capability belongs to lark-cli; identity and channel belong to the plugin.</sub></p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-2026.10.11-blue?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-2026.10.12-blue?style=flat-square">
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
-  <img alt="tests" src="https://img.shields.io/badge/tests-534%20passed-2ea44f?style=flat-square">
+  <img alt="tests" src="https://img.shields.io/badge/tests-535%20passed-2ea44f?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
@@ -266,7 +266,7 @@ The `feishu-cli` skill carries the routing table; details come from `lark-cli <d
 ## Changelog
 
 <details open>
-<summary><b>Unreleased</b> · 2026-10-27 · Rich text and interactive buttons: /status draws a table, /verbose gets buttons</summary>
+<summary><b>2026.10.12</b> · 2026-10-27 · Rich text and interactive buttons: /status draws a table, /verbose gets buttons</summary>
 
 The Feishu channel only had plain text and the `ask_user` card, because the
 plugin never declared OpenClaw's **portable rich-text protocol**

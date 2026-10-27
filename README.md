@@ -10,11 +10,11 @@
 <p align="center"><sub>一句话：能力交给 lark-cli，身份与渠道留给插件。</sub></p>
 
 <p align="center">
-  <img alt="version" src="https://img.shields.io/badge/version-2026.10.11-blue?style=flat-square">
+  <img alt="version" src="https://img.shields.io/badge/version-2026.10.12-blue?style=flat-square">
   <img alt="openclaw" src="https://img.shields.io/badge/OpenClaw-%E2%89%A52026.8.1-2ea44f?style=flat-square">
   <img alt="domains" src="https://img.shields.io/badge/domains-23%20%C2%B7%20lark--cli-f97316?style=flat-square">
   <img alt="tools" src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square">
-  <img alt="tests" src="https://img.shields.io/badge/tests-534%20passed-2ea44f?style=flat-square">
+  <img alt="tests" src="https://img.shields.io/badge/tests-535%20passed-2ea44f?style=flat-square">
   <img alt="license" src="https://img.shields.io/badge/license-MIT-24292f?style=flat-square">
 </p>
 
@@ -271,7 +271,7 @@ openclaw plugins enable openclaw-lark-2 --accept-capabilities
 ## 更新日志
 
 <details open>
-<summary><b>未发布</b> · 2026-10-27 · 富文本与交互按钮：/status 出表格，/verbose 出按钮</summary>
+<summary><b>2026.10.12</b> · 2026-10-27 · 富文本与交互按钮：/status 出表格，/verbose 出按钮</summary>
 
 之前飞书渠道只有纯文本和 `ask_user` 卡片，因为插件没有声明 OpenClaw 的**可移植富文本协议**（`MessagePresentation`）能力，核心在投递前就把所有 `table` / `buttons` 区块降级成了文本。这次把协议接上了。
 
