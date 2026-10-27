@@ -54,9 +54,12 @@
 | Group streaming card | **✅** | ✅ | ❌ static by default |
 | Multi-image post | **✅ default** | ❌ | ❌ |
 | `ask_user` button card | **✅** | ❌ | ❌ |
+| Rich-text tables (`/status`) | **✅ rendered as a table in the card** | ⚠️ degraded to a `- Item: Value` text list | ❌ 1.x has no portable rich-text protocol |
+| Command argument menus (`/verbose` …) | **✅ button card** | ❌ | ❌ |
+| Model picker (`/model`) | **✅ button card** | ❌ | ❌ |
 | Tool-step display | **✅ in-card blocks, on by default (no `/verbose` needed)** | ⚠️ `/verbose` text echo only | ⚠️ `/verbose` text echo only |
 | Diagnostics | **✅ `/feishu doctor`, `/feishu larkcli status`** | ✅ | ⚠️ |
-| Tests | **✅ 62 files / 495 cases** | ✅ 99 files / 1202 cases | ❌ none |
+| Tests | **✅ 68 files / 547 cases** | ✅ 99 files / 1202 cases | ❌ none |
 
 > [!NOTE]
 > Token figures are the per-turn tool-schema payload: measured for this plugin (`scripts/check-tools.js`), estimated for the two official ones from tool count and parameter-definition size (~1–1.8 KB schema per tool).
@@ -88,6 +91,9 @@ Channel side is a different tier too:
 | Group streaming card | **✅ `replyMode.group:"streaming"`** | ✅ |
 | Multi-image merged post | **✅ default** | ❌ one by one |
 | `ask_user` button card | **✅ button + free-form answer + all group members** | ❌ text fallback |
+| Rich-text tables (`/status`) | **✅ rendered as a table in the card** | ⚠️ `tables` not declared, so tables degrade to a text list |
+| Command argument menu buttons | **✅ `/verbose` and friends render as buttons** | ❌ |
+| Model picker buttons | **✅ `/model` renders as buttons** | ❌ |
 | Tool-step display | **✅ in-card blocks, on by default** | ⚠️ `/verbose` / preview text echo only |
 | Durable ingress queue | **✅ opt-in** | ✅ default on |
 | Full egress SSRF guard | **✅ DNS pinning + private-net block + redirect checks** | ✅ CardKit/registration only |
