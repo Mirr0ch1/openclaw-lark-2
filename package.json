@@ -20,6 +20,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "postinstall": "node scripts/link-openclaw.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -68,6 +69,7 @@
     }
   },
   "devDependencies": {
+    "typescript": "^5.9.0",
     "vitest": "^4.1.11"
   }
 }

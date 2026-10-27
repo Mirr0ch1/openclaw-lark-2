@@ -458,7 +458,8 @@ async function dispatchToAgent(params) {
         const menu = await (0, command_menu_1.resolveFeishuCommandMenu)({
             cfg: dc.accountScopedCfg,
             agentId: dc.route.agentId,
-            sessionKey: effectiveSessionKey,
+            // Same session identity the other dispatch paths resolve.
+            sessionKey: dc.threadSessionKey ?? dc.route.sessionKey,
             text: contentTrimmed,
         });
         if (menu) {
