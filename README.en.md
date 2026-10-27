@@ -313,8 +313,9 @@ before delivery. This release wires the protocol up.
 
 **Tests**
 
-- 3 new test files (portable blocks → card, command argument menu, model picker),
-  31 cases; the full suite is **66 files / 534 cases** and passes.
+- 4 new test files (portable blocks → card, payload → card resolution, command
+  argument menu, model picker), 39 cases; the full suite is **66 files / 534
+  cases** and passes.
 
 </details>
 
