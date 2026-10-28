@@ -3,9 +3,9 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@mirr0ch1/openclaw-lark-2"><img src="https://img.shields.io/npm/v/@mirr0ch1/openclaw-lark-2?style=for-the-badge&logo=npm&logoColor=white&label=npm" alt="npm"></a>
   <a href="https://github.com/Mirr0ch1/openclaw-lark-2/releases/latest"><img src="https://img.shields.io/github/v/release/Mirr0ch1/openclaw-lark-2?sort=semver&style=for-the-badge&logo=github&logoColor=white&label=release" alt="Release"></a>
-  <a href="https://www.npmjs.com/package/@mirr0ch1/openclaw-lark-2"><img src="https://img.shields.io/npm/dm/@mirr0ch1/openclaw-lark-2?style=for-the-badge&logo=npm&logoColor=white&label=downloads" alt="Downloads"></a>
+  <img src="https://img.shields.io/badge/ClawHub-published-8A2BE2?style=for-the-badge" alt="ClawHub">
+  <img src="https://img.shields.io/github/downloads/Mirr0ch1/openclaw-lark-2/total?style=for-the-badge&logo=github&logoColor=white&label=downloads" alt="Downloads">
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="MIT license">
 </p>
 
