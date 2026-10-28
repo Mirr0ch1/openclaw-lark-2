@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/Mirr0ch1/openclaw-lark-2/releases/latest"><img src="https://img.shields.io/github/v/release/Mirr0ch1/openclaw-lark-2?sort=semver&style=for-the-badge&logo=github&logoColor=white&label=release" alt="Release"></a>
   <img src="https://img.shields.io/badge/ClawHub-published-8A2BE2?style=for-the-badge" alt="ClawHub">
-  <img src="https://img.shields.io/github/downloads/Mirr0ch1/openclaw-lark-2/total?style=for-the-badge&logo=github&logoColor=white&label=downloads" alt="Downloads">
+  <img src="https://img.shields.io/github/stars/Mirr0ch1/openclaw-lark-2?style=for-the-badge&logo=github&label=stars" alt="Stars">
   <img src="https://img.shields.io/badge/license-MIT-2ea44f?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="MIT license">
 </p>
 
@@ -20,7 +20,6 @@
   <img src="https://img.shields.io/badge/tests-547%20passed-2ea44f?style=flat-square" alt="547 tests">
   <img src="https://img.shields.io/badge/tools-1-6e7781?style=flat-square" alt="1 tool">
   <img src="https://img.shields.io/badge/Feishu%20%2F%20Lark-channel-3370FF?style=flat-square" alt="Feishu / Lark channel">
-  <img src="https://img.shields.io/github/stars/Mirr0ch1/openclaw-lark-2?style=flat-square&logo=github&label=stars" alt="Stars">
 </p>
 
 <p align="center">
