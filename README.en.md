@@ -206,7 +206,7 @@ flowchart LR
 
 ## Quick start
 
-Requirements: OpenClaw ≥ 2026.8.1, `lark-cli` (`npm i -g @larksuite/cli`), exec enabled for the agent.
+Requirements: OpenClaw ≥ 2026.8.1 (verified on 2026.11.2 / 2026.11.3), `lark-cli` (`npm i -g @larksuite/cli`), exec enabled for the agent.
 
 ```bash
 openclaw plugins install clawhub:@mirr0ch1/openclaw-lark-2 --accept-capabilities
@@ -289,6 +289,21 @@ The `feishu-cli` skill carries the routing table; details come from `lark-cli <d
 ---
 
 ## Changelog
+
+<details open>
+<summary><b>2026.11.1</b> · 2026-11-15 · OpenClaw 2026.11 support: plugin-SDK surface guard, test harness fix</summary>
+
+**Compatibility**
+
+- **New plugin-SDK surface guard**: `scripts/sdk-surface-check.js` + `scripts/sdk-surface.json` record every `openclaw/plugin-sdk/*` subpath and named export the plugin imports, and `tests/core/sdk-surface.test.ts` verifies them against the host OpenClaw. When core removes or renames a subpath, `npm test` now fails instead of the operator hitting `ERR_PACKAGE_PATH_NOT_EXPORTED` at load. Refresh the manifest with `node scripts/sdk-surface-check.js --write` after changing imports; `OPENCLAW_PACKAGE_DIR` points the check at another OpenClaw install.
+- **`openclaw.build.openclawVersion`** is now `2026.11.2` (the release this was verified on; the peer range stays `>=2026.8.1`).
+- Verified on OpenClaw **2026.11.2 / 2026.11.3**: plugin load, channel status, tool registration, and the full test suite.
+
+**Fixes**
+
+- **Test harness**: `tests/card/tool-use-config.test.ts` failed wholesale on 2026.11 because core now requires a prepared runtime config snapshot (`Runtime config is not prepared`). Seeding now captures it first, restoring all 550 tests.
+
+</details>
 
 <details open>
 <summary><b>2026.10.14</b> · 2026-10-27 · Review fixes: the outbound payload no longer loses media or the reply target, inbound paths run core's capability adaptation</summary>
@@ -617,6 +632,14 @@ npm run test:watch     # watch mode
 ```
 
 The plugin is CommonJS source (`src/` + `index.js` entry) with no build step — sync to the OpenClaw extensions directory and restart the gateway to apply changes.
+
+After changing any `openclaw/plugin-sdk/*` import, refresh the SDK surface manifest (`tests/core/sdk-surface.test.ts` fails when it goes stale):
+
+```bash
+node scripts/sdk-surface-check.js --write   # regenerate scripts/sdk-surface.json
+node scripts/sdk-surface-check.js           # check against the host OpenClaw
+OPENCLAW_PACKAGE_DIR=/path/to/openclaw node scripts/sdk-surface-check.js  # check another install
+```
 
 ---
 

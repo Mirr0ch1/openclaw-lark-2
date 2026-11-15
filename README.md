@@ -191,7 +191,7 @@ flowchart LR
 
 ## 快速开始
 
-**前置条件**：OpenClaw ≥ 2026.8.1；`lark-cli`（`npm i -g @larksuite/cli`）；agent 有 exec 权限。
+**前置条件**：OpenClaw ≥ 2026.8.1（在 2026.11.2 / 2026.11.3 上验证）；`lark-cli`（`npm i -g @larksuite/cli`）；agent 有 exec 权限。
 
 ```bash
 # 1. 安装插件
@@ -295,6 +295,21 @@ openclaw plugins enable openclaw-lark-2 --accept-capabilities
 ---
 
 ## 更新日志
+
+<details open>
+<summary><b>2026.11.1</b> · 2026-11-15 · 适配 OpenClaw 2026.11：新增 SDK 面回归防护，修复 2026.11 上的测试基座</summary>
+
+**兼容**
+
+- **新增 SDK 面回归防护**：`scripts/sdk-surface-check.js` + `scripts/sdk-surface.json` 记录插件实际 import 的每个 `openclaw/plugin-sdk/*` 子路径与具名导出，`tests/core/sdk-surface.test.ts` 在宿主 OpenClaw 上逐一校验。以后 core 删/改子路径时，先在 `npm test` 报错，而不是在用户机器上炸出 `ERR_PACKAGE_PATH_NOT_EXPORTED`。改动 import 后跑 `node scripts/sdk-surface-check.js --write` 刷新清单；`OPENCLAW_PACKAGE_DIR` 可指定另一个 OpenClaw 安装来验证。
+- **`openclaw.build.openclawVersion`** 更新为 `2026.11.2`（本版本在其上验证；peer 仍为 `>=2026.8.1`）。
+- 已在 OpenClaw **2026.11.2 / 2026.11.3** 上验证：插件加载、渠道状态、工具注册、全量测试均通过。
+
+**修复**
+
+- **测试基座**：`tests/card/tool-use-config.test.ts` 在 2026.11 上因 core 强制要求运行时配置快照（`Runtime config is not prepared`）而整文件失败；现在 seeding 前先 `captureRuntimeConfigAsyncReader()`，恢复 550 用例全绿。
+
+</details>
 
 <details open>
 <summary><b>2026.10.14</b> · 2026-10-27 · 评审修复：出站载荷不再丢媒体与回复目标，入站路径补上核心能力适配</summary>
@@ -594,6 +609,14 @@ npm run test:watch     # 测试监听模式
 ```
 
 插件为 CommonJS 源码（`src/` + `index.js` 入口），无构建步骤；改动后同步到 OpenClaw 扩展目录并重启网关即可生效。
+
+改动了 `openclaw/plugin-sdk/*` 的 import 后，记得刷新 SDK 面清单（清单过期时 `tests/core/sdk-surface.test.ts` 会失败）：
+
+```bash
+node scripts/sdk-surface-check.js --write   # 重新生成 scripts/sdk-surface.json
+node scripts/sdk-surface-check.js           # 校验当前宿主 OpenClaw
+OPENCLAW_PACKAGE_DIR=/path/to/openclaw node scripts/sdk-surface-check.js  # 校验另一个安装
+```
 
 ---
 
