@@ -11,6 +11,18 @@ process.env.OPENCLAW_STATE_DIR = mkdtempSync(join(tmpdir(), "lark2-tool-use-"));
 const { resolveToolUseDisplayConfig } = require("../../src/card/tool-use-config.js");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const sessionStore = require("openclaw/plugin-sdk/session-store-runtime");
+// OpenClaw 2026.11 requires a prepared runtime config snapshot before session
+// mutations. The subpath is feature-detected so the suite still runs on older
+// cores (the plugin's peer range starts at 2026.8.1).
+type CaptureRuntimeConfig = () => () => Promise<unknown>;
+
+let captureRuntimeConfigAsyncReader: CaptureRuntimeConfig | undefined;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  ({ captureRuntimeConfigAsyncReader } = require("openclaw/plugin-sdk/runtime-config-snapshot"));
+} catch {
+  captureRuntimeConfigAsyncReader = undefined;
+}
 
 const CFG = {};
 
@@ -38,6 +50,13 @@ const OFF_KEY = "agent:main:feishu:dm:oc_verbose_off";
 const BARE_KEY = "agent:main:feishu:dm:oc_verbose_bare";
 
 beforeAll(async () => {
+  // Session-store mutations resolve the store path through the runtime config
+  // snapshot, which OpenClaw 2026.11 made mandatory ("Runtime config is not
+  // prepared"). Capture it before seeding.
+  if (typeof captureRuntimeConfigAsyncReader === "function") {
+    await captureRuntimeConfigAsyncReader()();
+  }
+
   await seedSession(FULL_KEY, { verboseLevel: "full" });
   await seedSession(OFF_KEY, { verboseLevel: "off" });
   // An entry that exists but carries no verbose level: the session must stop

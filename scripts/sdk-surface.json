@@ -1,0 +1,124 @@
+{
+  "generated": "node scripts/sdk-surface-check.js --write",
+  "subpaths": {
+    "access-groups": [
+      "expandAllowFromWithAccessGroups"
+    ],
+    "account-id": [
+      "DEFAULT_ACCOUNT_ID",
+      "normalizeAccountId"
+    ],
+    "agent-runtime": [
+      "jsonResult",
+      "resolveDefaultAgentId"
+    ],
+    "allow-from": [
+      "compileAllowlist",
+      "isNormalizedSenderAllowed",
+      "resolveAllowlistMatchByCandidates"
+    ],
+    "channel-actions": [
+      "ToolAuthorizationError"
+    ],
+    "channel-feedback": [
+      "logTypingFailure"
+    ],
+    "channel-inbound-debounce": [
+      "createInboundDebouncer",
+      "resolveInboundDebounceMs"
+    ],
+    "channel-ingress-runtime": [
+      "fanInChannelIngressLifecycles"
+    ],
+    "channel-outbound": [
+      "createChannelIngressError",
+      "createChannelIngressMonitor",
+      "createReplyPrefixContext",
+      "createTypingCallbacks",
+      "waitUntilAbort"
+    ],
+    "channel-policy": [
+      "resolveDmGroupAccessWithLists"
+    ],
+    "channel-status": [
+      "PAIRING_APPROVED_MESSAGE"
+    ],
+    "command-auth-native": [
+      "buildCommandTextFromArgs",
+      "canResolveCommandArgMenu",
+      "findCommandByNativeName",
+      "formatCommandArgMenuTitle",
+      "maybeResolveTextAlias",
+      "parseCommandArgs"
+    ],
+    "core": [
+      "emptyPluginConfigSchema"
+    ],
+    "error-runtime": [
+      "PlatformMessageNotDispatchedError"
+    ],
+    "interactive-runtime": [
+      "adaptMessagePresentationForChannel",
+      "normalizeMessagePresentation",
+      "renderMessagePresentationChartFallbackText",
+      "renderMessagePresentationFallbackText"
+    ],
+    "param-readers": [
+      "readPositiveIntegerParam",
+      "readStringParam"
+    ],
+    "plugin-runtime": [
+      "dispatchPluginInteractiveHandler"
+    ],
+    "question-gateway-runtime": [
+      "questionGatewayRuntime"
+    ],
+    "reply-chunking": [
+      "chunkMarkdownTextWithMode"
+    ],
+    "reply-history": [
+      "DEFAULT_GROUP_HISTORY_LIMIT",
+      "buildPendingHistoryContextFromMap",
+      "clearHistoryEntriesIfEnabled",
+      "recordPendingHistoryEntryIfEnabled"
+    ],
+    "reply-runtime": [
+      "SILENT_REPLY_TOKEN"
+    ],
+    "routing": [
+      "resolveThreadSessionKeys"
+    ],
+    "runtime-doctor-migrations": [
+      "asObjectRecord",
+      "normalizeChannelConfigEntries"
+    ],
+    "runtime-group-policy": [
+      "resolveDefaultGroupPolicy",
+      "resolveOpenProviderRuntimeGroupPolicy"
+    ],
+    "security-runtime": [
+      "wrapExternalContent"
+    ],
+    "session-store-runtime": [
+      "getSessionEntryAsync",
+      "resolveStorePath"
+    ],
+    "ssrf-runtime": [
+      "fetchWithSsrFGuard",
+      "isBlockedHostnameOrIp",
+      "resolvePinnedHostnameWithPolicy"
+    ],
+    "time-runtime": [
+      "raceWithTimeout"
+    ],
+    "tool-send": [
+      "extractToolSend"
+    ],
+    "webhook-ingress": [
+      "beginWebhookRequestPipelineOrReject",
+      "createWebhookInFlightLimiter",
+      "readWebhookBodyOrReject",
+      "registerPluginHttpRoute"
+    ]
+  }
+}
